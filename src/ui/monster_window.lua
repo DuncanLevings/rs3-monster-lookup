@@ -225,7 +225,7 @@ function monster_window.open(monster, on_refresh, on_close)
     return true
 end
 
--- message for a monster whose page has no drop tables we can show. the notice goes on
+-- message for a monster whose page has no drop tables it can show. the notice goes on
 -- after the (empty) tables are rendered since rendering resets the page height
 local function show_no_drops_notice(result)
     local message

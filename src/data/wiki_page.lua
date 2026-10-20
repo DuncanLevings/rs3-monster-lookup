@@ -267,7 +267,7 @@ local function scan_tables(html, state)
 end
 
 -- true if the page looks like it has drops (a Drops heading or an item-drops table) even
--- though parse() found none, so we can tell "no drops listed" apart from "cant read them"
+-- though parse() found none, so it can tell "no drops listed" apart from "cant read them"
 ---@param html string?
 ---@return boolean
 function wiki_page.has_drop_markup(html)

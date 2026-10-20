@@ -1,4 +1,4 @@
--- api query paths for the wiki. bucket is the wikis structured data store, we use its
+-- api query paths for the wiki. bucket is the wikis structured data store, it use its
 -- infobox_monster and infobox_item tables. parse gives us a pages rendered html
 
 local url = require("src/utils/url")

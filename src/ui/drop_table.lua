@@ -1,7 +1,7 @@
 -- the Drops tab: toolbar, search, then one collapsible table per wiki drop section
 --
 -- everything here is positioned by hand instead of using prettyuis flow layout (better performance).
--- big boss pages can have hundreds of rows and we need to hide rows for search, collapse sections and
+-- big boss pages can have hundreds of rows and need to hide rows for search, collapse sections and
 -- reflow notes when the window is resized without rebuilding the lot. so each section is a
 -- CollapseButton header plus a plain layer body, and position_sections() stacks them
 --

@@ -36,7 +36,7 @@ function widgets.forward_wheel(component, id, page, before_scroll)
 end
 
 -- runs a layout pass safely when resizing during layout fires resize hooks that ask for
--- another layout. a nested request just flags that one more pass is needed, and we cap it
+-- another layout. a nested request just flags that one more pass is needed, and cap it
 -- at two passes so a size that keeps flip flopping cant loop forever
 function widgets.run_layout(state, layout)
     if state.laying_out then

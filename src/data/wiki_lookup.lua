@@ -16,7 +16,7 @@ local json = require("src/utils/json")
 ---@field title string wiki page title
 ---@field info table infobox values for the first variant
 ---@field variants table[] infobox values for every variant on the page
----@field sections DropSection[] empty when the page has no drops we can show
+---@field sections DropSection[] empty when the page has no drops that can be showed
 ---@field no_drops "none"|"unreadable"|nil why sections is empty, nil when it isnt
 
 local lookup = {}
@@ -35,7 +35,7 @@ local function choose_monster(rows)
         return nil, "The Wiki returned an invalid monster record."
     end
 
-    -- several rows for one page are variants, rows from different pages we cant choose between
+    -- several rows for one page are variants, rows from different pages that cannot be choosen between
     for _, row in ipairs(rows) do
         if type(row) ~= "table" or row.page_name ~= first.page_name then
             return nil, "The Wiki has several matches for this NPC."

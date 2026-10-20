@@ -3,7 +3,7 @@
 -- each monster is saved on its own as a json string, split over a few keys
 -- (monster_lookup_cache_<slot>_<n>), and a small index key lists whats saved. the client
 -- refuses values over roughly 128 KiB (not documented, but saves started failing right as
--- one big cache value reached that size), so nothing we write is allowed near that
+-- one big cache value reached that size), so nothing writen is allowed near that
 --
 -- payloads are only read and decoded when that monster is opened, decoding everything in
 -- one go can hit the clients lua time limit. saved data might be from an older version or
@@ -283,7 +283,7 @@ local function entry_age(entry, key)
         return now - entry.saved_at
     end
 
-    -- no wall clock, but we can still tell how old it is if it was fetched this session
+    -- no wall clock, but it can still tell how old it is if it was fetched this session
     if session_fetches[key] then
         return clock.elapsed() - session_fetches[key]
     end
