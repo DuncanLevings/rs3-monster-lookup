@@ -1,0 +1,14 @@
+rxi/json.lua v0.1.2
+Source: https://github.com/rxi/json.lua
+Pinned revision: dbf4b2dd2eb7c23be2773c89eb059dadd6436f94
+License: MIT (full license retained in src/vendor/json.lua)
+Modified locally to scan JSON strings in chunks and avoid repeated string copies.
+No downloaded Lua is executed.
+
+Monster and drop information is retrieved on demand from the RuneScape Wiki.
+Source pages are identified in the window. Wiki text remains subject to the
+Wiki's content license: https://runescape.wiki/w/RuneScape:Copyrights
+
+Combat icons named resources/stat_*.png are RuneScape artwork, copyright Jagex Ltd.
+Retrieved from the RuneScape Wiki. Individual file sources are listed in
+resources/STAT_ICONS_SOURCES.txt.

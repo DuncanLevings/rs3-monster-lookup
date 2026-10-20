@@ -1,0 +1,23 @@
+RuneScape combat icons: copyright Jagex Ltd.
+Retrieved from the RuneScape Wiki; file source pages are listed below.
+Bundled locally so icon display makes no additional network requests.
+
+stat_melee.png: https://runescape.wiki/w/File:Attack-icon.png
+stat_ranged.png: https://runescape.wiki/w/File:Ranged-icon.png
+stat_magic.png: https://runescape.wiki/w/File:Magic-icon.png
+stat_necromancy.png: https://runescape.wiki/w/File:Necromancy-icon.png
+stat_special.png: https://runescape.wiki/w/File:Weapon_Special_Attack.png
+stat_defence.png: https://runescape.wiki/w/File:Defence-icon.png
+stat_poison.png: https://runescape.wiki/w/File:Poison_immunity_icon.png
+stat_deflect.png: https://runescape.wiki/w/File:Deflect_immunity_icon.png
+stat_stun.png: https://runescape.wiki/w/File:Stun_immunity_icon.png
+stat_drain.png: https://runescape.wiki/w/File:Drain_immunity_icon.png
+stat_weak_air.png: https://runescape.wiki/w/File:Air_weakness_icon.png
+stat_weak_water.png: https://runescape.wiki/w/File:Water_weakness_icon.png
+stat_weak_earth.png: https://runescape.wiki/w/File:Earth_weakness_icon.png
+stat_weak_fire.png: https://runescape.wiki/w/File:Fire_weakness_icon.png
+stat_weak_none.png: https://runescape.wiki/w/File:Zero_weakness_icon.png
+stat_weak_crush.png: https://runescape.wiki/w/File:Crush_weakness_icon.png
+stat_weak_slash.png: https://runescape.wiki/w/File:Slash_weakness_icon.png
+stat_weak_stab.png: https://runescape.wiki/w/File:Stab_weakness_icon.png
+stat_no.png: https://runescape.wiki/w/File:X_mark.svg

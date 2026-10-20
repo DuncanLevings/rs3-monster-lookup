@@ -1,0 +1,9 @@
+/dist/
+/work/
+*.log
+.DS_Store
+Thumbs.db
+.vscode/*.local.json
+
+# Development notes stay local; README and CHANGELOG are tracked.
+/docs/

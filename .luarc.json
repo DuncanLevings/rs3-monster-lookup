@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime.version": "Lua 5.4",
+  "runtime.path": [
+    "?.lua",
+    "?/init.lua"
+  ],
+  "diagnostics.globals": [
+    "log",
+    "PluginShutdown",
+    "Event",
+    "MiniMenuActionVerbType",
+    "prettyui",
+    "ui",
+    "id",
+    "config",
+    "PersistentDB",
+    "GameState",
+    "HTTPRequest",
+    "Plugin",
+    "PluginPermissions"
+  ],
+  "workspace.checkThirdParty": false,
+  "workspace.ignoreDir": [
+    ".git",
+    "dist",
+    "work",
+    "src/vendor"
+  ]
+}
