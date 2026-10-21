@@ -1,10 +1,14 @@
 -- time source for cache ages
--- now() is wall clock seconds if the sandbox gives us os.time, elapsed() is seconds since
--- the plugin started counted from logic ticks so it works either way
+-- now() uses os.time when available, otherwise a Wiki UTC timestamp plus client ticks.
+-- elapsed() is session time, independent of wall-clock adjustments.
+
+local utc = require("src/utils/utc")
 
 local clock = { TICKS_PER_SECOND = 50 }
 local SUBSCRIPTION = "monster_lookup_cache_clock"
 local elapsed = 0
+local server_time
+local synchronized_at
 
 function clock.start()
     Event.Logic.Subscribe(SUBSCRIPTION, function()
@@ -25,8 +29,24 @@ function clock.now()
         return os.time()
     end
 
-    -- no wall clock means saved entries from older sessions have to be refreshed
+    if server_time then
+        return server_time + elapsed - synchronized_at
+    end
+
     return nil
+end
+
+-- One tiny API query establishes wall time when the client has no os library.
+-- Only the anchor stays in memory; entry timestamps are persisted by the cache.
+function clock.synchronize(timestamp)
+    local seconds = utc.parse(timestamp)
+
+    if not seconds then
+        return false
+    end
+
+    server_time, synchronized_at = seconds, elapsed
+    return true
 end
 
 return clock

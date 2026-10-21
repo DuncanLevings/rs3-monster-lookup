@@ -65,28 +65,116 @@ return function(root)
 
         local picker = self.context.dropdowns[#self.context.dropdowns]
         lu.assertEquals(picker.entries, {
-            { text = "Normal mode", id = 1 },
-            { text = "Hard mode", id = 2 },
+            { text = "Normal mode", id = 0 },
+            { text = "Hard mode", id = 1 },
         })
         lu.assertEquals(section_titles(self.context), { "100%", "Other" })
 
         local before = #self.context.texts
-        picker:pick(2)
+        picker:pick(1)
 
         lu.assertEquals(section_titles(self.context), { "100%" })
         lu.assertTrue(visible_texts(self.context, before)["Dragon bones"])
-        lu.assertEquals(self.context.dropdowns[#self.context.dropdowns].selected, 2)
+        lu.assertEquals(self.context.dropdowns[#self.context.dropdowns].selected, 1)
+    end
+
+    function suite:test_enrage_selector_renders_only_selected_tables_and_retains_shared_drops()
+        local potion = { name = "Potion", quantity = "3", rate = "Common", price = 100 }
+        local more = { name = "Potion", quantity = "9", rate = "Common", price = 300 }
+        local pet = { name = "Pet", quantity = "1", rate = "Rare", price = "Not sold" }
+        self.context.subject.open(self.monster)
+        self.context.subject.show_result({
+            title = "Amascut, the Devourer",
+            info = {},
+            sections = {
+                {
+                    title = "Commons / Potions",
+                    drop_mode = "Normal mode",
+                    drop_threshold = -1,
+                    drop_switch = 1,
+                    drops = { potion },
+                },
+                {
+                    title = "Commons / Potions",
+                    drop_mode = "2000%+",
+                    drop_threshold = 2000,
+                    drop_switch = 1,
+                    drops = { more },
+                },
+                { title = "Tertiary", drops = { pet } },
+            },
+        })
+        local picker = self.context.dropdowns[1]
+        lu.assertEquals(
+            picker.entries,
+            { { text = "Normal mode", id = 0 }, { text = "2000%+", id = 1 } }
+        )
+        lu.assertEquals(section_titles(self.context), { "Commons / Potions", "Tertiary" })
+        local before = #self.context.texts
+        picker:pick(1)
+        local shown = visible_texts(self.context, before)
+        lu.assertTrue(shown["9"])
+        lu.assertTrue(shown.Pet)
+        lu.assertNil(shown["3"])
+        lu.assertEquals(section_titles(self.context), { "Commons / Potions", "Tertiary" })
     end
 
     function suite:test_opening_another_monster_goes_back_to_the_first_mode()
         self.context.subject.open(self.monster, function() end)
         self.context.subject.show_result(grouped_result())
-        self.context.dropdowns[#self.context.dropdowns]:pick(2)
+        self.context.dropdowns[#self.context.dropdowns]:pick(1)
 
         self.context.subject.open({ name = "Kree'arra" }, function() end)
         self.context.subject.show_result(grouped_result())
 
-        lu.assertEquals(self.context.dropdowns[#self.context.dropdowns].selected, 1)
+        lu.assertEquals(self.context.dropdowns[#self.context.dropdowns].selected, 0)
+    end
+
+    local function category(context, title)
+        for _, button in ipairs(context.section_buttons) do
+            if not button.root.destroyed and button.title == title then
+                return button
+            end
+        end
+        error("Missing category " .. title)
+    end
+
+    function suite:test_individual_category_choices_survive_mode_switches_in_both_directions()
+        self.context.subject.open(self.monster)
+        self.context.subject.show_result(grouped_result())
+        category(self.context, "100%"):SetExpanded(false)
+        self.context.dropdowns[#self.context.dropdowns]:pick(1)
+        lu.assertFalse(category(self.context, "100%").expanded)
+        category(self.context, "100%"):SetExpanded(true)
+        self.context.dropdowns[#self.context.dropdowns]:pick(0)
+        lu.assertTrue(category(self.context, "100%").expanded)
+        lu.assertTrue(category(self.context, "Other").expanded)
+    end
+
+    function suite:test_collapse_all_applies_to_new_mode_categories_and_resets_for_another_monster()
+        local result = grouped_result()
+        result.sections[#result.sections + 1] =
+            { title = "Drops (hard mode) / Unique", drops = result.sections[3].drops }
+        self.context.subject.open(self.monster)
+        self.context.subject.show_result(result)
+        self.context.simple_buttons[1].action()
+        self.context.dropdowns[#self.context.dropdowns]:pick(1)
+        lu.assertFalse(category(self.context, "100%").expanded)
+        lu.assertFalse(category(self.context, "Unique").expanded)
+        self.context.subject.open({ name = "Cow" })
+        self.context.subject.show_result(result)
+        lu.assertTrue(category(self.context, "100%").expanded)
+    end
+
+    function suite:test_item_search_does_not_overwrite_category_choices_when_changing_mode()
+        self.context.subject.open(self.monster)
+        self.context.subject.show_result(grouped_result())
+        category(self.context, "100%"):SetExpanded(false)
+        self.context.text_fields[#self.context.text_fields]:SetText("bones", true)
+        self.context.dropdowns[#self.context.dropdowns]:pick(1)
+        lu.assertTrue(category(self.context, "100%").expanded)
+        self.context.text_fields[#self.context.text_fields]:SetText("", true)
+        lu.assertFalse(category(self.context, "100%").expanded)
     end
 
     function suite:test_variant_dropdown_can_switch_back_to_the_first_variant()
@@ -128,23 +216,13 @@ return function(root)
         local picker = self.context.dropdowns[1]
         local body = self.context:find_node_with_hook(2, "monster_lookup_notes_resize")
         local full_height = page.content_height
-        page.content.width = 420
-        body.width = 420
+        page.content.width = 360
+        body.width = 360
         body.hooks[2](body)
 
         lu.assertTrue(field.y >= picker.y + picker.height)
-        lu.assertTrue(420 + field.x >= 8)
+        lu.assertTrue(360 + field.x >= 8)
         lu.assertTrue(page.content_height > full_height)
-        local status = self.context.texts[1]
-
-        for _, text in ipairs(self.context.texts) do
-            if text.options and text.options.font == 11 and text.options.maxLines == 2 then
-                status = text
-            end
-        end
-
-        lu.assertTrue(status.y >= field.y + field.height)
-
         page.content.width = 800
         body.width = 800
         body.hooks[2](body)
@@ -155,15 +233,15 @@ return function(root)
 
     function suite:test_very_narrow_toolbar_wraps_the_mode_picker_too()
         self.context.subject.open(self.monster, function() end)
-        self.context.tabs.pages[1].content.width = 300
+        self.context.tabs.pages[1].content.width = 260
         self.context.subject.show_result(grouped_result())
         local field = self.context.text_fields[1].root
         local picker = self.context.dropdowns[1]
 
         lu.assertTrue(picker.y >= 36)
-        lu.assertTrue(picker.x + picker.width <= 292)
+        lu.assertTrue(picker.x + picker.width <= 252)
         lu.assertTrue(
-            field.y >= picker.y + picker.height or 300 + field.x >= picker.x + picker.width
+            field.y >= picker.y + picker.height or 260 + field.x >= picker.x + picker.width
         )
     end
 

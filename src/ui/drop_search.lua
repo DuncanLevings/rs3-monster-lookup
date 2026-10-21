@@ -12,7 +12,7 @@ local MIN_WIDTH = 80
 ---@param page table tab page the drop tables are on
 ---@param query string text to start with, kept when the tables are rebuilt
 ---@param on_change fun(query: string)
-function drop_search.new(page, query, on_change)
+function drop_search.new(page, query, on_change, field_parent)
     local search = { page = page }
 
     search.no_matches = prettyui.Text.new(page.content, {
@@ -27,7 +27,7 @@ function drop_search.new(page, query, on_change)
     search.no_matches.clickthrough = true
     search.no_matches.enabled = false
 
-    local options = internals.text_field_scroll_options(page)
+    local options = field_parent and {} or internals.text_field_scroll_options(page)
     options.text = query
     options.placeholder = "Search drops..."
     options.width = MAX_WIDTH
@@ -38,7 +38,7 @@ function drop_search.new(page, query, on_change)
         on_change(content)
     end
 
-    search.field = prettyui.TextField.new(page.content, options)
+    search.field = prettyui.TextField.new(field_parent or page.content, options)
     widgets.forward_wheel(search.field.root, "monster_lookup_search_wheel", page)
 
     -- left reserves space for the other toolbar controls. return the actual bottom

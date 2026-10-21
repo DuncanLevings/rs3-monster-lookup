@@ -7,12 +7,17 @@ return function(root)
         self.storage = {}
         self.max_value_bytes = nil
         self.now = 100000
+        self.elapsed = 0
+        self.fail_structured_key = nil
+        self.time_checks = 0
         self.requests = {}
         self.results = {}
         self.monster = { npc_id = 1, name = "Goblin" }
         self.result = {
             title = "Goblin",
             info = {},
+            locations = {},
+            no_locations = "none",
             sections = {
                 {
                     title = "Common",
@@ -34,6 +39,10 @@ return function(root)
                 return type(value) == "table" and value or nil
             end,
             SetStructuredData = function(_, key, value)
+                if context.fail_structured_key == key then
+                    return false
+                end
+
                 context.storage[key] = value
                 return true
             end,
@@ -73,6 +82,11 @@ return function(root)
             end,
         }
         modules["src/data/wiki_lookup"] = {
+            synchronize_clock = function(complete)
+                context.time_checks = (context.time_checks or 0) + 1
+                context.now = 100000
+                complete(true)
+            end,
             cancel = function()
                 context.cancelled = (context.cancelled or 0) + 1
             end,
@@ -91,6 +105,7 @@ return function(root)
         end
 
         environment.require = load_module
+        self.modules = modules
         self.json = load_module("src/utils/json")
         self.cache = load_module("src/data/monster_cache")
         self.settings = load_module("src/settings")
@@ -124,9 +139,49 @@ return function(root)
         lu.assertEquals(saved.variants, self.result.variants)
     end
 
+    function suite:test_locations_survive_reload_with_independent_rows()
+        self.result.locations = {
+            {
+                name = "Lumbridge",
+                levels = "2",
+                requirements = "None",
+                spawns = "30",
+            },
+        }
+        self.result.no_locations = nil
+        self.cache.put(self.monster, self.result)
+        self:reload()
+        local saved, metadata = self.cache.get(self.monster, 60)
+
+        lu.assertEquals(saved.locations, self.result.locations)
+        lu.assertFalse(metadata.stale)
+        saved.locations[1].name = "Changed"
+        lu.assertEquals(self.cache.get(self.monster, 60).locations[1].name, "Lumbridge")
+    end
+
+    function suite:test_older_lookups_keep_saved_drops_while_fetching_locations()
+        self.result.locations = nil
+        self.result.no_locations = nil
+        self.cache.put(self.monster, self.result)
+        self:reload()
+        self.service.fetch(self.monster, self.complete)
+
+        lu.assertEquals(self.results[1].result.sections, self.result.sections)
+        lu.assertTrue(self.results[1].metadata.refreshing)
+        lu.assertEquals(#self.requests, 1)
+    end
+
+    function suite:test_invalid_cached_location_records_are_discarded()
+        self.result.locations = { { name = "Lumbridge", spawns = {} } }
+        self.result.no_locations = nil
+
+        lu.assertNil(self.cache.put(self.monster, self.result))
+        lu.assertNil(self.cache.get(self.monster, 60))
+    end
+
     function suite:test_expired_data_is_shown_while_refreshing_and_kept_after_failure()
         self.cache.put(self.monster, self.result)
-        self.now = self.now + 3600
+        self.now = self.now + 14 * 86400
         self.service.fetch(self.monster, self.complete)
 
         lu.assertEquals(self.results[1].result, self.result)
@@ -162,12 +217,19 @@ return function(root)
         lu.assertNil(self.cache.get(self.monster, 60))
     end
 
-    function suite:test_configured_interval_controls_expiration_and_settings_survive_reload()
+    function suite:test_removed_interval_setting_is_ignored_without_losing_other_settings()
         self.cache.put(self.monster, self.result)
-        self.settings.set("refresh_minutes", 15)
-        self.settings.set("percentage_rarity", true)
+        self.storage.monster_lookup_settings = {
+            version = 1,
+            refresh_minutes = 10080,
+            percentage_rarity = true,
+            menu_colour = "purple",
+        }
         self:reload()
-        self.now = self.now + 900
+        self.now = self.now + 7 * 86400
+        self.service.fetch(self.monster, self.complete)
+        lu.assertEquals(#self.requests, 0)
+        self.now = self.now + 7 * 86400
         self.service.fetch(self.monster, self.complete)
 
         lu.assertEquals(#self.requests, 1)
@@ -175,7 +237,9 @@ return function(root)
         lu.assertFalse(self.settings.set("refresh_minutes", -1))
         lu.assertFalse(self.settings.set("refresh_minutes", 0 / 0))
         lu.assertFalse(self.settings.set("percentage_rarity", "true"))
-        lu.assertEquals(self.settings.get().refresh_minutes, 15)
+        lu.assertNil(self.settings.get().refresh_minutes)
+        lu.assertEquals(self.settings.get().menu_colour, "purple")
+        lu.assertFalse(self.settings.set("refresh_minutes", 20160))
     end
 
     function suite:test_menu_colour_defaults_to_plain_and_only_accepts_listed_colours()
@@ -310,12 +374,12 @@ return function(root)
     end
 
     function suite:test_cache_evicts_oldest_entries_and_rejects_oversized_results()
-        for index = 1, 51 do
+        for index = 1, 1001 do
             self.cache.put({ npc_id = index, name = "Goblin" }, self.result)
         end
 
         lu.assertNil(self.cache.get(self.monster, 60))
-        lu.assertNotNil(self.cache.get({ npc_id = 51, name = "Goblin" }, 60))
+        lu.assertNotNil(self.cache.get({ npc_id = 1001, name = "Goblin" }, 60))
         self.result.info.examine = string.rep("x", 250001)
         self.cache.put(self.monster, self.result)
         lu.assertNil(self.cache.get(self.monster, 60))
@@ -337,13 +401,298 @@ return function(root)
         self.service.fetch(self.monster, self.complete)
         lu.assertEquals(#self.requests, 0)
 
-        self.elapsed = 3600
+        self.elapsed = 14 * 86400
         self.service.fetch(self.monster, self.complete)
         lu.assertEquals(#self.requests, 1)
 
         self:reload()
         local _, metadata = self.cache.get(self.monster, 60)
         lu.assertTrue(metadata.stale)
+    end
+
+    function suite:test_two_week_expiry_uses_each_entry_age_without_deleting_saved_data()
+        self.cache.put(self.monster, self.result)
+        self.now = self.now + 13 * 86400
+        self.cache.put({ npc_id = 2, name = "Goblin" }, self.result)
+        self.now = self.now + 86400 - 1
+        local _, metadata = self.cache.get(self.monster, 20160)
+        lu.assertFalse(metadata.stale)
+
+        self.now = self.now + 1
+        local saved, expired = self.cache.get(self.monster, 20160)
+        local _, recent = self.cache.get({ npc_id = 2, name = "Goblin" }, 20160)
+        lu.assertEquals(saved, self.result)
+        lu.assertTrue(expired.stale)
+        lu.assertFalse(recent.stale)
+    end
+
+    function suite:test_large_cache_index_is_paged_and_survives_reload()
+        for index = 1, 1000 do
+            self.cache.put({ npc_id = index, name = "Goblin " .. index }, self.result)
+        end
+
+        self:reload()
+        local real_decode = self.json.decode
+        self.json.decode = function()
+            error("Listing the cache must not decode payloads")
+        end
+        lu.assertEquals(#self.cache.list(), 1000)
+        self.json.decode = real_decode
+        lu.assertNotNil(self.cache.get({ npc_id = 1, name = "Goblin 1" }, 10080))
+        lu.assertNotNil(self.cache.get({ npc_id = 1000, name = "Goblin 1000" }, 10080))
+
+        for key, value in pairs(self.storage) do
+            if key:match("^monster_lookup_cache_index_[ab]_%d+$") then
+                lu.assertTrue(#self.json.encode(value) < 60000)
+            end
+        end
+    end
+
+    function suite:test_failed_index_commit_preserves_the_previously_saved_payload()
+        self.cache.put(self.monster, self.result)
+        self.fail_structured_key = "monster_lookup_cache_index"
+        local updated = self.json.decode(self.json.encode(self.result))
+        updated.sections[1].drops[1].price = 999
+        self.cache.put(self.monster, updated)
+        lu.assertEquals(self.cache.get(self.monster, 10080).sections[1].drops[1].price, 999)
+        self:reload()
+        lu.assertEquals(self.cache.get(self.monster, 10080).sections[1].drops[1].price, 1)
+    end
+
+    function suite:test_same_name_cache_selections_keep_their_npc_ids()
+        self.cache.put({ npc_id = 2, name = "Guard" }, self.result)
+        self.cache.put({ npc_id = 1, name = "Guard" }, self.result)
+        lu.assertEquals(self.cache.list(), {
+            { npc_id = 1, name = "Guard" },
+            { npc_id = 2, name = "Guard" },
+        })
+    end
+
+    function suite:test_repeated_selection_follows_one_request_and_updates_only_the_latest_view()
+        self.service.fetch(self.monster, self.complete)
+        local latest = {}
+
+        for _ = 1, 20 do
+            self.service.fetch(self.monster, function(result)
+                latest[#latest + 1] = result
+            end, true)
+        end
+
+        lu.assertEquals(#self.requests, 1)
+        self.requests[1].complete(self.result)
+        lu.assertEquals(#self.results, 0)
+        lu.assertEquals(latest, { self.result })
+    end
+
+    function suite:test_failed_refresh_has_a_cooldown_even_for_manual_requests()
+        self.cache.put(self.monster, self.result)
+        self.service.fetch(self.monster, self.complete, true)
+        self.requests[1].complete(nil, "Wiki unavailable")
+
+        for _ = 1, 10 do
+            self.service.fetch(self.monster, self.complete, true)
+        end
+
+        lu.assertEquals(#self.requests, 1)
+        lu.assertStrContains(self.results[#self.results].problem, "wait a minute")
+        self.elapsed, self.now = 60, self.now + 60
+        self.service.fetch(self.monster, self.complete, true)
+        lu.assertEquals(#self.requests, 1)
+        lu.assertStrContains(self.results[#self.results].problem, "59 minutes")
+        self.elapsed, self.now = 3600, self.now + 3540
+        self.service.fetch(self.monster, self.complete, true)
+        lu.assertEquals(#self.requests, 2)
+    end
+
+    function suite:test_clockless_reload_checks_time_once_then_reuses_fresh_saved_entries()
+        self.cache.put(self.monster, self.result)
+        self.cache.put({ npc_id = 2, name = "Guard" }, self.result)
+        self:reload()
+        self.now = nil
+        self.service.fetch(self.monster, self.complete)
+        self.service.fetch({ npc_id = 2, name = "Guard" }, self.complete)
+
+        lu.assertEquals(self.time_checks, 1)
+        lu.assertEquals(#self.requests, 0)
+        lu.assertFalse(self.results[#self.results].metadata.stale)
+    end
+
+    function suite:test_old_index_migrates_without_refetching_or_losing_entries()
+        local payload = self.json.encode(self.result)
+        self.storage.monster_lookup_cache_index = {
+            version = 2,
+            next_slot = 8,
+            entries = {
+                {
+                    key = "1:Goblin",
+                    slot = 7,
+                    chunks = 1,
+                    bytes = #payload,
+                    order = 1,
+                    saved_at = self.now,
+                },
+            },
+        }
+        self.storage.monster_lookup_cache_7_1 = payload
+        self:reload()
+        self.service.fetch(self.monster, self.complete)
+        lu.assertEquals(#self.requests, 0)
+        self.cache.put({ npc_id = 2, name = "Guard" }, self.result)
+        self:reload()
+        lu.assertEquals(#self.cache.list(), 2)
+        lu.assertEquals(self.cache.get(self.monster, 10080), self.result)
+    end
+
+    function suite:test_failed_index_page_write_keeps_the_previous_bank_readable()
+        self.cache.put(self.monster, self.result)
+        self.fail_structured_key = "monster_lookup_cache_index_b_1"
+        self.cache.put({ npc_id = 2, name = "Guard" }, self.result)
+        self:reload()
+        lu.assertEquals(self.cache.list(), { self.monster })
+        lu.assertEquals(self.cache.get(self.monster, 10080), self.result)
+    end
+
+    function suite:test_time_sync_failure_keeps_saved_data_and_backs_off_across_monsters()
+        self.cache.put(self.monster, self.result)
+        self.cache.put({ npc_id = 2, name = "Guard" }, self.result)
+        self:reload()
+        self.now = nil
+        local pending
+        self.modules["src/data/wiki_lookup"].synchronize_clock = function(complete)
+            self.time_checks = self.time_checks + 1
+            pending = complete
+        end
+        self.service.fetch(self.monster, self.complete)
+        pending(false, "Wiki unavailable")
+        self.service.fetch({ npc_id = 2, name = "Guard" }, self.complete)
+        lu.assertEquals(self.time_checks, 1)
+        lu.assertEquals(#self.requests, 0)
+        lu.assertEquals(self.results[#self.results].result, self.result)
+        lu.assertStrContains(self.results[#self.results].problem, "wait a minute")
+    end
+
+    function suite:test_page_search_cache_is_persistent_and_separate_from_same_name_npcs()
+        local page = { name = "Goblin", wiki_title = "Goblin" }
+        self.cache.put(page, self.result)
+        local npc_result = self.json.decode(self.json.encode(self.result))
+        npc_result.info.life_points = 500
+        self.cache.put(self.monster, npc_result)
+        self:reload()
+        self.service.fetch(page, self.complete)
+        lu.assertEquals(#self.requests, 0)
+        lu.assertEquals(self.results[1].result.info, {})
+        lu.assertEquals(self.cache.get(self.monster, 20160).info.life_points, 500)
+        lu.assertEquals(self.cache.list(), { self.monster, page })
+    end
+
+    function suite:test_saved_search_summaries_are_indexed_without_decoding_payloads()
+        self.result.title = "Bloodveld (God Wars Dungeon)"
+        self.result.info = { version_anchor = "Normal", combat_level = 52 }
+        self.cache.put({ name = "Bloodveld", npc_id = 6215 }, self.result)
+        self:reload()
+        local decoded = 0
+        local decode = self.json.decode
+        self.json.decode = function(...)
+            decoded = decoded + 1
+            return decode(...)
+        end
+        local choices = self.cache.list(true)
+        lu.assertEquals(
+            choices[1].summary,
+            { title = "Bloodveld (God Wars Dungeon)", variant = "Normal", level = 52 }
+        )
+        lu.assertEquals(decoded, 0)
+        lu.assertEquals(self.cache.describe(choices[1]), choices[1].summary)
+        lu.assertEquals(decoded, 0)
+    end
+
+    function suite:test_older_indexes_resolve_display_names_only_when_requested()
+        self.cache.put(self.monster, self.result)
+        for key, value in pairs(self.storage) do
+            if key:match("^monster_lookup_cache_index_[ab]_%d+$") then
+                for _, entry in ipairs(value) do
+                    entry.summary = nil
+                end
+            end
+        end
+        self:reload()
+        local decoded = 0
+        local decode = self.json.decode
+        self.json.decode = function(...)
+            decoded = decoded + 1
+            return decode(...)
+        end
+        lu.assertNil(self.cache.list(true)[1].summary)
+        lu.assertEquals(decoded, 0)
+        lu.assertEquals(self.cache.describe(self.monster).title, "Goblin")
+        lu.assertEquals(decoded, 1)
+        lu.assertEquals(self.cache.describe(self.monster).title, "Goblin")
+        lu.assertEquals(decoded, 1)
+    end
+
+    function suite:test_enrage_metadata_survives_cache_roundtrip_and_rejects_invalid_thresholds()
+        local section = self.result.sections[1]
+        section.drop_mode, section.drop_switch, section.drop_threshold = "100%", 1, 100
+        self.cache.put(self.monster, self.result)
+        self:reload()
+        lu.assertEquals(self.cache.get(self.monster, 20160).sections[1].drop_mode, "100%")
+        section.drop_threshold = "bad"
+        lu.assertNil(self.cache.put({ name = "Other", npc_id = 2 }, self.result))
+    end
+
+    function suite:test_manual_cooldown_survives_success_reload_and_expires_after_an_hour()
+        self.cache.put(self.monster, self.result)
+        self.service.fetch(self.monster, self.complete, true)
+        self.requests[1].complete(self.result)
+        self:reload()
+        self.now = self.now + 1800
+        lu.assertEquals(self.cache.manual_refresh_remaining(self.monster), 1800)
+        self.service.fetch(self.monster, self.complete, true)
+        lu.assertEquals(#self.requests, 1)
+        self.now = self.now + 1800
+        self.service.fetch(self.monster, self.complete, true)
+        lu.assertEquals(#self.requests, 2)
+    end
+
+    function suite:test_cancelled_manual_refresh_is_limited_but_other_entries_and_cached_reads_work()
+        self.cache.put(self.monster, self.result)
+        local other = { name = "Guard", npc_id = 2 }
+        self.cache.put(other, self.result)
+        self.service.fetch(self.monster, self.complete, true)
+        self.service.cancel()
+        self:reload()
+        self.service.fetch(self.monster, self.complete, true)
+        lu.assertEquals(#self.requests, 1)
+        self.service.fetch(other, self.complete, true)
+        lu.assertEquals(#self.requests, 2)
+        self.service.fetch(self.monster, self.complete)
+        lu.assertEquals(#self.requests, 2)
+        lu.assertNil(self.results[#self.results].problem)
+    end
+
+    function suite:test_clockless_manual_attempt_is_limited_in_session_and_checks_time_after_reload()
+        self.now = nil
+        self.cache.put(self.monster, self.result)
+        lu.assertEquals(self.cache.begin_manual_refresh(self.monster), 0)
+        self.elapsed = 600
+        lu.assertEquals(self.cache.begin_manual_refresh(self.monster), 3000)
+    end
+
+    function suite:test_info_section_preferences_persist_independently_and_validate_saved_values()
+        lu.assertTrue(self.settings.get().slayer_expanded)
+        lu.assertFalse(self.settings.get().detailed_stats_expanded)
+        self.settings.set("slayer_expanded", false)
+        self.settings.set("detailed_stats_expanded", true)
+        self.settings.set("menu_colour", "purple")
+        self:reload()
+        lu.assertFalse(self.settings.get().slayer_expanded)
+        lu.assertTrue(self.settings.get().detailed_stats_expanded)
+        lu.assertEquals(self.settings.get().menu_colour, "purple")
+        lu.assertFalse(self.settings.set("slayer_expanded", "false"))
+        self.storage.monster_lookup_settings.slayer_expanded = "broken"
+        self:reload()
+        lu.assertTrue(self.settings.get().slayer_expanded)
+        lu.assertTrue(self.settings.get().detailed_stats_expanded)
     end
 
     return suite

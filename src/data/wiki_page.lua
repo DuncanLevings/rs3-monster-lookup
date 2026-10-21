@@ -6,6 +6,8 @@
 
 local text = require("src/utils/wiki_text")
 local json = require("src/utils/json")
+local wiki_switches = require("src/utils/wiki_switches")
+local wiki_notes = require("src/utils/wiki_notes")
 
 ---@class Drop
 ---@field name string item name as shown on the page
@@ -24,6 +26,9 @@ local json = require("src/utils/json")
 ---@field drops Drop[]
 ---@field notes string[] footnotes used in this table, numbered in order
 ---@field note_ids table<string, integer>
+---@field drop_mode string? Wiki switch label for an enrage-dependent table
+---@field drop_threshold number? minimum enrage, -1 for normal mode
+---@field drop_switch integer? identifies tables from the same Wiki switcher
 
 local wiki_page = {}
 
@@ -35,7 +40,8 @@ local function extract_notes(html)
         local body = content:match('<span class="reference%-text">(.*)')
 
         if id:match("^cite_note") and body then
-            notes[id] = text.plain(body)
+            local cleaned = wiki_notes.clean(text.plain(body))
+            notes[id] = cleaned ~= "" and cleaned or false
         end
     end
 
@@ -52,7 +58,7 @@ local function row_notes(html, notes, section)
         local id = text.decode(reference)
         local explanation = notes[id]
 
-        if not explanation and id:match("^cite_note") then
+        if explanation == nil and id:match("^cite_note") then
             explanation =
                 "This Wiki note could not be read. Check the source page for this condition."
         end
@@ -190,7 +196,9 @@ local function capture_paragraphs(state, html)
     if state.last_section then
         state.last_section.afterword = paragraphs
     else
-        state.introductions[deepest_heading(state.headings)] = paragraphs
+        local level = deepest_heading(state.headings)
+        local existing = state.introductions[level]
+        state.introductions[level] = existing and existing .. "\n\n" .. paragraphs or paragraphs
     end
 end
 
@@ -206,9 +214,15 @@ local function start_heading(state, tag, heading, preceding_html)
     state.last_section = nil
 end
 
-local function add_drop_table(state, content, preceding_html)
+local function add_drop_table(state, content, preceding_html, variant)
     capture_paragraphs(state, preceding_html)
     local section = parse_table(content, state.headings, state.notes)
+
+    if variant then
+        section.drop_mode = variant.name
+        section.drop_threshold = variant.minimum
+        section.drop_switch = variant.group
+    end
 
     if #section.drops == 0 then
         return
@@ -257,7 +271,20 @@ local function scan_tables(html, state)
             position = he + 1
         elseif ts then
             if attributes:find("item%-drops") then
-                add_drop_table(state, content, html:sub(position, ts - 1))
+                local variant = state.find_switch(ts)
+                local intro_start = position
+
+                if variant and variant ~= state.last_variant then
+                    if variant.start > position then
+                        capture_paragraphs(state, html:sub(position, variant.start - 1))
+                    end
+
+                    state.last_section = nil
+                    intro_start = math.max(position, variant.start)
+                end
+
+                add_drop_table(state, content, html:sub(intro_start, ts - 1), variant)
+                state.last_variant = variant
             end
 
             position = te + 1
@@ -284,12 +311,82 @@ local function group_name(heading)
     return heading
 end
 
+local function enrage_choices(sections)
+    local choices, seen = {}, {}
+
+    for _, section in ipairs(sections) do
+        if section.drop_mode and section.drop_threshold and not seen[section.drop_threshold] then
+            seen[section.drop_threshold] = true
+            choices[#choices + 1] = { name = section.drop_mode, minimum = section.drop_threshold }
+        end
+    end
+
+    table.sort(choices, function(a, b)
+        return a.minimum < b.minimum
+    end)
+    return choices
+end
+
+local function selected_thresholds(sections, enrage)
+    local selected = {}
+
+    -- Categories can use different thresholds, or start at 100% with no normal table.
+    for _, section in ipairs(sections) do
+        local switch, minimum = section.drop_switch, section.drop_threshold
+
+        if
+            switch
+            and minimum <= enrage
+            and (not selected[switch] or minimum > selected[switch])
+        then
+            selected[switch] = minimum
+        end
+    end
+
+    return selected
+end
+
+local function enrage_groups(sections)
+    local choices = enrage_choices(sections)
+
+    if #choices < 2 then
+        return nil
+    end
+
+    local groups = {}
+
+    for _, choice in ipairs(choices) do
+        local selected = selected_thresholds(sections, choice.minimum)
+        local group = { name = choice.name, sections = {}, titles = {} }
+
+        for _, section in ipairs(sections) do
+            if
+                not section.drop_switch
+                or selected[section.drop_switch] == section.drop_threshold
+            then
+                group.sections[#group.sections + 1] = section
+                group.titles[#group.titles + 1] = section.title
+            end
+        end
+
+        groups[#groups + 1] = group
+    end
+
+    return groups
+end
+
 -- splits sections into modes using the first part of their title, eg normal and hard mode
 -- on bosses. only when every section has a group part and theres more than one group,
 -- otherwise a page with just a "Tertiary / Charms" subsection would get a pointless picker
 ---@param sections DropSection[]
 ---@return DropGroup[]? groups nil when the page shouldnt be split
 function wiki_page.mode_groups(sections)
+    local enrages = enrage_groups(sections)
+
+    if enrages then
+        return enrages
+    end
+
     local groups = {}
     local by_heading = {}
 
@@ -335,7 +432,13 @@ function wiki_page.parse(html)
         return nil, "The Wiki page is too large or invalid."
     end
 
-    local state = { headings = {}, sections = {}, introductions = {}, notes = extract_notes(html) }
+    local state = {
+        headings = {},
+        sections = {},
+        introductions = {},
+        notes = extract_notes(html),
+        find_switch = wiki_switches.scan(html),
+    }
 
     scan_tables(html, state)
     return state.sections

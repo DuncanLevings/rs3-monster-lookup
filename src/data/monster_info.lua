@@ -2,6 +2,7 @@
 -- tab draws. no ui code in here, the view just gets titles, headers, rows and icon keys
 -- anything missing from the wiki shows as Unknown rather than being left out
 
+local codex = require("src/data/slayer_codex")
 local format = require("src/utils/stat_format")
 
 local monster_info = {}
@@ -62,7 +63,7 @@ local function facts(title, rows)
 end
 
 local function combat_section(info)
-    local rows = {
+    local section = facts("Combat info", {
         {
             "Life points",
             format.text(info.life_points),
@@ -72,19 +73,13 @@ local function combat_section(info)
         {
             "Attack speed",
             attack_speed(info.attack_rate),
-            "Aggressive",
-            format.boolean(info.is_aggressive),
-        },
-        {
-            "Poisonous",
-            format.boolean(info.is_poisonous),
             "Combat XP",
             format.text(info.combat_experience),
         },
-    }
-
+        { "Poisonous", format.boolean(info.is_poisonous), "", "" },
+    })
     if info.is_members_only ~= nil or info.location_restriction ~= nil then
-        rows[#rows + 1] = {
+        section.rows[#section.rows + 1] = {
             "Members only",
             format.boolean(info.is_members_only),
             info.location_restriction ~= nil and "Location" or "",
@@ -92,7 +87,8 @@ local function combat_section(info)
         }
     end
 
-    return facts("Combat info", rows)
+    section.detailed = true
+    return section
 end
 
 local function offensive_section(info)
@@ -124,6 +120,7 @@ local function offensive_section(info)
 
     return {
         title = "Offensive stats",
+        detailed = true,
         widths = widths,
         headers = headers,
         header_icons = icons,
@@ -148,20 +145,33 @@ local function weakness_icon(info)
     return type(text) == "string" and keys[text:lower()] or nil
 end
 
+local function overview_section(info)
+    local section = facts("Overview", {
+        {
+            "Weakness",
+            weakness(info.weakness_text),
+            "Susceptible to",
+            format_susceptibilities(info.susceptible_to),
+        },
+        {
+            "Aggressive",
+            format.boolean(info.is_aggressive),
+            "",
+            "",
+        },
+    })
+    section.value_icons = { { [2] = weakness_icon(info) } }
+    return section
+end
+
 local function defensive_section(info)
     return {
         title = "Defensive stats",
-        widths = { 0.20, 0.20, 0.25, 0.35 },
-        headers = { "Armour", "Defence level", "Weakness", "Susceptible to" },
-        header_icons = { false, "defence", weakness_icon(info) or false, false },
-        rows = {
-            {
-                format.text(info.armour),
-                format.text(info.defence_level),
-                weakness(info.weakness_text),
-                format_susceptibilities(info.susceptible_to),
-            },
-        },
+        detailed = true,
+        widths = { 0.50, 0.50 },
+        headers = { "Armour", "Defence level" },
+        header_icons = { false, "defence" },
+        rows = { { format.text(info.armour), format.text(info.defence_level) } },
     }
 end
 
@@ -185,6 +195,7 @@ local function affinity_section(info)
 
     return {
         title = "Base hit chance",
+        detailed = true,
         widths = widths,
         headers = headers,
         header_icons = icons,
@@ -195,19 +206,26 @@ end
 -- the Wiki fields describe susceptibility, so true means Not immune in this section
 local function immunity_section(info)
     local values = {}
+    local tooltips = {}
+    local fields = { "poison", "deflect", "stun", "drain" }
+    local names = { "Poison", "Deflect", "Stun", "Stat drain" }
 
-    for _, field in ipairs({ "poison", "deflect", "stun", "drain" }) do
-        values[#values + 1] =
-            format.boolean(info["susceptible_to_" .. field], "Not immune", "Immune")
+    for index, field in ipairs(fields) do
+        values[index] = format.boolean(info["susceptible_to_" .. field], "Not immune", "Immune")
+        tooltips[index] = names[index] .. ": " .. values[index]
     end
 
-    return {
-        title = "Immunities",
-        widths = { 0.25, 0.25, 0.25, 0.25 },
-        headers = { "Poison", "Deflect", "Stun", "Stat drain" },
-        header_icons = { "poison", "deflect", "stun", "drain" },
-        rows = { values },
+    local section = facts("Immunities", {
+        { names[1], values[1], names[2], values[2] },
+        { names[3], values[3], names[4], values[4] },
+    })
+    section.continuation = true
+    section.value_icons = { { [2] = "poison", [4] = "deflect" }, { [2] = "stun", [4] = "drain" } }
+    section.value_tooltips = {
+        { [2] = tooltips[1], [4] = tooltips[2] },
+        { [2] = tooltips[3], [4] = tooltips[4] },
     }
+    return section
 end
 
 local function slayer_section(info)
@@ -235,6 +253,28 @@ local function slayer_section(info)
     })
 end
 
+local function dungeon_section(title)
+    local entry = codex.find(title or "")
+
+    if not entry then
+        return nil
+    end
+
+    local section = facts("Player-owned Slayer Dungeon", {
+        { "Codex entry", tostring(entry.number), "Dungeon size", entry.size },
+        { "Slayer level", entry.slayer_level, "Soul capture level", entry.altered_level },
+        { "Soul XP (repeat)", entry.soul_xp, "Dungeon variants", entry.variants },
+    })
+
+    if entry.notes ~= "" then
+        section.rows[#section.rows + 1] = { "Notes", entry.notes, "", "" }
+    end
+
+    section.note = "Soul capture level is the Wiki's altered Slayer level for capture chance and soul XP. "
+        .. codex.source_note()
+    return section
+end
+
 function monster_info.variants(result)
     local variants = {}
 
@@ -256,16 +296,13 @@ function monster_info.variant_name(info, index)
     return anchor_name(info) or ("Variant " .. index)
 end
 
-function monster_info.build(info)
+function monster_info.build(info, title)
     if next(info) == nil then
         return { message = "Monster information is not available for this lookup.", sections = {} }
     end
 
     local sections = {
-        combat_section(info),
-        offensive_section(info),
-        defensive_section(info),
-        affinity_section(info),
+        overview_section(info),
         immunity_section(info),
     }
     local slayer = slayer_section(info)
@@ -273,6 +310,17 @@ function monster_info.build(info)
     if slayer then
         sections[#sections + 1] = slayer
     end
+
+    local dungeon = dungeon_section(title)
+
+    if dungeon then
+        sections[#sections + 1] = dungeon
+    end
+
+    sections[#sections + 1] = combat_section(info)
+    sections[#sections + 1] = offensive_section(info)
+    sections[#sections + 1] = defensive_section(info)
+    sections[#sections + 1] = affinity_section(info)
 
     return {
         variant = anchor_name(info),

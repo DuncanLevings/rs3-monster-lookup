@@ -46,6 +46,23 @@ return function(root)
         lu.assertEquals(sections[2].drops[1].notes, "")
     end
 
+    function suite:test_mod_source_citations_are_omitted_and_gameplay_notes_are_renumbered()
+        local html = '<h2>Drops</h2><table class="item-drops"><tr><td data-sort-value="Bones"></td>'
+            .. '<td class="item-col">Bones</td><td>1</td><td>1/10'
+            .. '<a href="#cite_note-source">[1]</a><a href="#cite_note-task">[2]</a>'
+            .. '<a href="#cite_note-region">[3]</a></td><td>100</td></tr></table>'
+            .. '<ol><li id="cite_note-source"><span class="reference-text">Mod Sponge. Drop rates. RuneScape Discord.</span></li>'
+            .. '<li id="cite_note-task"><span class="reference-text">Requires a Slayer task. Mod Timbo. Drop confirmation.</span></li>'
+            .. '<li id="cite_note-region"><span class="reference-text">Only in the Wilderness.</span></li></ol>'
+        local section = assert(parser.parse(html))[1]
+        lu.assertEquals(section.notes, { "Requires a Slayer task.", "Only in the Wilderness." })
+        lu.assertEquals(section.drops[1].note_marker, "1,2")
+        lu.assertEquals(
+            section.drops[1].notes,
+            "Requires a Slayer task.\n\nOnly in the Wilderness."
+        )
+    end
+
     function suite:test_keeps_table_conditions_and_under_table_paragraphs()
         local section = parser.parse(markup)[1]
 
@@ -97,6 +114,79 @@ return function(root)
         lu.assertNil(parser.mode_groups(sections("100%", "Tertiary / Charms")))
         lu.assertNil(parser.mode_groups(sections("Tertiary / Charms", "Tertiary / Clues")))
         lu.assertNil(parser.mode_groups({}))
+    end
+
+    local function enrage_switch(labels, quantities)
+        local parts =
+            { '<div class="switch-infobox loading"><div class="switch-infobox-triggers">' }
+
+        for index, label in ipairs(labels) do
+            parts[#parts + 1] = '<span class="trigger button" data-id="'
+                .. index
+                .. '">'
+                .. label
+                .. "</span>"
+        end
+
+        parts[#parts + 1] = "</div>"
+
+        for index, label in ipairs(labels) do
+            parts[#parts + 1] = '<div class="item" data-id="'
+                .. index
+                .. '"><p>Conditions for '
+                .. label
+                .. ".</p>"
+                .. '<table class="item-drops"><tr><td data-sort-value="Bones"></td><td class="item-col">Bones</td><td>'
+                .. quantities[index]
+                .. "</td><td>Always</td><td>100</td></tr></table></div>"
+        end
+
+        parts[#parts + 1] = "</div>"
+        return table.concat(parts)
+    end
+
+    function suite:test_enrage_switches_group_tables_and_keep_each_modes_conditions()
+        local html = "<h2>Drops</h2><h3>Commons</h3><h4>Potions table</h4>"
+            .. enrage_switch({ "Normal mode", "100%", "500%", "2000%+" }, { "3", "4", "5", "9" })
+            .. "<h4>Supplies table</h4>"
+            .. enrage_switch({ "Normal mode", "100%", "500%", "2000%+" }, { "4", "5", "6", "12" })
+        local sections = assert(parser.parse(html))
+        local groups = assert(parser.mode_groups(sections))
+        lu.assertEquals(#groups, 4)
+        lu.assertEquals(groups[1].name, "Normal mode")
+        lu.assertEquals(groups[4].name, "2000%+")
+        lu.assertEquals(groups[2].titles, { "Commons / Potions table", "Commons / Supplies table" })
+        lu.assertEquals(groups[2].sections[1].drops[1].quantity, "4")
+        lu.assertEquals(groups[2].sections[2].drops[1].quantity, "5")
+        lu.assertEquals(groups[1].sections[1].description, "Conditions for Normal mode.")
+        lu.assertNil(groups[1].sections[1].afterword)
+        lu.assertEquals(groups[2].sections[1].description, "Conditions for 100%.")
+    end
+
+    function suite:test_enrage_thresholds_preserve_shared_tables_and_skip_unavailable_normal_tables()
+        local html = "<h2>Drops</h2><h3>Potions</h3>"
+            .. enrage_switch({ "Normal mode", "100%", "500%" }, { "3", "4", "5" })
+            .. "<h3>Supplies</h3>"
+            .. enrage_switch({ "100%", "750%" }, { "10", "20" })
+            .. '<h3>Tertiary</h3><table class="item-drops"><tr><td data-sort-value="Pet"></td>'
+            .. '<td class="item-col">Pet</td><td>1</td><td>Rare</td><td>Not sold</td></tr></table>'
+        local groups = assert(parser.mode_groups(assert(parser.parse(html))))
+        lu.assertEquals(#groups, 4)
+        lu.assertEquals(groups[1].titles, { "Potions", "Tertiary" })
+        lu.assertEquals(groups[3].name, "500%")
+        lu.assertEquals(groups[3].titles, { "Potions", "Supplies", "Tertiary" })
+        lu.assertEquals(groups[3].sections[2].drops[1].quantity, "10")
+        lu.assertEquals(groups[4].sections[1].drops[1].quantity, "5")
+        lu.assertEquals(groups[4].sections[2].drops[1].quantity, "20")
+    end
+
+    function suite:test_switches_without_enrage_labels_do_not_create_enrage_groups()
+        local html = "<h2>Drops</h2><h3>Common</h3>"
+            .. enrage_switch({ "Red", "Blue" }, { "1", "2" })
+        local sections = assert(parser.parse(html))
+        lu.assertEquals(#sections, 2)
+        lu.assertNil(sections[1].drop_mode)
+        lu.assertNil(parser.mode_groups(sections))
     end
 
     function suite:test_a_mode_intro_shows_once_not_above_every_category()
@@ -635,6 +725,27 @@ return function(root)
         lu.assertNil(unicode.from_codepoint(0xD800))
         lu.assertNil(unicode.from_codepoint(0x110000))
         lu.assertNil(unicode.from_codepoint(nil))
+    end
+
+    function suite:test_request_pacing_survives_cancellation_and_rapid_new_selections()
+        self.context.lookup.stop()
+        local paced = fixture.new(root, true)
+        paced.http.get(TEST_PATH, function() end)
+        paced:tick()
+        lu.assertEquals(#paced.requests, 1)
+
+        for _ = 1, 20 do
+            paced.http.cancel()
+            paced.http.get(TEST_PATH, function() end)
+            paced:tick()
+        end
+
+        lu.assertEquals(#paced.requests, 1)
+        paced:tick(29)
+        lu.assertEquals(#paced.requests, 1)
+        paced:tick()
+        lu.assertEquals(#paced.requests, 2)
+        paced.lookup.stop()
     end
 
     return suite

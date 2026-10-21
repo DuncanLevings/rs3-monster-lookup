@@ -2,6 +2,8 @@
 -- the client clears the layer each time its opened so the view is rebuilt every time
 
 local settings = require("src/settings")
+local cache = require("src/data/monster_cache")
+local plugin_pages = require("src/ui/plugin_pages")
 
 local settings_panel = {}
 local SUBSCRIPTION = "monster_lookup_hub_settings"
@@ -16,23 +18,6 @@ end
 
 local function add_controls(page, on_change)
     local current = settings.get()
-    page:AddTitle("Wiki refresh interval")
-    page:AddText(
-        "Refresh saved Wiki data when you next open a monster after this interval. "
-            .. "Prices update with the rest of the page."
-    )
-    page:AddRadioButton({
-        { text = "15 minutes", value = 15 },
-        { text = "1 hour", value = 60 },
-        { text = "6 hours", value = 360 },
-        { text = "24 hours", value = 1440 },
-    }, {
-        selectedValue = current.refresh_minutes,
-        onChange = function(_, value)
-            settings.set("refresh_minutes", value)
-        end,
-    })
-
     local colour_options = {}
 
     for _, colour in ipairs(settings.MENU_COLOURS) do
@@ -68,17 +53,40 @@ local function add_controls(page, on_change)
     )
 end
 
----@param on_change fun() called when a setting changes that the open window needs to redraw for
-function settings_panel.start(on_change)
+local function add_cache_refresh(page, on_refresh)
+    page:AddTitle("Refresh a saved monster")
+    page:AddText(
+        "Saved data refreshes after two weeks when you next open that monster. "
+            .. "Choose a saved monster to fetch its latest Wiki data sooner, including prices. Manual refresh is limited to once per hour for each saved monster."
+    )
+    local monsters = cache.list()
+
+    if #monsters == 0 then
+        page:AddText("No saved monsters yet. Use View drops on a monster first.")
+        return
+    end
+
+    page:AddText("Search by name or location. Small typos, * and ? work here too.")
+    return require("src/ui/saved_monster_picker").new(page, on_refresh)
+end
+
+---@param on_change fun() redraw display settings in the open lookup
+---@param on_refresh fun(monster: MonsterSelection)? refresh only the selected saved monster
+function settings_panel.populate(page, on_change, on_refresh)
+    add_controls(page, on_change)
+    if on_refresh then
+        return add_cache_refresh(page, on_refresh)
+    end
+end
+
+function settings_panel.start(on_change, on_refresh)
     Event.SettingsLayerReady.Subscribe(SUBSCRIPTION, function(event)
         destroy_view()
-        view = prettyui.SimpleView.new(event.component, {
-            width = 0,
-            height = 0,
-            widthAnchor = 1,
-            heightAnchor = 1,
-        })
-        add_controls(view, on_change)
+        view = plugin_pages.new(event.component, function()
+            require("src/ui/monster_search_window").open()
+        end, function(page)
+            return settings_panel.populate(page, on_change, on_refresh)
+        end)
     end)
 end
 

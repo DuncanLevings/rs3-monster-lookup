@@ -12,3 +12,19 @@ Wiki's content license: https://runescape.wiki/w/RuneScape:Copyrights
 Combat icons named resources/stat_*.png are RuneScape artwork, copyright Jagex Ltd.
 Retrieved from the RuneScape Wiki. Individual file sources are listed in
 resources/STAT_ICONS_SOURCES.txt.
+
+Bundled Slayer Codex reference: RuneScape Wiki contributors.
+Source: https://runescape.wiki/w/Slayer_Codex?oldid=37206498
+Retrieved 2026-10-21; selected table columns and page aliases extracted into Lua.
+License: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported
+https://creativecommons.org/licenses/by-nc-sa/3.0/
+Rebuild with tools/build_slayer_codex.py from a saved source article.
+
+Bundled monster-name index: RuneScape Wiki contributors.
+Source: https://runescape.wiki/api.php (Bucket API, infobox_monster.page_name)
+Retrieved 2026-10-21; 2,462 unique mainspace page titles, filtered from 6,062 current variant rows.
+Removed content and pages without drops or useful combat information are excluded.
+Location qualifiers in page titles are retained. No monster statistics or drops are bundled.
+License: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported
+https://creativecommons.org/licenses/by-nc-sa/3.0/
+Rebuild with tools/build_monster_index.py from saved Bucket API pages.

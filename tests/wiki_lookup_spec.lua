@@ -1,6 +1,7 @@
 local lu = require("luaunit")
 local fixture = require("tests/support/wiki_fixture")
 local markup = require("tests/support/wiki_markup")
+local location_markup = require("tests/support/location_markup")
 
 return function(root)
     local suite = {}
@@ -55,6 +56,29 @@ return function(root)
         lu.assertEquals(#self.results, 1)
         lu.assertNil(self.results[1].result)
         lu.assertStrContains(self.results[1].problem, "invalid monster page")
+    end
+
+    function suite:test_locations_share_the_drop_page_request()
+        respond_with_monster(self.context, "{}")
+        self.context:respond(2, { parse = { text = location_markup } })
+        self.context:respond(3, { bucket = {} })
+
+        local result = self.results[1].result
+        lu.assertEquals(#result.locations, 3)
+        lu.assertEquals(result.locations[1].name, "Lumbridge")
+        lu.assertEquals(result.sections[1].drops[1].name, "Bones")
+        lu.assertEquals(#self.context.requests, 3)
+        lu.assertNil(result.no_locations)
+    end
+
+    function suite:test_locations_are_available_when_the_monster_has_no_drops()
+        respond_with_monster(self.context, "{}")
+        local html = location_markup:match("(.-)<h2>Drops</h2>")
+        self.context:respond(2, { parse = { text = html } })
+
+        lu.assertEquals(self.results[1].result.no_drops, "none")
+        lu.assertEquals(#self.results[1].result.locations, 3)
+        lu.assertEquals(#self.context.requests, 2)
     end
 
     function suite:test_unexpected_page_text_type_completes_with_an_error()
@@ -169,6 +193,38 @@ return function(root)
         lu.assertEquals(self.results[1].result.sections[1].drops[1].item_id, 526)
         lu.assertNil(self.results[1].result.sections[1].drops[41].item_id)
         lu.assertEquals(#self.context.requests, 4)
+    end
+
+    function suite:test_clock_sync_uses_a_small_query_without_fetching_monster_pages()
+        self.context.http.cancel()
+        local done, problem
+        self.context.lookup.synchronize_clock(function(ok, message)
+            done, problem = ok, message
+        end)
+        self.context:tick()
+        local request = self.context.requests[#self.context.requests]
+        lu.assertStrContains(request.path, "curtimestamp=1")
+        lu.assertStrContains(request.path, "action=query")
+        self.context:respond(#self.context.requests, { curtimestamp = "2026-10-21T00:00:00Z" })
+        lu.assertTrue(done)
+        lu.assertNil(problem)
+    end
+
+    function suite:test_selected_wiki_page_is_resolved_directly_without_an_npc_id_lookup()
+        self.context.lookup.cancel()
+        self.context.lookup.fetch(
+            { name = "Guard (Varrock)", wiki_title = "Guard (Varrock)" },
+            function(result, problem)
+                self.results[#self.results + 1] = { result = result, problem = problem }
+            end
+        )
+        self.context:tick()
+        local request = self.context.requests[2]
+        lu.assertStrContains(request.path, "page_name")
+        lu.assertStrContains(request.path, "Guard%20%28Varrock%29")
+        self.context:respond(2, { bucket = {} })
+        lu.assertEquals(#self.context.requests, 2)
+        lu.assertStrContains(self.results[1].problem, "No matching monster")
     end
 
     return suite

@@ -1,6 +1,6 @@
 local fixture = {}
 
-function fixture.new(root)
+function fixture.new(root, paced)
     local context = { requests = {}, permitted = true, logs = {} }
     local environment = setmetatable({}, {
         __index = function(_, key)
@@ -102,6 +102,11 @@ function fixture.new(root)
         request.downloadedBytes = downloaded
         request.downloadTotalBytes = total
         request.progress_callback(request)
+    end
+
+    if not paced then
+        -- Most parser/response tests use immediate follow-ups; pacing has its own timed test.
+        load_module("src/data/wiki_request_policy").REQUEST_INTERVAL_TICKS = 0
     end
 
     context.lookup = load_module("src/data/wiki_lookup")

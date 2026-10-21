@@ -83,6 +83,13 @@ function widgets.dropdown(parent, options)
     end
 
     local current = options.selected
+
+    for _, entry in ipairs(options.entries) do
+        if entry.id ~= current then
+            list:SetEntrySelected(entry.id, false, false)
+        end
+    end
+
     list:SetEntrySelected(current, true, false)
     list:Subscribe(
         ui.Hook.ONSELECTIONCHANGED,

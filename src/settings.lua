@@ -2,7 +2,6 @@
 
 local settings = {}
 local STORAGE_KEY = "monster_lookup_settings"
-local INTERVALS = { [15] = true, [60] = true, [360] = true, [1440] = true }
 
 -- choices for the View drops menu text. default has no colour so it looks like every other
 -- menu option, the rest are toned down so they dont fight with npc names and combat levels
@@ -23,18 +22,24 @@ local function is_menu_colour(value)
     return false
 end
 
+local function is_boolean(value)
+    return type(value) == "boolean"
+end
+
 -- one check per setting, also decides which keys settings.set accepts
 local VALID = {
-    refresh_minutes = function(value)
-        return INTERVALS[value] == true
-    end,
-    percentage_rarity = function(value)
-        return type(value) == "boolean"
-    end,
+    percentage_rarity = is_boolean,
+    slayer_expanded = is_boolean,
+    detailed_stats_expanded = is_boolean,
     menu_colour = is_menu_colour,
 }
 
-local DEFAULTS = { refresh_minutes = 60, percentage_rarity = false, menu_colour = "default" }
+local DEFAULTS = {
+    percentage_rarity = false,
+    menu_colour = "default",
+    slayer_expanded = true,
+    detailed_stats_expanded = false,
+}
 
 local values
 
@@ -65,9 +70,10 @@ end
 function settings.get()
     local current = load()
     return {
-        refresh_minutes = current.refresh_minutes,
         percentage_rarity = current.percentage_rarity,
         menu_colour = current.menu_colour,
+        slayer_expanded = current.slayer_expanded,
+        detailed_stats_expanded = current.detailed_stats_expanded,
     }
 end
 

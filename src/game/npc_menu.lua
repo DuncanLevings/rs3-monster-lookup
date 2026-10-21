@@ -8,10 +8,11 @@ local VIEW_DROPS = "View drops"
 local active_session
 
 ---@class MonsterSelection
----@field npc_id integer
----@field entity_uid integer
+---@field npc_id integer?
+---@field wiki_title string? exact page selected by name search
+---@field entity_uid integer?
 ---@field name string
----@field combat_level integer
+---@field combat_level integer?
 ---@field parent_npc_id integer?
 
 local function get_valid_npc(entry)

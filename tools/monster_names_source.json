@@ -1,0 +1,165 @@
+{
+  "source": "https://runescape.wiki/api.php",
+  "retrieved": "2026-10-21",
+  "complete": true,
+  "bucket": "infobox_monster",
+  "rows": 6062,
+  "unique_titles": 2462,
+  "query": "bucket('infobox_monster').select('page_name','page_name_sub','combat_level','life_points').where(bucket.Not('Category:Removed content')).orderBy('page_name_sub','asc').limit(500).offset(OFFSET).run()",
+  "filters": [
+    "Exclude Category:Removed content",
+    "Exclude location_restriction=removed in supplemental checks",
+    "Require positive combat/Slayer stats, weakness, aggression or drops"
+  ],
+  "supplemental_checks": {
+    "info_query": "bucket('infobox_monster').select('page_name','json').where('page_name',TITLE).limit(1).run()",
+    "drops_query": "bucket('dropsline').select('page_name').where('page_name',TITLE).limit(1).run()",
+    "titles": [
+      "Agoroth",
+      "Black Knight (The Death of Chivalry)",
+      "Bone Face",
+      "Cap'n Ekahi",
+      "Chaeldar",
+      "Cyclops labourer",
+      "Fetid zombie (Dead and Buried)",
+      "Ghost (Shattered Worlds)",
+      "Saradominist crusader (Kindred Spirits)",
+      "Soulless unarmoured zombie"
+    ]
+  },
+  "license": "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+  "sources": [
+    {
+      "file": "drops-00.json",
+      "sha256": "a455ff3c6cc06be07f8c5b3d9fe8e8e421856ad28eb6bbbd97b99743e9c900e2"
+    },
+    {
+      "file": "drops-01.json",
+      "sha256": "9cd4501462dbbaeadee42096d2c53b56e3875d38a0f8c186135015e9109ec309"
+    },
+    {
+      "file": "drops-02.json",
+      "sha256": "6f644ca379a3290c9c14b6c7a68310b0dfbffcc02e110f3d13e5b782b2e3adf9"
+    },
+    {
+      "file": "drops-03.json",
+      "sha256": "96ac4db9fb305ccec787d8732126ccefc4b6cd03ee59d49f7d16c22636f59414"
+    },
+    {
+      "file": "drops-04.json",
+      "sha256": "6a840a53951b92a12c6ea8148593dfe7b10a53befd5ada2d69b499951d649281"
+    },
+    {
+      "file": "drops-05.json",
+      "sha256": "7e00a23367670c77dec0e67c1bcbb7d64c4d1c0fbf7a13dcdb113b399f140c47"
+    },
+    {
+      "file": "drops-06.json",
+      "sha256": "8a5adc6bd47c11c906c33664ac08c76803cdd5a3b940d73bbbcf9d87fab26fcd"
+    },
+    {
+      "file": "drops-07.json",
+      "sha256": "4051a0b8732d8a8077514aba6e300911133ffa3d6638d9112a282a450eaeb215"
+    },
+    {
+      "file": "drops-08.json",
+      "sha256": "cacf73c08edad7723ce78826cae5b21bbc5bcca7d147918d1c2d24d82c246df5"
+    },
+    {
+      "file": "drops-09.json",
+      "sha256": "bcd775b4d4b834355b4e6645d9ce5c2b968026f7984de384c72773ccd09ad225"
+    },
+    {
+      "file": "info-00.json",
+      "sha256": "4c18f2835c5bca120b4a92c103dac25c1f2f864f3dc087e33c134d25851f157a"
+    },
+    {
+      "file": "info-01.json",
+      "sha256": "4bda6ed7e4ed486ae4662a4c30d585522b66452485ed8f6d50a29713983e5f70"
+    },
+    {
+      "file": "info-02.json",
+      "sha256": "e9c2182f232d38ea5acd5201d7caa11d0230eae43eeb4ad9d7d22cf18ecb1467"
+    },
+    {
+      "file": "info-03.json",
+      "sha256": "15e0f0c9801111291cedaf82d9d237516e03745a5c9ccc12600a7bf6ce80d806"
+    },
+    {
+      "file": "info-04.json",
+      "sha256": "59beb1e5c248f779e8a40c2f9031f53adc5a0cf0f52695341b8b2350feebc273"
+    },
+    {
+      "file": "info-05.json",
+      "sha256": "770fd7dd68cb7d51d3ab0e05533ab44c2a9aa8b524e5d46268b166f7a8f7e51a"
+    },
+    {
+      "file": "info-06.json",
+      "sha256": "7b6d1976999287673d88b2049bfedd2ab51772fbd1bb913ad3697d90be06e8c7"
+    },
+    {
+      "file": "info-07.json",
+      "sha256": "0ac155b929d1a8fa4e454998fcdcf0ceabefd10bc82e6e9f5d50767628bb4d73"
+    },
+    {
+      "file": "info-08.json",
+      "sha256": "f46b6b32996cf5c82d210578de310ac18e9a4a7960f76012e2717fe107f1bcd2"
+    },
+    {
+      "file": "info-09.json",
+      "sha256": "fc30931b519be97adf3c1694be0d0212972a09fe68662834eed655da76260f67"
+    },
+    {
+      "file": "page-00000.json",
+      "sha256": "028d808e9c50f1475cc2e09ea3b1f5f5cab098e1745abc620796fc0b04655e36"
+    },
+    {
+      "file": "page-00500.json",
+      "sha256": "64fbc3afb73ca3eef9779a2af9b9141f520a19c600c405a85a30c019ac5013f5"
+    },
+    {
+      "file": "page-01000.json",
+      "sha256": "4f3ffdda39483c1b0c6d9fe11f8024f61ee1e3730ead0439de4acca9571e6f38"
+    },
+    {
+      "file": "page-01500.json",
+      "sha256": "b2e613f8a8d6e3567713f86e9ab999776d79ba6aece71380ae28a69e9140840e"
+    },
+    {
+      "file": "page-02000.json",
+      "sha256": "fe40b2415da78e16a4018ff1ad694c6a847a4691f7c2b344330930d186cd1b68"
+    },
+    {
+      "file": "page-02500.json",
+      "sha256": "d94441c77a4d49d4387a5f94d0da48fd8d95489a81f8dc3235ab3d93759b573d"
+    },
+    {
+      "file": "page-03000.json",
+      "sha256": "b7256032c959cbc04ba0553b031bdd7e72d647d1bf29d87c36f6ed04e8f8d3c3"
+    },
+    {
+      "file": "page-03500.json",
+      "sha256": "1282305e0dc881d12d860246aab584e4de9f6d235fdcb0f87729b3571a2efd55"
+    },
+    {
+      "file": "page-04000.json",
+      "sha256": "9e6c947fa5c169ea5d797f11993d4d8b362447f73b081e59ca9a2394c2602b78"
+    },
+    {
+      "file": "page-04500.json",
+      "sha256": "c4c6154f981b40ca7917bca00bfd0948deadae812cdff2bd1ca1037fb1858c5b"
+    },
+    {
+      "file": "page-05000.json",
+      "sha256": "a5cc33150b3ef6b697f333f4d56962c4371c3523f279049d060d1e873d2a29e7"
+    },
+    {
+      "file": "page-05500.json",
+      "sha256": "27689a34915f10c9f88b8cc75935a9446582c362e44e3e86350b29d009ead81f"
+    },
+    {
+      "file": "page-06000.json",
+      "sha256": "3da2cd2b0781583793b770d4203a9d4812bfbb296e5fc13b65c6cad3483d1f92"
+    }
+  ]
+}

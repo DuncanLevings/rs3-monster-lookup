@@ -5,6 +5,7 @@
 -- the completion callback, so now the callback just stores the response and the next tick
 -- deals with it. cancel() bumps the generation so anything from an old lookup gets ignored
 
+local clock = require("src/utils/cache_clock")
 local json = require("src/utils/json")
 local policy = require("src/data/wiki_request_policy")
 
@@ -16,6 +17,7 @@ local generation = 0
 local started = false
 local logic_tick = 0
 local request_sequence = 0
+local next_send_tick = 0
 local COMPLETION_SUBSCRIPTION = "monster_lookup_http_completions"
 local USER_AGENT = "MonsterLookup (RuneScape plugin)"
 local PERMISSION_ERROR = "Monster Lookup needs the HTTP access permission to read the "
@@ -56,6 +58,10 @@ local function decode_response(entry)
 
     if result.error then
         return nil, "The Wiki could not complete this lookup."
+    end
+
+    if result.curtimestamp then
+        clock.synchronize(result.curtimestamp)
     end
 
     return result
@@ -238,9 +244,10 @@ local function process_tick()
 
     for _, job in ipairs(outgoing) do
         if job.generation == generation then
-            if job.not_before and logic_tick < job.not_before then
+            if (job.not_before and logic_tick < job.not_before) or logic_tick < next_send_tick then
                 queued[#queued + 1] = job
             else
+                next_send_tick = logic_tick + policy.REQUEST_INTERVAL_TICKS
                 send_request(job)
             end
         end

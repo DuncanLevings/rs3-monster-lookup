@@ -7,6 +7,7 @@ local clock = require("src/utils/cache_clock")
 local policy = {
     MAX_BYTES = json.MAX_BYTES,
     MAX_PATH_BYTES = 8192,
+    REQUEST_INTERVAL_TICKS = clock.TICKS_PER_SECOND,
     TIMEOUT_TICKS = 20 * clock.TICKS_PER_SECOND,
     DECODE_RETRY_DELAY_TICKS = 2 * clock.TICKS_PER_SECOND,
     TIMEOUT_MESSAGE = "The Wiki request timed out. Try again.",

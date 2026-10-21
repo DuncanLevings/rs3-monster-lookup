@@ -1,5 +1,5 @@
--- the "Show drop notes (n)" toggle under a table and the numbered footnotes it reveals
--- notes start hidden since some boss pages have a lot of them
+-- Collapsible Wiki text: numbered footnotes below tables and long explanations above them.
+-- Both start hidden so the drops remain easy to scan.
 
 local text_layout = require("src/ui/text_layout")
 local theme = require("src/ui/theme")
@@ -12,7 +12,8 @@ local function update_toggle(controller)
     local action = controller.expanded and "Hide" or "Show"
     internals.set_button_text(
         controller.toggle,
-        action .. " drop notes (" .. #controller.entries .. ")"
+        controller.caption and (controller.expanded and "Hide notes" or controller.caption)
+            or action .. " drop notes (" .. #controller.entries .. ")"
     )
 end
 
@@ -33,20 +34,23 @@ end
 ---@param entries table[] text entries made by drop_table for each note
 ---@param on_toggle fun() called after showing or hiding so the table can relayout
 ---@param page table page to forward wheel scrolling to
-function drop_notes.new(parent, entries, on_toggle, page)
-    local controller = { entries = entries, expanded = false }
+---@param caption string? label for the explanation button above a table
+function drop_notes.new(parent, entries, on_toggle, page, caption)
+    local controller = { entries = entries, expanded = false, caption = caption }
+
     controller.toggle = prettyui.SimpleButton.new(parent, "", function()
         controller.expanded = not controller.expanded
         update_toggle(controller)
         on_toggle()
     end, {
         x = 8,
-        width = 176,
+        width = caption and 96 or 176,
         height = 24,
         colour = theme.TEXT_MUTED,
         shadowed = false,
     })
     internals.set_button_font(controller.toggle, id.Font.MUSEO_SANS_11PT_REGULAR)
+
     update_toggle(controller)
     widgets.forward_wheel(controller.toggle.root, "monster_lookup_notes_wheel", page)
 
@@ -55,8 +59,10 @@ end
 
 -- positions the toggle and any visible notes from y down, returns the y below them
 function drop_notes.layout(controller, width, y)
-    controller.toggle.root:SetPos(8, y + 8)
-    y = y + 40
+    local gap = controller.caption and 0 or 8
+    controller.toggle.root:SetPos(8, y + gap)
+
+    y = y + gap + 32
 
     for _, entry in ipairs(controller.entries) do
         entry.label.hidden = not controller.expanded

@@ -20,6 +20,7 @@ local item_search = require("src/utils/item_search")
 local wiki_page = require("src/data/wiki_page")
 local drop_search = require("src/ui/drop_search")
 local drop_notes = require("src/ui/drop_notes")
+local wiki_notes = require("src/utils/wiki_notes")
 
 local drop_table = {}
 local ROW_HEIGHT = 40
@@ -27,7 +28,9 @@ local HEADER_HEIGHT = 30
 local SECTION_HEIGHT = 28
 local SECTION_GAP = 12
 local CONTENT_TOP_PADDING = 12
+local TOOLBAR_CONTENT_GAP = 6
 local NO_MATCHES_HEIGHT = 36
+local LONG_DESCRIPTION_LENGTH = 240
 local ICON_SIZE = 32
 
 local MODE_PICKER_WIDTH = 150
@@ -166,15 +169,17 @@ local function add_section_text(section, value, before_table, reference_note)
         return
     end
 
+    local explanation = before_table and #value > LONG_DESCRIPTION_LENGTH
+    local large_text = before_table and not explanation
     local label = prettyui.Text.new(section.body, {
         text = text_layout.display(value),
         x = 8,
         width = -16,
         widthAnchor = 1,
         height = 22,
-        colour = before_table and theme.TEXT_SOFT or theme.TEXT_MUTED,
-        font = before_table and id.Font.MUSEO_SANS_15PT_REGULAR or id.Font.MUSEO_SANS_11PT_REGULAR,
-        shadowed = before_table,
+        colour = large_text and theme.TEXT_SOFT or theme.TEXT_MUTED,
+        font = large_text and id.Font.MUSEO_SANS_15PT_REGULAR or id.Font.MUSEO_SANS_11PT_REGULAR,
+        shadowed = large_text,
     })
     label.clickthrough = true
     label.enabled = false
@@ -183,15 +188,18 @@ local function add_section_text(section, value, before_table, reference_note)
         value = value,
         before_table = before_table,
         reference_note = reference_note,
+        explanation = explanation,
         -- id.Font picks the font for drawing, config.Font is the same font for measuring
-        font = before_table and config.Font.MUSEO_SANS_15PT_REGULAR
+        font = large_text and config.Font.MUSEO_SANS_15PT_REGULAR
             or config.Font.MUSEO_SANS_11PT_REGULAR,
-        line_height = before_table and 22 or 16,
+        line_height = large_text and 22 or 16,
     }
     section.texts[#section.texts + 1] = entry
 
     if reference_note then
         section.reference_notes[#section.reference_notes + 1] = entry
+    elseif explanation then
+        section.explanations[#section.explanations + 1] = entry
     end
 end
 
@@ -213,9 +221,13 @@ local function layout_section_body(section)
     local y = 0
 
     for _, entry in ipairs(section.texts) do
-        if entry.before_table then
+        if entry.before_table and not entry.explanation then
             y = y + layout_text(entry, width, y) + 8
         end
+    end
+
+    if section.explanation_controller then
+        y = drop_notes.layout(section.explanation_controller, width, y)
     end
 
     section.table_layer:SetPos(0, y)
@@ -238,7 +250,14 @@ end
 local function create_section_body(controller, data)
     local body = widgets.layer(controller.page.content, 1)
 
-    local section = { body = body, texts = {}, reference_notes = {}, rows = {}, expanded = true }
+    local section = {
+        body = body,
+        texts = {},
+        reference_notes = {},
+        explanations = {},
+        rows = {},
+        expanded = true,
+    }
     add_section_text(section, data.description, true)
 
     local table_layer = widgets.layer(body, 1)
@@ -272,7 +291,7 @@ end
 
 local function layout_toolbar(controller)
     local y = CONTENT_TOP_PADDING
-    local last_button = controller.refresh_button or controller.toggle_all
+    local last_button = controller.toggle_all
     local right = last_button.root.x + last_button.root.width
 
     if controller.mode_picker then
@@ -288,13 +307,14 @@ local function layout_toolbar(controller)
     end
 
     local bottom = controller.search.layout(right + 16, y)
+    controller.toolbar:SetSize(controller.page.content.width, bottom + 8)
 
     if controller.status_label then
-        controller.status_label:SetPos(8, bottom + 6)
-        return bottom + 6 + controller.status_label.height + 8
+        controller.status_label:SetPos(8, bottom + 8 + TOOLBAR_CONTENT_GAP)
+        return bottom + 8 + TOOLBAR_CONTENT_GAP + controller.status_label.height + 8
     end
 
-    return bottom + 12
+    return bottom + 12 + TOOLBAR_CONTENT_GAP
 end
 
 local function position_sections(controller)
@@ -382,6 +402,7 @@ local function apply_search(controller, query)
     local matches = item_search.compile(query)
     local total = 0
     controller.updating_sections = true
+    controller.filtering_sections = true
 
     for _, section in ipairs(controller.sections) do
         if searching and not controller.searching then
@@ -416,6 +437,7 @@ local function apply_search(controller, query)
     end
 
     controller.searching = searching
+    controller.filtering_sections = false
     controller.updating_sections = false
     controller.search.no_matches.hidden = not searching or total > 0
 end
@@ -426,6 +448,12 @@ end
 
 local function toggle_all_sections(controller)
     local expanded = not has_expanded_sections(controller)
+
+    if not controller.searching then
+        controller.section_state.default_expanded = expanded
+        controller.section_state.categories = {}
+    end
+
     widgets.hide_tooltips(controller.tooltips)
     controller.updating_sections = true
 
@@ -440,7 +468,7 @@ local function toggle_all_sections(controller)
 end
 
 local function create_toolbar_button(controller, text, x, width, action, wheel_id, disabled)
-    local button = prettyui.SimpleButton.new(controller.page.content, text, action, {
+    local button = prettyui.SimpleButton.new(controller.toolbar, text, action, {
         x = x,
         y = CONTENT_TOP_PADDING,
         width = width,
@@ -452,23 +480,13 @@ local function create_toolbar_button(controller, text, x, width, action, wheel_i
     return button
 end
 
-local function create_refresh_controls(controller)
+local function create_status(controller)
     local options = controller.options
 
-    if not options.on_refresh then
+    if not options.status or options.status == "" then
         return
     end
 
-    -- the status line wraps to two lines when theres a refresh error to show
-    controller.refresh_button = create_toolbar_button(
-        controller,
-        "Refresh",
-        132,
-        88,
-        options.on_refresh,
-        "monster_lookup_refresh_wheel",
-        options.refreshing == true
-    )
     controller.status_label = prettyui.Text.new(controller.page.content, {
         text = text_layout.display(options.status or ""),
         x = 8,
@@ -487,33 +505,61 @@ end
 
 local function create_section_button(controller, section, title)
     local button = prettyui.CollapseButton.new(controller.page.content, title, {
-        expanded = true,
+        expanded = section.expanded,
         colour = theme.TEXT_SOFT,
         width = 0,
         widthAnchor = 1,
         onToggle = function(button, expanded)
             widgets.hide_tooltips(controller.tooltips)
             section.expanded = expanded
+
+            if not controller.filtering_sections then
+                controller.section_state.categories[title] = expanded
+
+                if controller.searching then
+                    section.saved_expanded = expanded
+                end
+            end
+
             style_section_button(button, expanded)
             layout_sections(controller)
         end,
     })
-    style_section_button(button, true)
+    style_section_button(button, section.expanded)
     widgets.forward_wheel(button.root, "monster_lookup_category_wheel", controller.page)
 
     return button
 end
 
-local function add_section(controller, data, title)
-    local section = create_section_body(controller, data)
-
-    if #section.reference_notes > 0 then
-        section.notes_controller = drop_notes.new(section.body, section.reference_notes, function()
-            widgets.hide_tooltips(controller.tooltips)
-            section.measured_width = nil
-            layout_sections(controller)
-        end, controller.page)
+local function create_text_toggle(controller, section, entries, heading)
+    if #entries == 0 then
+        return nil
     end
+
+    return drop_notes.new(section.body, entries, function()
+        widgets.hide_tooltips(controller.tooltips)
+        section.measured_width = nil
+        layout_sections(controller)
+    end, controller.page, heading)
+end
+
+local function category_expanded(controller, title)
+    local saved = controller.section_state.categories[title]
+
+    if saved ~= nil then
+        return saved
+    end
+
+    return controller.section_state.default_expanded ~= false
+end
+
+local function add_section(controller, data, title)
+    data = wiki_notes.without_sources(data)
+    local section = create_section_body(controller, data)
+    section.expanded = category_expanded(controller, title)
+    section.notes_controller = create_text_toggle(controller, section, section.reference_notes)
+    section.explanation_controller =
+        create_text_toggle(controller, section, section.explanations, "Notes")
 
     section.button = create_section_button(controller, section, title)
     controller.sections[#controller.sections + 1] = section
@@ -540,8 +586,7 @@ local function destroy_sections(controller)
         controller.search.destroy()
     end
 
-    if controller.refresh_button then
-        controller.refresh_button:Destroy()
+    if controller.status_label then
         controller.status_label:Destroy()
     end
 
@@ -557,10 +602,17 @@ local function destroy_sections(controller)
             section.notes_controller.toggle:Destroy()
         end
 
+        if section.explanation_controller then
+            section.explanation_controller.toggle:Destroy()
+        end
+
         section.body:Destroy()
     end
 
     controller.sections = {}
+    if controller.toolbar then
+        controller.toolbar:Destroy()
+    end
 end
 
 -- dropdown for pages split into modes, picking one asks the window to render that mode
@@ -568,32 +620,41 @@ local function create_mode_picker(controller, x)
     local entries = {}
 
     for index, group in ipairs(controller.groups) do
-        entries[#entries + 1] = { text = group.name, id = index }
+        entries[#entries + 1] = { text = group.name, id = index - 1 }
     end
 
-    controller.mode_picker = widgets.dropdown(controller.page.content, {
+    controller.mode_picker = widgets.dropdown(controller.toolbar, {
         x = x,
         y = CONTENT_TOP_PADDING - 2,
         width = MODE_PICKER_WIDTH,
         height = 28,
         entries = entries,
-        selected = controller.mode,
+        selected = controller.mode - 1,
         on_change = function(entry_id)
             if controller.options.on_mode_change then
-                controller.options.on_mode_change(entry_id)
+                controller.options.on_mode_change(entry_id + 1)
             end
         end,
     })
 end
 
 local function create_toolbar(controller)
+    -- PrettyUI scrolls the viewport itself with SetScrollPos. The tab root is
+    -- outside that scroll transform; draw this sibling last to cover passing rows.
+    controller.toolbar = widgets.layer(controller.page.root, 1)
+    controller.toolbar.clickthrough = false
+    widgets.background(controller.toolbar, theme.ROW_ODD)
+    controller.toolbar_divider = widgets.background(controller.toolbar, theme.TOOLBAR_DIVIDER)
+    controller.toolbar_divider:SetSize(0, 1, 1, 0)
+    controller.toolbar_divider:SetPos(0, -1, 0, 1)
+    widgets.forward_wheel(controller.toolbar, "monster_lookup_toolbar_wheel", controller.page)
     controller.toggle_all = create_toolbar_button(controller, "Collapse all", 8, 112, function()
         toggle_all_sections(controller)
     end, "monster_lookup_toggle_all_wheel")
-    create_refresh_controls(controller)
+    create_status(controller)
 
     if controller.groups then
-        create_mode_picker(controller, controller.refresh_button and 232 or 132)
+        create_mode_picker(controller, 132)
     end
 
     local query = controller.options.search_query or ""
@@ -610,20 +671,19 @@ local function create_toolbar(controller)
         if controller.options.on_search_change then
             controller.options.on_search_change(new_query)
         end
-    end)
+    end, controller.toolbar)
     apply_search(controller, query)
 end
 
 ---@class DropTableOptions
 ---@field percentage_rarity boolean?
----@field on_refresh fun()? shows the Refresh button when set
----@field refreshing boolean? greys out Refresh while a refresh is running
 ---@field status string? cache status line under the buttons
 ---@field problem string? refresh error, makes the status line a warning
 ---@field search_query string? search text to carry over from the last render
 ---@field on_search_change fun(query: string)?
 ---@field mode integer? which mode to show when the page is split into modes, defaults to 1
 ---@field on_mode_change fun(mode: integer)? the caller re-renders with the new mode
+---@field section_state table? shared category choices for this monster across drop modes
 
 ---@param page table tab page to draw into
 ---@param sections DropSection[]
@@ -631,9 +691,12 @@ end
 ---@param options DropTableOptions?
 function drop_table.render(page, sections, overlay_parent, options)
     options = options or {}
+    local section_state = options.section_state or {}
+    section_state.categories = section_state.categories or {}
     local controller = {
         page = page,
         options = options,
+        section_state = section_state,
         overlay_parent = overlay_parent,
         groups = wiki_page.mode_groups(sections),
         sections = {},

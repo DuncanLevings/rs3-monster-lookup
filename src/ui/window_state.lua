@@ -13,8 +13,8 @@ local function clamp(value, minimum, maximum)
     return math.max(minimum, math.min(value, maximum))
 end
 
-local function load_saved_geometry()
-    local saved = PersistentDB:GetStructuredData(STORAGE_KEY)
+local function load_saved_geometry(profile)
+    local saved = PersistentDB:GetStructuredData(profile.storage_key or STORAGE_KEY)
 
     if type(saved) ~= "table" or saved.version ~= 1 then
         return {}
@@ -23,18 +23,18 @@ local function load_saved_geometry()
     return saved
 end
 
-local function get_size_limits(parent)
+local function get_size_limits(parent, profile)
     return {
-        minWidth = math.min(760, parent.width),
-        minHeight = math.min(360, parent.height),
-        maxWidth = math.min(1200, parent.width),
-        maxHeight = math.min(850, parent.height),
+        minWidth = math.min(profile.minWidth or 760, parent.width),
+        minHeight = math.min(profile.minHeight or 360, parent.height),
+        maxWidth = math.min(profile.maxWidth or 1200, parent.width),
+        maxHeight = math.min(profile.maxHeight or 850, parent.height),
     }
 end
 
-local function restore_window_size(options, saved)
-    local width = is_finite_number(saved.width) and saved.width or 840
-    local height = is_finite_number(saved.height) and saved.height or 520
+local function restore_window_size(options, saved, profile)
+    local width = is_finite_number(saved.width) and saved.width or profile.width or 840
+    local height = is_finite_number(saved.height) and saved.height or profile.height or 520
 
     options.width = clamp(width, options.minWidth, options.maxWidth)
     options.height = clamp(height, options.minHeight, options.maxHeight)
@@ -64,17 +64,19 @@ local function capture_window_geometry(window)
     }
 end
 
-function window_state.load(parent)
-    local saved = load_saved_geometry()
-    local options = get_size_limits(parent)
+function window_state.load(parent, profile)
+    profile = profile or {}
+    local saved = load_saved_geometry(profile)
+    local options = get_size_limits(parent, profile)
 
-    restore_window_size(options, saved)
+    restore_window_size(options, saved, profile)
     restore_window_position(options, saved, parent)
 
     return options
 end
 
-function window_state.save(window)
+function window_state.save(window, profile)
+    profile = profile or {}
     local root = window.root
     local parent = window.parent
 
@@ -82,7 +84,10 @@ function window_state.save(window)
         return
     end
 
-    PersistentDB:SetStructuredData(STORAGE_KEY, capture_window_geometry(window))
+    PersistentDB:SetStructuredData(
+        profile.storage_key or STORAGE_KEY,
+        capture_window_geometry(window)
+    )
 end
 
 return window_state

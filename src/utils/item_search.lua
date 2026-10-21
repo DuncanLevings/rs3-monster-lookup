@@ -1,4 +1,4 @@
--- matching for the drops search box
+-- local display-name matching, shared by drops and monster search
 -- with * or ? its a wildcard match on the item name
 
 local item_search = {}

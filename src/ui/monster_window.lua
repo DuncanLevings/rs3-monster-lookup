@@ -1,10 +1,11 @@
--- the one Monster Lookup window, with Drops and Monster info tabs
+-- the one Monster Lookup window, with Drops, Monster info and Locations tabs
 -- its created the first time a monster is picked and then reused, closing just hides it.
 -- logout and plugin shutdown destroy it properly
 
 local window_state = require("src/ui/window_state")
 local drop_table = require("src/ui/drop_table")
 local monster_info_view = require("src/ui/monster_info_view")
+local locations_view = require("src/ui/locations_view")
 local lookup_notice = require("src/ui/lookup_notice")
 local theme = require("src/ui/theme")
 
@@ -18,16 +19,19 @@ local drops_page
 local info_page
 local info_controller
 local info_label
+local locations_page
+local locations_controller
+local locations_label
 local loading_label
 local drop_table_controller
 local error_notice
 local current_result
 local current_metadata
 local current_problem
-local refresh_action
 local close_action
 local search_query = ""
 local drop_mode = 1
+local drop_section_state = {}
 
 local function hide_window_tooltips()
     if drop_table_controller then
@@ -62,12 +66,13 @@ end
 
 local function add_content_tabs()
     tabs = window:AddTabs(
-        { { text = "Drops" }, { text = "Monster info" } },
+        { { text = "Drops" }, { text = "Monster info" }, { text = "Locations" } },
         { height = 320, scrollStep = theme.WHEEL_STEP, onChange = hide_window_tooltips }
     )
     tabs.root:SetSize(-tabs.root.x * 2, -tabs.root.y - 8, 1, 1)
     drops_page = tabs:GetPage(1)
     info_page = tabs:GetPage(2)
+    locations_page = tabs:GetPage(3)
 
     loading_label = drops_page:AddText({
         text = "Loading RuneScape Wiki...",
@@ -77,6 +82,7 @@ local function add_content_tabs()
     drop_table_controller = drop_table.render(drops_page, {}, window.parent)
     error_notice = lookup_notice.new(drops_page)
     info_label = info_page:AddText({ text = "", height = 60 })
+    locations_label = locations_page:AddText({ text = "", height = 60 })
 end
 
 local function create_window(parent)
@@ -147,14 +153,12 @@ end
 
 local show_drops
 
--- refreshes rebuild the view but keep the search and drop mode. selecting another
--- monster resets both in open(), so a previous filter cannot hide its drops
+-- refreshes rebuild the view but keep search, mode and category choices. picking
+-- another monster resets these in open(), so an old filter cannot hide its drops
 local function replace_drop_tables(sections)
     drop_table_controller.destroy()
     drop_table_controller = drop_table.render(drops_page, sections, window.parent, {
         percentage_rarity = settings.get().percentage_rarity,
-        on_refresh = refresh_action,
-        refreshing = current_metadata and current_metadata.refreshing,
         status = cache_status(current_metadata, current_problem),
         problem = current_problem,
         search_query = search_query,
@@ -162,6 +166,7 @@ local function replace_drop_tables(sections)
             search_query = query
         end,
         mode = drop_mode,
+        section_state = drop_section_state,
         on_mode_change = function(mode)
             drop_mode = mode
             hide_window_tooltips()
@@ -191,6 +196,24 @@ local function show_monster_info(result)
     info_controller = monster_info_view.render(info_page, result, window.parent)
 end
 
+local function clear_locations(message)
+    if locations_controller then
+        locations_controller.destroy()
+        locations_controller = nil
+    end
+
+    locations_label.hidden = false
+    locations_label.content = message or ""
+    locations_page:SetContentHeight(84)
+    locations_page:SetScrollPosition(0)
+end
+
+local function show_locations(result)
+    clear_locations()
+    locations_label.hidden = true
+    locations_controller = locations_view.render(locations_page, result)
+end
+
 local function show_loading()
     lookup_notice.hide(error_notice)
     replace_drop_tables({})
@@ -198,15 +221,15 @@ local function show_loading()
     drops_page:SetContentHeight(64)
     clear_monster_info()
     info_label.content = "Loading monster information..."
+    clear_locations("Loading monster locations...")
     show_drops_tab()
 end
 
 ---opens (or reuses) the window for a monster and shows the loading state
 ---@param monster MonsterSelection
----@param on_refresh fun() for the Refresh button
 ---@param on_close fun()? called when the player closes the window, eg to stop the lookup
 ---@return boolean opened false if the game area isnt ready yet
-function monster_window.open(monster, on_refresh, on_close)
+function monster_window.open(monster, on_close)
     if not ensure_window_exists() then
         return false
     end
@@ -216,7 +239,7 @@ function monster_window.open(monster, on_refresh, on_close)
     current_problem = nil
     search_query = ""
     drop_mode = 1
-    refresh_action = on_refresh
+    drop_section_state = {}
     close_action = on_close
     window:SetTitle(monster.name)
     show_loading()
@@ -264,6 +287,7 @@ function monster_window.show_result(result, problem, metadata)
     loading_label.hidden = true
     show_drops(result)
     show_monster_info(result)
+    show_locations(result)
 end
 
 -- only the drops view depends on these settings; leave the chosen info variant alone
@@ -283,6 +307,7 @@ function monster_window.show_error(problem)
     loading_label.hidden = true
     clear_monster_info()
     info_label.content = "Monster information could not be loaded. See the error in Drops."
+    clear_locations("Monster locations could not be loaded. See the error in Drops.")
 
     lookup_notice.show(error_notice, problem)
     show_drops_tab()
@@ -296,6 +321,7 @@ function monster_window.destroy()
     hide_window_tooltips()
     window_state.save(window)
     clear_monster_info()
+    clear_locations()
     drop_table_controller.destroy()
     window:Destroy()
 
@@ -305,13 +331,15 @@ function monster_window.destroy()
     info_page = nil
     info_controller = nil
     info_label = nil
+    locations_page = nil
+    locations_controller = nil
+    locations_label = nil
     loading_label = nil
     drop_table_controller = nil
     error_notice = nil
     current_result = nil
     current_metadata = nil
     current_problem = nil
-    refresh_action = nil
     close_action = nil
 end
 

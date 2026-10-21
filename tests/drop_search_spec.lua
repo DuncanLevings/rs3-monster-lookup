@@ -192,14 +192,47 @@ return function(root)
         body.width = 420
         body.hooks[2](body)
 
-        lu.assertEquals(self.field.root.width, 176)
-        lu.assertEquals(420 + self.field.root.x, 236)
+        local toggle = self.context.simple_buttons[1].root
+        lu.assertTrue(420 + self.field.root.x >= toggle.x + toggle.width + 8)
+        lu.assertTrue(420 + self.field.root.x + self.field.root.width <= 420)
     end
 
     function suite:test_wheel_over_input_uses_the_same_page_scroll_step()
         self.field.root.hooks[1](self.field.root, 1)
 
         lu.assertEquals(self.page.scrollY, 32)
+    end
+
+    function suite:test_toolbar_belongs_to_the_fixed_tab_root_and_is_destroyed_with_the_view()
+        local toolbar = self.field.root.parent
+        lu.assertIs(toolbar.parent, self.page.root)
+        lu.assertIs(self.context.simple_buttons[1].root.parent, toolbar)
+        lu.assertNil(self.field.options._scrollController)
+        local function screen_y(node)
+            local y = 0
+            while node do
+                y = y + (node.y or 0) - (node.scroll_y or 0)
+                node = node.parent
+            end
+            return y
+        end
+        local toolbar_y = screen_y(toolbar)
+        local content_y = screen_y(self.page.content)
+        self.page:SetScrollPosition(200)
+        lu.assertEquals(screen_y(toolbar), toolbar_y)
+        lu.assertEquals(screen_y(self.page.content), content_y - 200)
+        lu.assertFalse(toolbar.clickthrough)
+        local divider
+        for _, node in ipairs(self.context.nodes) do
+            if node.parent == toolbar and node.height == 1 and node.y_anchor == 1 then
+                divider = node
+            end
+        end
+        lu.assertNotNil(divider)
+        lu.assertEquals(divider.y, -1)
+        lu.assertEquals(divider.width_anchor, 1)
+        self.context.subject.destroy()
+        lu.assertTrue(toolbar.destroyed)
     end
 
     return suite

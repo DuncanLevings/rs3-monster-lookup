@@ -4,6 +4,8 @@ local npc_menu = require("src/game/npc_menu")
 local monster_window = require("src/ui/monster_window")
 local lookup_service = require("src/data/lookup_service")
 local settings_panel = require("src/ui/settings_panel")
+local search_window = require("src/ui/monster_search_window")
+local content_panel = require("src/ui/content_panel")
 local settings = require("src/settings")
 
 local app = {}
@@ -15,6 +17,8 @@ local function on_game_state_changed(event)
         -- native UI belongs to the current game session; rebuild it after login
         lookup_service.cancel()
         monster_window.destroy()
+        search_window.destroy()
+        content_panel.destroy()
     end
 end
 
@@ -28,14 +32,16 @@ local function fetch_monster(monster, force_refresh)
     end, force_refresh)
 end
 
-local function on_monster_selected(monster)
-    local opened = monster_window.open(monster, function()
-        fetch_monster(monster, true)
-    end, lookup_service.cancel)
+local function on_monster_selected(monster, force_refresh)
+    local opened = monster_window.open(monster, lookup_service.cancel)
 
     if opened then
-        fetch_monster(monster, false)
+        fetch_monster(monster, force_refresh == true)
     end
+end
+
+local function refresh_monster(monster)
+    on_monster_selected(monster, true)
 end
 
 function app.start()
@@ -48,7 +54,9 @@ function app.start()
         "Monster Lookup requires PrettyUI; install it from the Plugin Hub"
     )
     lookup_service.start()
-    settings_panel.start(monster_window.refresh_settings)
+    search_window.start(on_monster_selected)
+    settings_panel.start(monster_window.refresh_settings, refresh_monster)
+    content_panel.start(search_window.open, monster_window.refresh_settings, refresh_monster)
     npc_menu.start(on_monster_selected, settings.menu_colour_hex)
     Event.GameStateChanged.Subscribe(GAME_STATE_SUBSCRIPTION, on_game_state_changed)
 
@@ -66,6 +74,8 @@ function app.stop()
     npc_menu.stop()
     lookup_service.stop()
     settings_panel.stop()
+    content_panel.stop()
+    search_window.destroy()
     Event.GameStateChanged.Unsubscribe(GAME_STATE_SUBSCRIPTION)
     monster_window.destroy()
 

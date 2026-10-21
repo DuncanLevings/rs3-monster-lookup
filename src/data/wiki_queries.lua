@@ -5,8 +5,18 @@ local url = require("src/utils/url")
 
 local queries = {}
 
+local function build_query(parameters)
+    parameters.curtimestamp = 1
+    parameters.maxlag = 5
+    return url.query(parameters)
+end
+
+function queries.time()
+    return build_query({ action = "query", format = "json", formatversion = 2, curtimestamp = 1 })
+end
+
 function queries.bucket(query)
-    return url.query({ action = "bucket", format = "json", query = query })
+    return build_query({ action = "bucket", format = "json", query = query })
 end
 
 function queries.monster(field, value)
@@ -14,13 +24,15 @@ function queries.monster(field, value)
         .. url.literal(field)
         .. ","
         .. url.literal(value)
-        .. ").limit(10).run()"
+        .. ").limit("
+        .. (field == "page_name" and 100 or 10)
+        .. ").run()"
 
     return queries.bucket(query)
 end
 
 function queries.page(title)
-    return url.query({
+    return build_query({
         action = "parse",
         format = "json",
         formatversion = 2,

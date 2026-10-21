@@ -21,3 +21,5 @@ stat_weak_crush.png: https://runescape.wiki/w/File:Crush_weakness_icon.png
 stat_weak_slash.png: https://runescape.wiki/w/File:Slash_weakness_icon.png
 stat_weak_stab.png: https://runescape.wiki/w/File:Stab_weakness_icon.png
 stat_no.png: https://runescape.wiki/w/File:X_mark.svg
+
+stat_yes.png: original green checkmark drawn for Monster Lookup.

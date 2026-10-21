@@ -13,6 +13,7 @@ function fixture.new(root, saved)
         checkbox_controls = {},
         settings_views = {},
         dropdowns = {},
+        combos = {},
         text_fields = {},
         nodes = {},
         tooltips = {},
@@ -60,6 +61,8 @@ function fixture.new(root, saved)
         end
 
         function node:SetSize(width, height, width_anchor, height_anchor)
+            self.width_anchor = width_anchor
+            self.height_anchor = height_anchor
             self.width = width + (width_anchor or 0) * (parent and parent.width or 840)
             self.height = height + (height_anchor or 0) * (parent and parent.height or 520)
         end
@@ -128,7 +131,12 @@ function fixture.new(root, saved)
     end
 
     local function container()
-        local host = { content = { width = 800, height = 360 }, scrollY = 0 }
+        local content = native_component(nil)
+        content.width, content.height = 800, 360
+        local root_layer = native_component(nil)
+        local viewport = native_component(root_layer)
+        content.parent = viewport
+        local host = { root = root_layer, content = content, viewport = viewport, scrollY = 0 }
 
         function host:AddText(options)
             local text = native_component(self.content)
@@ -138,6 +146,31 @@ function fixture.new(root, saved)
         end
 
         host.AddTitle = host.AddText
+
+        function host:AddComboBox(options)
+            context.combos[#context.combos + 1] = options
+            return {}
+        end
+
+        function host:AddTextField(options)
+            return environment.prettyui.TextField.new(self.content, options)
+        end
+
+        function host:AddSimpleButton(text, action, options)
+            options = options or {}
+            local button = {
+                text = text,
+                action = action,
+                root = native_component(self.content),
+                options = options,
+            }
+            button.root:SetSize(options.width or #text * 8 + 24, options.height or 24)
+            function button:Destroy()
+                self.root:Destroy()
+            end
+            context.simple_buttons[#context.simple_buttons + 1] = button
+            return button
+        end
 
         function host:AddRadioButton(entries, options)
             context.radio_controls[#context.radio_controls + 1] =
@@ -163,6 +196,7 @@ function fixture.new(root, saved)
         function host:SetScrollPosition(value)
             self.scroll_position = value
             self.scrollY = value
+            self.viewport.scroll_y = value
         end
 
         function host:ScrollBy(delta)
@@ -177,12 +211,16 @@ function fixture.new(root, saved)
             end
         end
 
-        function host:AddTabs(_, options)
+        function host:AddTabs(entries, options)
             local tabs = {
-                pages = { container(), container() },
+                pages = {},
+                entries = entries,
                 active = 1,
                 root = native_component(self.content),
             }
+            for index in ipairs(entries) do
+                tabs.pages[index] = container()
+            end
             tabs.root.y = 140
             context.tabs = tabs
 
@@ -226,6 +264,24 @@ function fixture.new(root, saved)
             return true
         end,
     }
+    function environment.PersistentDB:CheckExists(key)
+        return context.storage[key] ~= nil
+    end
+
+    function environment.PersistentDB:Delete(key)
+        context.storage[key] = nil
+    end
+
+    function environment.PersistentDB:GetString(key)
+        return context.storage[key]
+    end
+
+    function environment.PersistentDB:SetString(key, value)
+        context.storage[key] = value
+        return true
+    end
+
+    context.cache = load_module("src/data/monster_cache")
     environment.config = {
         Font = {
             MUSEO_SANS_15PT_REGULAR = {
@@ -268,13 +324,17 @@ function fixture.new(root, saved)
             new = function(parent)
                 local list = native_component(parent)
                 list.entries = {}
+                list.selection_flags = {}
 
                 function list:Add(label, entry_id)
                     self.entries[#self.entries + 1] = { text = label, id = entry_id }
+                    self.selection_flags[entry_id] = true
                     return true
                 end
 
                 function list:SetEntrySelected(entry_id, selected)
+                    self.selection_flags[entry_id] = selected
+
                     if selected then
                         self.selected = entry_id
                     end
@@ -303,6 +363,7 @@ function fixture.new(root, saved)
     environment.Plugin = { resources = {} }
     for _, key in ipairs({
         "no",
+        "yes",
         "melee",
         "ranged",
         "magic",
@@ -324,7 +385,31 @@ function fixture.new(root, saved)
     }) do
         environment.Plugin.resources["stat_" .. key] = "test:" .. key
     end
+    context.logic = {}
+    function context:tick(count)
+        for _ = 1, count or 1 do
+            for _, callback in pairs(self.logic) do
+                callback()
+            end
+        end
+    end
     environment.Event = {
+        Logic = {
+            Subscribe = function(key, callback)
+                context.logic[key] = callback
+            end,
+            Unsubscribe = function(key)
+                context.logic[key] = nil
+            end,
+        },
+        ContentLayerReady = {
+            Subscribe = function(_, callback)
+                context.on_content_ready = callback
+            end,
+            Unsubscribe = function()
+                context.on_content_ready = nil
+            end,
+        },
         SettingsLayerReady = {
             Subscribe = function(_, callback)
                 context.on_settings_ready = callback
@@ -414,12 +499,17 @@ function fixture.new(root, saved)
             new = function(parent, text, action, options)
                 local button = { root = native_component(parent), content = { content = text } }
                 button.root:SetPos(options.x, options.y)
-                button.root:SetSize(options.width, options.height)
+                button.root:SetSize(options.width or #text * 8 + 24, options.height or 24)
                 button.action = action
 
                 function button:Destroy()
                     self.root:Destroy()
                 end
+                function button:SetDisabled(value)
+                    self.disabled = value
+                end
+                button.disabled = options.disabled == true
+                button.options = options
 
                 context.simple_buttons[#context.simple_buttons + 1] = button
                 return button
@@ -480,6 +570,11 @@ function fixture.new(root, saved)
             end,
         },
     }
+    context.environment = environment
+    context.load_module = load_module
+    context.stub_module = function(path, value)
+        modules[path] = value
+    end
     context.subject = load_module("src/ui/monster_window")
     context.settings_panel = load_module("src/ui/settings_panel")
     context.info_view = load_module("src/ui/monster_info_view")

@@ -17,9 +17,17 @@ local create_drop_search_suite = require("tests/drop_search_spec")
 local create_drop_notes_suite = require("tests/drop_notes_spec")
 local create_drop_table_suite = require("tests/drop_table_spec")
 local create_lookup_suite = require("tests/wiki_lookup_spec")
+local create_locations_suite = require("tests/monster_locations_spec")
+local create_locations_view_suite = require("tests/locations_view_spec")
+local create_monster_search_suite = require("tests/monster_search_spec")
+local create_search_ui_suite = require("tests/search_ui_spec")
 local runner = lu.LuaUnit.new()
 
 runner:runSuiteByInstances({
+    { "TestMonsterSearch", create_monster_search_suite(root) },
+    { "TestSearchUI", create_search_ui_suite(root) },
+    { "TestMonsterLocations", create_locations_suite(root) },
+    { "TestLocationsView", create_locations_view_suite(root) },
     { "TestWikiLookup", create_lookup_suite(root) },
     { "TestDropNotes", create_drop_notes_suite(root) },
     { "TestDropTable", create_drop_table_suite(root) },

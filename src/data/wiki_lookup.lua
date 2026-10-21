@@ -7,10 +7,12 @@
 --   3. look up item ids for the drops in batches so the table can show item icons
 --      (skipped when the page has no drops)
 
+local clock = require("src/utils/cache_clock")
 local http = require("src/data/wiki_http")
 local queries = require("src/data/wiki_queries")
 local parser = require("src/data/wiki_page")
 local wiki_response = require("src/data/wiki_response")
+local monster_locations = require("src/data/monster_locations")
 
 ---@class MonsterResult
 ---@field title string wiki page title
@@ -18,6 +20,8 @@ local wiki_response = require("src/data/wiki_response")
 ---@field variants table[] infobox values for every variant on the page
 ---@field sections DropSection[] empty when the page has no drops that can be showed
 ---@field no_drops "none"|"unreadable"|nil why sections is empty, nil when it isnt
+---@field locations MonsterLocation[]? nil only for saved lookups from older versions
+---@field no_locations "none"|"unreadable"|nil why locations is empty
 
 local lookup = {}
 
@@ -155,6 +159,7 @@ local function request_page(result, on_complete)
         end
 
         result.sections = sections
+        result.locations, result.no_locations = monster_locations.parse(html)
 
         -- plenty of monsters just dont drop anything. thats still a
         -- good result, the Monster info tab has stats to show and the drops tab says why its
@@ -203,7 +208,24 @@ end
 ---@param on_complete fun(result: MonsterResult?, problem: string?)
 function lookup.fetch(monster, on_complete)
     http.cancel()
-    resolve_monster(monster, "id", monster.npc_id, true, on_complete)
+    if monster.wiki_title then
+        resolve_monster(monster, "page_name", monster.wiki_title, false, on_complete)
+    else
+        resolve_monster(monster, "id", monster.npc_id, true, on_complete)
+    end
+end
+
+function lookup.synchronize_clock(on_complete)
+    http.cancel()
+    http.get(queries.time(), function(response, problem)
+        if not response then
+            on_complete(false, problem)
+        elseif clock.synchronize(response.curtimestamp) then
+            on_complete(true)
+        else
+            on_complete(false, "The Wiki did not return a valid time for checking saved data.")
+        end
+    end)
 end
 
 lookup.cancel = http.cancel

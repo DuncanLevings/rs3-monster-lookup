@@ -65,7 +65,7 @@ return function(root)
 
     function suite:test_closing_the_window_runs_the_close_action()
         local closed = 0
-        self.context.subject.open({ name = "Goblin" }, function() end, function()
+        self.context.subject.open({ name = "Goblin" }, function()
             closed = closed + 1
         end)
 
@@ -266,11 +266,13 @@ return function(root)
         self.context.subject.show_result(self.context.sample)
         local rate = self.context.sample.sections[1].drops[1].rate
 
-        lu.assertNil(self.context.tabs:GetPage(3))
+        lu.assertEquals(self.context.tabs.entries[3].text, "Locations")
+        lu.assertNil(self.context.tabs:GetPage(4))
         lu.assertEquals(#self.context.radio_controls, 0)
         self.context.settings_panel.start(self.context.subject.refresh_settings)
         self.context.on_settings_ready({ component = self.context.parent })
-        lu.assertEquals(self.context.radio_controls[1].options.selectedValue, 60)
+        self.context.dropdowns[#self.context.dropdowns]:pick(1)
+        lu.assertEquals(#self.context.radio_controls, 1)
         self.context.checkbox_controls[1].options.onChange(nil, nil, nil, true)
 
         local found_percentage = false
@@ -291,45 +293,36 @@ return function(root)
     function suite:test_hub_settings_can_open_without_a_monster_and_clean_up_on_remount_and_stop()
         self.context.settings_panel.start(self.context.subject.refresh_settings)
         self.context.on_settings_ready({ component = self.context.parent })
-        local first = self.context.settings_views[1]
+        self.context.dropdowns[#self.context.dropdowns]:pick(1)
+        local first = self.context.settings_views[#self.context.settings_views]
 
         lu.assertEquals(#self.context.windows, 0)
         lu.assertEquals(first.options.widthAnchor, 1)
         lu.assertEquals(first.options.heightAnchor, 1)
         self.context.checkbox_controls[1].options.onChange(nil, nil, nil, true)
-        self.context.radio_controls[1].options.onChange(nil, 360)
-        lu.assertEquals(self.context.radio_controls[2].options.selectedValue, "default")
-        self.context.radio_controls[2].options.onChange(nil, "purple")
+        lu.assertEquals(self.context.radio_controls[1].options.selectedValue, "default")
+        self.context.radio_controls[1].options.onChange(nil, "purple")
         self.context.on_settings_ready({ component = self.context.parent })
+        self.context.dropdowns[#self.context.dropdowns]:pick(1)
 
-        -- two radio groups per mount: refresh interval then View drops colour
         lu.assertTrue(first.root.destroyed)
-        lu.assertEquals(self.context.radio_controls[3].options.selectedValue, 360)
-        lu.assertEquals(self.context.radio_controls[4].options.selectedValue, "purple")
+        lu.assertEquals(self.context.radio_controls[2].options.selectedValue, "purple")
         lu.assertTrue(self.context.checkbox_controls[2].entries[1].selected)
         self.context.settings_panel.stop()
 
-        lu.assertTrue(self.context.settings_views[2].root.destroyed)
+        lu.assertTrue(self.context.settings_views[#self.context.settings_views].root.destroyed)
         lu.assertNil(self.context.on_settings_ready)
     end
 
-    function suite:test_refresh_control_requests_an_update_and_shows_saved_data_on_failure()
-        local refreshes = 0
-        self.context.subject.open(self.monster, function()
-            refreshes = refreshes + 1
-        end)
+    function suite:test_saved_data_warning_remains_without_a_refresh_button()
+        self.context.subject.open(self.monster)
         self.context.subject.show_result(
             self.context.sample,
             "Wiki unavailable",
             { saved_at = 1, stale = true }
         )
-        local refresh = self.context.simple_buttons[2]
-
-        lu.assertEquals(refresh.content.content, "Refresh")
-        refresh.action()
-        lu.assertEquals(refreshes, 1)
-
         local found_warning = false
+
         for _, label in ipairs(self.context.texts) do
             if
                 type(label.content) == "string"
@@ -340,9 +333,10 @@ return function(root)
         end
 
         lu.assertTrue(found_warning)
-        lu.assertNil(self.context.section_buttons[1].root.destroyed)
-        self.context.subject.open({ name = "Cow" })
-        lu.assertTrue(refresh.root.destroyed)
+
+        for _, button in ipairs(self.context.simple_buttons) do
+            lu.assertNotEquals(button.content.content, "Refresh")
+        end
     end
 
     function suite:test_wheel_over_a_category_scrolls_the_page_once()
@@ -504,20 +498,24 @@ return function(root)
             found[text.content] = true
         end
 
+        for _, button in ipairs(self.context.section_buttons) do
+            found[button.title] = true
+        end
+
         for _, title in ipairs({
             "Combat info",
             "Offensive stats",
             "Defensive stats",
             "Base hit chance",
-            "Immunities",
         }) do
             lu.assertTrue(found[title])
         end
 
+        lu.assertNil(found.Immunities)
         lu.assertTrue(found.Air)
         lu.assertTrue(found["Not immune"])
         lu.assertEquals(self.context.panels, 0)
-        lu.assertTrue(self.context.tabs:GetPage(2).content_height > 300)
+        lu.assertTrue(self.context.tabs:GetPage(2).content_height > 100)
         lu.assertEquals(#self.context.dropdowns, 0)
     end
 
@@ -536,9 +534,28 @@ return function(root)
             lu.assertNotEquals(label.content, "This examine text should not be repeated.")
         end
 
-        local tooltip = self.context.tooltips[1]
-        lu.assertEquals(tooltip.options.text, "Melee")
-        lu.assertEquals(tooltip.component.sprite, "test:melee")
+        local tooltip
+
+        for _, candidate in ipairs(self.context.tooltips) do
+            if candidate.options.text == "Poison: Unknown" then
+                tooltip = candidate
+            end
+        end
+
+        lu.assertNotNil(tooltip)
+        lu.assertEquals(tooltip.options.text, "Poison: Unknown")
+        lu.assertEquals(tooltip.component.sprite, "test:poison")
+        local poison_label
+
+        for _, label in ipairs(self.context.texts) do
+            if label.content == "Poison" and label.parent == tooltip.component.parent then
+                poison_label = label
+            end
+        end
+
+        lu.assertNotNil(poison_label)
+        lu.assertFalse(poison_label.hidden)
+        lu.assertTrue(poison_label.x + poison_label.width <= tooltip.component.x)
         tooltip.component.xyGlobal = { x = 650, y = 900 }
         self.context.parent.xyGlobal = { x = 40, y = 25 }
         local page = self.context.tabs:GetPage(2)
@@ -557,6 +574,47 @@ return function(root)
         lu.assertTrue(tooltip.root.hidden)
         self.context.subject.open({ name = "Cow" })
         lu.assertTrue(tooltip.destroyed)
+    end
+
+    function suite:test_weakness_icon_is_centred_when_susceptibility_values_wrap()
+        self.context.subject.open(self.monster)
+        self.context.subject.show_result({
+            title = "Abyssal demon",
+            sections = {},
+            info = {
+                weakness_text = { "slash" },
+                susceptible_to = { "inquisitor", "Abyssal Bane", "Demon Slayer" },
+            },
+        })
+
+        for _, tooltip in ipairs(self.context.tooltips) do
+            if tooltip.component.sprite == "test:weak_slash" then
+                local icon = tooltip.component
+                lu.assertTrue(icon.parent.height > 24)
+                lu.assertEquals(icon.y, math.floor((icon.parent.height - icon.height) / 2))
+                return
+            end
+        end
+
+        lu.fail("Missing weakness icon")
+    end
+
+    function suite:test_positive_flags_use_checkmarks_with_descriptive_tooltips()
+        self.context.subject.open(self.monster)
+        self.context.subject.show_result({
+            title = "Bloodveld",
+            sections = {},
+            info = { is_aggressive = true },
+        })
+        local descriptions = {}
+
+        for _, tooltip in ipairs(self.context.tooltips) do
+            if tooltip.component.sprite == "test:yes" then
+                descriptions[#descriptions + 1] = tooltip.options.text
+            end
+        end
+
+        lu.assertEquals(descriptions, { "Aggressive: Yes" })
     end
 
     function suite:test_negative_combat_flags_use_crosses_while_unknown_flags_remain_text()
@@ -710,6 +768,159 @@ return function(root)
         })
 
         lu.assertEquals(passes, 2)
+    end
+
+    function suite:test_settings_refreshes_only_the_selected_cached_npc()
+        local result = { title = "Guard", info = {}, sections = {}, no_drops = "none" }
+        self.context.cache.put({ npc_id = 1, name = "Guard" }, result)
+        self.context.cache.put({ npc_id = 2, name = "Guard" }, result)
+        local selected
+        self.context.settings_panel.start(function() end, function(monster)
+            selected = monster
+        end)
+        self.context.on_settings_ready({ component = self.context.parent })
+        self.context.dropdowns[#self.context.dropdowns]:pick(1)
+        self.context.text_fields[#self.context.text_fields]:SetText("guard", true)
+        self.context:tick(30)
+        lu.assertEquals(#self.context.combos, 0)
+        local refresh_button = self.context.simple_buttons[#self.context.simple_buttons]
+        lu.assertStrContains(refresh_button.text, "Guard")
+        refresh_button.action()
+        refresh_button.action()
+        lu.assertEquals(selected, { npc_id = 2, name = "Guard" })
+        self.context.settings_panel.stop()
+    end
+
+    function suite:test_details_group_collapses_and_keeps_the_choice_when_switching_variant()
+        local first = { version_anchor = "First", life_points = 900 }
+        local second = { version_anchor = "Second", life_points = 1000 }
+        self.context.subject.open(self.monster)
+        self.context.subject.show_result({
+            title = "Guard",
+            sections = {},
+            info = first,
+            variants = { first, second },
+        })
+        local combat
+
+        for _, button in ipairs(self.context.section_buttons) do
+            if button.title == "Detailed stats" then
+                combat = button
+            end
+        end
+
+        lu.assertNotNil(combat)
+        lu.assertFalse(combat.expanded)
+        local page = self.context.tabs:GetPage(2)
+        local collapsed_height = page.content_height
+        combat:SetExpanded(true)
+        lu.assertTrue(page.content_height > collapsed_height)
+        self.context.dropdowns[1]:pick(2)
+        local last_combat
+
+        for _, button in ipairs(self.context.section_buttons) do
+            if button.title == "Detailed stats" then
+                last_combat = button
+            end
+        end
+
+        lu.assertTrue(last_combat.expanded)
+    end
+
+    function suite:test_overview_has_one_details_toggle_and_keeps_common_values_visible()
+        self.context.subject.open(self.monster)
+        self.context.subject.show_result({
+            title = "Guard",
+            sections = {},
+            info = {
+                weakness_text = { "air" },
+                is_aggressive = false,
+                is_poisonous = false,
+                slayer_level = 1,
+                slayer_experience = 19,
+                susceptible_to_poison = true,
+            },
+        })
+        lu.assertEquals(#self.context.section_buttons, 2)
+        lu.assertEquals(self.context.section_buttons[1].title, "Slayer")
+        lu.assertTrue(self.context.section_buttons[1].expanded)
+        lu.assertEquals(self.context.section_buttons[2].title, "Detailed stats")
+        lu.assertFalse(self.context.section_buttons[2].expanded)
+        local page = self.context.tabs:GetPage(2)
+        lu.assertTrue(page.content_height < 320)
+        local air
+
+        for _, text in ipairs(self.context.texts) do
+            if text.content == "Air" then
+                air = text
+            end
+        end
+
+        lu.assertNotNil(air)
+        lu.assertFalse(air.hidden)
+        lu.assertTrue(air.x > 160)
+        lu.assertTrue(air.width > 0)
+        self.context.section_buttons[2]:SetExpanded(true)
+        lu.assertTrue(page.content_height > 320)
+    end
+
+    function suite:test_slayer_and_dungeon_share_one_toggle_and_keep_it_across_variants()
+        local first = { version_anchor = "First", life_points = 100, slayer_level = 85 }
+        local second = { version_anchor = "Second", life_points = 200, slayer_level = 85 }
+        self.context.subject.open(self.monster)
+        self.context.subject.show_result({
+            title = "Abyssal demon",
+            sections = {},
+            info = first,
+            variants = { first, second },
+        })
+        local slayer = self.context.section_buttons[1]
+        lu.assertEquals(slayer.title, "Slayer")
+        lu.assertTrue(slayer.expanded)
+        local page = self.context.tabs:GetPage(2)
+        local expanded_height = page.content_height
+        slayer:SetExpanded(false)
+        lu.assertTrue(page.content_height < expanded_height)
+        self.context.dropdowns[1]:pick(2)
+        local latest
+        for _, button in ipairs(self.context.section_buttons) do
+            if button.title == "Slayer" then
+                latest = button
+            end
+        end
+        lu.assertFalse(latest.expanded)
+        latest:SetExpanded(true)
+        lu.assertTrue(page.content_height > expanded_height - 30)
+    end
+
+    function suite:test_info_group_choices_carry_over_to_another_monster()
+        local function group(title)
+            local found
+            for _, button in ipairs(self.context.section_buttons) do
+                if button.title == title then
+                    found = button
+                end
+            end
+            return found
+        end
+        self.context.subject.open(self.monster)
+        self.context.subject.show_result({
+            title = "Goblin",
+            sections = {},
+            info = { life_points = 100, slayer_level = 1 },
+        })
+        group("Slayer"):SetExpanded(false)
+        group("Detailed stats"):SetExpanded(true)
+        self.context.subject.open({ name = "Guard" })
+        self.context.subject.show_result({
+            title = "Guard",
+            sections = {},
+            info = { life_points = 200, slayer_level = 1 },
+        })
+        lu.assertFalse(group("Slayer").expanded)
+        lu.assertTrue(group("Detailed stats").expanded)
+        lu.assertFalse(self.context.storage.monster_lookup_settings.slayer_expanded)
+        lu.assertTrue(self.context.storage.monster_lookup_settings.detailed_stats_expanded)
     end
 
     return suite
