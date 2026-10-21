@@ -203,8 +203,8 @@ return function(root)
         self.requests[1].complete(self.result)
 
         lu.assertEquals(#self.requests, 1)
-        lu.assertFalse(self.results[2].metadata.stale)
-        lu.assertEquals(self.results[2].metadata.saved_at, self.now)
+        lu.assertFalse(self.results[1].metadata.stale)
+        lu.assertEquals(self.results[1].metadata.saved_at, self.now)
         lu.assertEquals(self.cache.get(self.monster, 60).sections[1].drops[1].price, 100)
     end
 
@@ -654,10 +654,12 @@ return function(root)
         lu.assertEquals(#self.requests, 2)
     end
 
-    function suite:test_cancelled_manual_refresh_is_limited_but_other_entries_and_cached_reads_work()
+    function suite:test_cancelled_manual_refresh_erases_payloads_and_keeps_family_cooldown()
         self.cache.put(self.monster, self.result)
         local other = { name = "Guard", npc_id = 2 }
-        self.cache.put(other, self.result)
+        local other_result = self.json.decode(self.json.encode(self.result))
+        other_result.title = "Guard"
+        self.cache.put(other, other_result)
         self.service.fetch(self.monster, self.complete, true)
         self.service.cancel()
         self:reload()
@@ -666,8 +668,10 @@ return function(root)
         self.service.fetch(other, self.complete, true)
         lu.assertEquals(#self.requests, 2)
         self.service.fetch(self.monster, self.complete)
-        lu.assertEquals(#self.requests, 2)
-        lu.assertNil(self.results[#self.results].problem)
+        lu.assertEquals(#self.requests, 3)
+        lu.assertNil(self.cache.get(self.monster, 60))
+        self.requests[3].complete(self.result)
+        lu.assertNotNil(self.cache.get(self.monster, 60))
     end
 
     function suite:test_clockless_manual_attempt_is_limited_in_session_and_checks_time_after_reload()
@@ -693,6 +697,129 @@ return function(root)
         self:reload()
         lu.assertTrue(self.settings.get().slayer_expanded)
         lu.assertTrue(self.settings.get().detailed_stats_expanded)
+    end
+
+    function suite:test_optional_map_metadata_survives_reload_without_changing_legacy_entries()
+        self.result.locations = {
+            {
+                name = "Varrock",
+                levels = "10",
+                requirements = "None",
+                spawns = "3",
+                map = { id = 28, plane = 1, x = 3225, z = 3439 },
+            },
+        }
+        self.result.no_locations = nil
+        self.cache.put(self.monster, self.result)
+        self:reload()
+        lu.assertEquals(
+            self.cache.get(self.monster, 60).locations[1].map,
+            self.result.locations[1].map
+        )
+        self.result.locations[1].map.plane = 9
+        lu.assertNil(self.cache.put(self.monster, self.result))
+        lu.assertEquals(self.cache.get(self.monster, 60).locations[1].map.plane, 1)
+    end
+
+    function suite:test_manual_refresh_erases_all_matching_variants_and_fetches_only_the_selection()
+        local variants = {
+            { name = "General Graardor", npc_id = 6260 },
+            { name = "General Graardor", npc_id = 6261 },
+            { name = "General Graardor (Hard mode)", wiki_title = "General Graardor (Hard mode)" },
+        }
+        for _, monster in ipairs(variants) do
+            local result = self.json.decode(self.json.encode(self.result))
+            result.title = monster.wiki_title or monster.name
+            self.cache.put(monster, result)
+        end
+        local unrelated = { name = "General Graardor guard", npc_id = 99 }
+        local other_result = self.json.decode(self.json.encode(self.result))
+        other_result.title = unrelated.name
+        self.cache.put(unrelated, other_result)
+        self.service.fetch(variants[1], self.complete, true)
+        lu.assertEquals(#self.requests, 1)
+        lu.assertEquals(self.requests[1].monster, variants[1])
+        lu.assertEquals(#self.results, 0) -- Settings waits for completion, not a cached preview.
+        for _, monster in ipairs(variants) do
+            lu.assertNil(self.cache.get(monster, 20160))
+            lu.assertEquals(self.cache.manual_refresh_remaining(monster), 3600)
+        end
+        lu.assertNotNil(self.cache.get(unrelated, 20160))
+        lu.assertEquals(self.cache.manual_refresh_remaining(unrelated), 0)
+        local updated = self.json.decode(self.json.encode(self.result))
+        updated.title = "General Graardor"
+        self.requests[1].complete(updated)
+        self:reload()
+        lu.assertNotNil(self.cache.get(variants[1], 20160))
+        lu.assertNil(self.cache.get(variants[2], 20160))
+        lu.assertNil(self.cache.get(variants[3], 20160))
+        lu.assertEquals(#self.cache.list(), 2)
+        lu.assertEquals(self.cache.manual_refresh_remaining(variants[3]), 3600)
+    end
+
+    function suite:test_family_erasure_deletes_payload_chunks_without_decoding_other_variants()
+        self.cache.put(self.monster, self.result)
+        local page = { name = "Goblin (Lumbridge)", wiki_title = "Goblin (Lumbridge)" }
+        self.cache.put(page, self.result)
+        local decoded = 0
+        local decode = self.json.decode
+        self.json.decode = function(...)
+            decoded = decoded + 1
+            return decode(...)
+        end
+        self.cache.begin_manual_refresh(self.monster)
+        lu.assertEquals(self.cache.invalidate_family(self.monster), 2)
+        lu.assertEquals(decoded, 0)
+        for key, value in pairs(self.storage) do
+            if key:match("^monster_lookup_cache_%d+_%d+$") then
+                lu.fail("Invalidated payload still stored at " .. key .. ": " .. type(value))
+            end
+        end
+        self:reload()
+        lu.assertEquals(self.cache.list(), {})
+        lu.assertNil(self.cache.get(page, 20160))
+        lu.assertEquals(self.cache.manual_refresh_remaining(page), 3600)
+    end
+
+    function suite:test_failed_group_refresh_does_not_restore_erased_variants_after_reload()
+        self.cache.put(self.monster, self.result)
+        local other = { name = "Goblin (Lumbridge)", wiki_title = "Goblin (Lumbridge)" }
+        self.cache.put(other, self.result)
+        self.service.fetch(self.monster, self.complete, true)
+        self.requests[1].complete(nil, "Wiki unavailable")
+        lu.assertNil(self.results[#self.results].result)
+        self:reload()
+        lu.assertNil(self.cache.get(self.monster, 20160))
+        lu.assertNil(self.cache.get(other, 20160))
+        lu.assertEquals(self.cache.manual_refresh_remaining(other), 3600)
+        self.now = nil
+        self.service.fetch(other, self.complete, true)
+        lu.assertEquals(self.time_checks, 1)
+        lu.assertEquals(#self.requests, 1)
+    end
+
+    function suite:test_settings_refresh_completion_survives_a_foreground_view_joining_it()
+        self.cache.put(self.monster, self.result)
+        local settings_messages, window_messages = {}, {}
+        self.service.fetch(self.monster, function(result, problem)
+            settings_messages[#settings_messages + 1] = { result = result, problem = problem }
+        end, true)
+        self.service.fetch(self.monster, function(result)
+            window_messages[#window_messages + 1] = result
+        end)
+        self.requests[1].complete(self.result)
+        lu.assertEquals(#self.requests, 1)
+        lu.assertEquals(settings_messages[1].result, self.result)
+        lu.assertEquals(window_messages, { self.result })
+    end
+
+    function suite:test_superseding_a_settings_refresh_reports_cancellation_and_ignores_its_result()
+        self.cache.put(self.monster, self.result)
+        self.service.fetch(self.monster, self.complete, true)
+        self.service.fetch({ name = "Guard", npc_id = 2 }, function() end)
+        lu.assertEquals(self.results[1].problem, "Refresh cancelled.")
+        self.requests[1].complete(self.result)
+        lu.assertNil(self.cache.get(self.monster, 20160))
     end
 
     return suite

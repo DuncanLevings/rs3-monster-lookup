@@ -140,5 +140,20 @@ return function(root)
         end
     end
 
+    function suite:test_map_metadata_stays_in_its_own_coordinate_space()
+        local html = "<h2>Locations</h2><table><tr><th>Location</th><th>Levels</th><th>Requirements</th><th>Spawns</th><th>Map</th></tr>"
+            .. '<tr><td>Varrock</td><td>10</td><td>None</td><td>3</td><td><a class="mw-kartographer-maplink" data-mapid="28" data-plane="1" data-lon="3225" data-lat="3439">Show map</a></td></tr>'
+            .. '<tr><td>Tarn</td><td>10</td><td>None</td><td>3</td><td><a class="mw-kartographer-maplink" data-mapid="30" data-plane="0" data-lon="109" data-lat="39">Show map</a></td></tr></table>'
+        local rows = locations.parse(html)
+        lu.assertEquals(rows[1].map, { id = 28, plane = 1, x = 3225, z = 3439 })
+        lu.assertEquals(rows[2].map, { id = 30, plane = 0, x = 109, z = 39 })
+        local target = environment.require("src/data/location_map")
+        lu.assertEquals(target.target(rows[1]), { level = 1, x = 3225, z = 3439 })
+        lu.assertNil(target.target(rows[2]))
+        local invalid = locations.parse(html:gsub('data%-plane="1"', 'data-plane="9"'))
+        lu.assertNil(invalid[1].map)
+        lu.assertEquals(invalid[1].name, "Varrock")
+    end
+
     return suite
 end

@@ -21,9 +21,13 @@ local create_locations_suite = require("tests/monster_locations_spec")
 local create_locations_view_suite = require("tests/locations_view_spec")
 local create_monster_search_suite = require("tests/monster_search_spec")
 local create_search_ui_suite = require("tests/search_ui_spec")
+local create_marker_suite = require("tests/location_marker_spec")
+local create_refresh_app_suite = require("tests/refresh_app_spec")
 local runner = lu.LuaUnit.new()
 
 runner:runSuiteByInstances({
+    { "TestRefreshApp", create_refresh_app_suite(root) },
+    { "TestLocationMarker", create_marker_suite(root) },
     { "TestMonsterSearch", create_monster_search_suite(root) },
     { "TestSearchUI", create_search_ui_suite(root) },
     { "TestMonsterLocations", create_locations_suite(root) },

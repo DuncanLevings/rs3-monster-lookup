@@ -273,5 +273,42 @@ return function(root)
         context.settings_panel.stop()
     end
 
+    function suite:test_settings_refresh_displays_completion_and_ignores_results_after_destruction()
+        local context = self.context
+        context.cache.put({ name = "Goblin", npc_id = 1 }, {
+            title = "Goblin",
+            info = {},
+            sections = {},
+            no_drops = "none",
+        })
+        local finish
+        context.settings_panel.start(function() end, function(_, complete)
+            finish = complete
+        end)
+        context.on_settings_ready({ component = context.parent })
+        context.dropdowns[1]:pick(1)
+        context.text_fields[1]:SetText("gob", true)
+        context:tick(30)
+        context.simple_buttons[#context.simple_buttons].action()
+        local status
+        for _, label in ipairs(context.texts) do
+            if
+                type(label.content) == "string" and label.content:find("Refreshing Goblin", 1, true)
+            then
+                status = label
+            end
+        end
+        lu.assertNotNil(status)
+        finish(true)
+        lu.assertStrContains(status.content, "Refreshed Goblin")
+        lu.assertEquals(#context.windows, 0)
+        finish(false, "Wiki unavailable")
+        lu.assertEquals(status.content, "Wiki unavailable")
+        context.dropdowns[1]:pick(0)
+        finish(true)
+        lu.assertEquals(status.content, "Wiki unavailable")
+        context.settings_panel.stop()
+    end
+
     return suite
 end

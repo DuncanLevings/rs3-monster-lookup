@@ -56,8 +56,9 @@ end
 local function add_cache_refresh(page, on_refresh)
     page:AddTitle("Refresh a saved monster")
     page:AddText(
-        "Saved data refreshes after two weeks when you next open that monster. "
-            .. "Choose a saved monster to fetch its latest Wiki data sooner, including prices. Manual refresh is limited to once per hour for each saved monster."
+        "Data older than two weeks refreshes when opened. "
+            .. "Refresh now to clear matching variants and reload your selection. "
+            .. "One-hour cooldown across variants."
     )
     local monsters = cache.list()
 
@@ -66,12 +67,11 @@ local function add_cache_refresh(page, on_refresh)
         return
     end
 
-    page:AddText("Search by name or location. Small typos, * and ? work here too.")
     return require("src/ui/saved_monster_picker").new(page, on_refresh)
 end
 
 ---@param on_change fun() redraw display settings in the open lookup
----@param on_refresh fun(monster: MonsterSelection)? refresh only the selected saved monster
+---@param on_refresh fun(monster: MonsterSelection, on_complete: fun(ok: boolean, problem: string?))?
 function settings_panel.populate(page, on_change, on_refresh)
     add_controls(page, on_change)
     if on_refresh then

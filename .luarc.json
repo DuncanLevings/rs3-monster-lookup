@@ -18,7 +18,13 @@
     "GameState",
     "HTTPRequest",
     "Plugin",
-    "PluginPermissions"
+    "PluginPermissions",
+    "HintList",
+    "CoordGrid",
+    "CoordFine",
+    "World",
+    "Player",
+    "var"
   ],
   "workspace.checkThirdParty": false,
   "workspace.ignoreDir": [

@@ -10,13 +10,13 @@ Browse items, quantities, drop rates, GE guide prices and notes from the [RuneSc
 
 See weaknesses, behaviour and immunities at a glance. Expand **Slayer** for task and player-owned Slayer Dungeon details, or **Detailed stats** for combat information. Both sections remember your preference. Use the variant selector where available.
 
-The **Locations** tab lists spawn locations, levels, access requirements and spawn counts. Check the levels and requirements for the variant you want; unknown spawn counts are left blank.
+The **Locations** tab lists spawn locations, levels, access requirements and spawn counts. Check the levels and requirements for the variant you want; unknown spawn counts are left blank. Locations can be marked to guide player to exact in game location (assuming requirements are met).
 
 ## Search and settings
 
 Choose **Search monsters** and enter at least three characters. Search supports partial names, small typos, `*` and `?`. Include a location to distinguish variants, such as **Bloodveld God Wars**. Select a result to open its lookup. Search and lookup windows remember their position and size.
 
-Choose **Customize** to change the View drops menu colour, display numeric drop rates as percentages, or refresh a saved monster. Saved data refreshes when opened after two weeks; manual refresh is available once per hour for each saved entry. Saved results remain available when the Wiki cannot be reached. GE prices update with the lookup and may differ from actual trading prices.
+Choose **Customize** to change the View drops menu colour, display numeric drop rates as percentages, or refresh a saved monster. Saved data refreshes when opened after two weeks; manual refresh clears matching variants and fetches the selected monster, with a shared one-hour cooldown. Saved results remain available when the Wiki cannot be reached. GE prices update with the lookup and may differ from actual trading prices.
 
 ## Requirements and data
 

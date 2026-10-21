@@ -2,12 +2,14 @@
 -- header names identify the columns so extra map or league columns cannot shift the data
 
 local text = require("src/utils/wiki_text")
+local location_map = require("src/data/location_map")
 
 ---@class MonsterLocation
 ---@field name string
 ---@field levels string
 ---@field requirements string
 ---@field spawns string
+---@field map table? Wiki map space, not necessarily a game-world target
 
 local locations = {}
 local COLUMNS = {
@@ -140,6 +142,37 @@ local function requirements_text(html)
     return table.concat(lines, "\n")
 end
 
+local function row_map(row)
+    local found
+    for attributes in row:gmatch("<a%s+([^>]*)>") do
+        local classes = " " .. text.attribute(attributes, "class") .. " "
+        if classes:find(" mw-kartographer-maplink ", 1, true) then
+            local map = {
+                id = tonumber(text.attribute(attributes, "data-mapid")),
+                plane = tonumber(text.attribute(attributes, "data-plane")),
+                x = tonumber(text.attribute(attributes, "data-lon")),
+                z = tonumber(text.attribute(attributes, "data-lat")),
+            }
+            if not location_map.valid(map) then
+                return nil
+            end
+            if
+                found
+                and (
+                    found.id ~= map.id
+                    or found.plane ~= map.plane
+                    or found.x ~= map.x
+                    or found.z ~= map.z
+                )
+            then
+                return nil
+            end
+            found = map
+        end
+    end
+    return found
+end
+
 local function parse_row(row, columns)
     local cells = {}
 
@@ -173,6 +206,7 @@ local function parse_row(row, columns)
         end
     end
 
+    result.map = row_map(row)
     return result
 end
 

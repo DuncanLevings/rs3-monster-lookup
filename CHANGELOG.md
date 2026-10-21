@@ -7,8 +7,9 @@
 - Simplify Monster info, with collapsible Slayer and Detailed stats sections that remember your preferences, plus player-owned Slayer Dungeon information.
 - Add boss enrage selection and remember expanded drop categories when switching modes.
 - Keep drop controls visible while scrolling and tuck lengthy explanations behind Notes buttons.
-- Refresh saved lookups after two weeks, with searchable manual refresh in Customize once per hour per saved monster.
+- Refresh saved lookups after two weeks, with searchable manual refresh in Customize that clears matching variants and shares a one-hour cooldown.
 - Improve variant selection, search results and saved-data availability when the Wiki is unreachable.
+- Added map marker location helpers for monsters with in game visual queue to guide player.
 
 ## 0.0.1
 

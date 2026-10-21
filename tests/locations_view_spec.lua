@@ -63,7 +63,7 @@ return function(root)
             lu.assertNotNil(text_in(self.context, root, text))
         end
         lu.assertNil(text_in(self.context, root, "Members"))
-        lu.assertNil(text_in(self.context, root, "Map"))
+        lu.assertNotNil(text_in(self.context, root, "Map"))
     end
 
     function suite:test_rows_wrap_on_resize_and_only_remeasure_when_width_changes()
@@ -132,6 +132,59 @@ return function(root)
         lu.assertNil(text_in(self.context, root, "? edit"))
         lu.assertNotNil(text_in(self.context, root, ""))
         lu.assertNotNil(text_in(self.context, root, "12"))
+    end
+
+    function suite:test_mark_clear_and_browsing_another_monster_use_one_global_destination()
+        local context = self.context
+        require("tests/support/marker_fixture").enable(context)
+        local marker = context.load_module("src/game/location_marker")
+        self.result.locations[1].map = { id = 28, plane = 0, x = 3225, z = 3439 }
+        self.result.locations[2].map = { id = 30, plane = 0, x = 109, z = 39 }
+        context.subject.show_result(self.result)
+        local mark, unsupported, clear
+        for _, button in ipairs(context.simple_buttons) do
+            if button.content.content == "Mark" then
+                if button.disabled then
+                    unsupported = button
+                else
+                    mark = button
+                end
+            elseif button.content.content == "Clear marker" then
+                clear = button
+            end
+        end
+        lu.assertNotNil(mark)
+        lu.assertTrue(unsupported.disabled)
+        lu.assertTrue(clear.disabled)
+        mark.action()
+        lu.assertTrue(marker.has_target())
+        lu.assertFalse(clear.disabled)
+        lu.assertStrContains(marker.status(), "Goblin - Lumbridge")
+        clear.action()
+        lu.assertFalse(marker.has_target())
+        lu.assertTrue(clear.disabled)
+        mark.action()
+        lu.assertTrue(marker.has_target())
+        context.subject.open({ name = "Guard" })
+        lu.assertTrue(marker.has_target())
+        clear.action()
+        lu.assertTrue(marker.has_target()) -- destroyed controls cannot change the active target
+        marker.clear()
+        lu.assertFalse(marker.has_target())
+    end
+
+    function suite:test_clear_marker_uses_the_buttons_fitted_width_for_layout()
+        self.context.subject.show_result(self.result)
+        local clear
+        for _, button in ipairs(self.context.simple_buttons) do
+            if button.content.content == "Clear marker" then
+                clear = button
+            end
+        end
+        lu.assertNotNil(clear)
+        lu.assertNil(clear.options.width)
+        lu.assertEquals(clear.root.x, -clear.root.width - 8)
+        lu.assertEquals(clear.root.x_anchor, 1)
     end
 
     return suite

@@ -1,16 +1,18 @@
--- a compact, read-only table of Wiki spawn locations, with rows tall enough for access notes
+-- Wiki spawn locations with optional native markers; wrapped access notes set row height.
 
 local text_layout = require("src/ui/text_layout")
 local wiki_text = require("src/utils/wiki_text")
 local widgets = require("src/ui/widgets")
 local theme = require("src/ui/theme")
+local marker = require("src/game/location_marker")
 
 local locations_view = {}
 local COLUMNS = {
-    { key = "name", title = "Location", width = 0.35 },
-    { key = "levels", title = "Levels", width = 0.12 },
-    { key = "requirements", title = "Access requirements", width = 0.41 },
-    { key = "spawns", title = "Spawns", width = 0.12 },
+    { key = "name", title = "Location", width = 0.30 },
+    { key = "levels", title = "Levels", width = 0.10 },
+    { key = "requirements", title = "Access requirements", width = 0.36 },
+    { key = "spawns", title = "Spawns", width = 0.10 },
+    { key = "map", title = "Map", width = 0.14 },
 }
 
 local function create_text(parent, value, small)
@@ -27,15 +29,15 @@ local function create_text(parent, value, small)
     return label
 end
 
-local function create_row(parent, location, index)
-    local row = { root = widgets.layer(parent, 30), cells = {} }
+local function create_row(controller, location, index)
+    local row = { root = widgets.layer(controller.root, 30), cells = {} }
     widgets.background(row.root, location and theme.row_colour(index) or theme.COLUMN_HEADER)
 
     for _, column in ipairs(COLUMNS) do
         local value = column.title
 
         if location then
-            value = location[column.key]
+            value = column.key == "map" and "" or location[column.key]
             if column.key == "spawns" then
                 value = tostring(value or ""):match("^%s*(%d+)%s*$") or ""
             end
@@ -45,6 +47,23 @@ local function create_row(parent, location, index)
             value = value,
             width = column.width,
         }
+    end
+
+    if location then
+        local reason = marker.reason(location)
+        row.button = prettyui.SimpleButton.new(row.root, "Mark", function()
+            if controller.destroyed then
+                return
+            end
+            local ok, problem = marker.mark(location, wiki_text.plain(controller.source_title))
+            controller.problem = not ok and problem or nil
+            controller.update_status()
+        end, { width = 54, height = 24, disabled = reason ~= nil, tooltip = reason })
+        widgets.forward_wheel(
+            row.button.root,
+            "monster_lookup_location_mark_wheel",
+            controller.page
+        )
     end
 
     return row
@@ -64,6 +83,13 @@ local function layout_row(row, width, y)
 
     for _, cell in ipairs(row.cells) do
         cell.label:SetHeight(height - 4)
+    end
+
+    if row.button then
+        row.button.root:SetPos(
+            width - math.floor(width * COLUMNS[5].width) + 8,
+            math.floor((height - 24) / 2)
+        )
     end
 
     row.root:SetPos(0, y)
@@ -95,6 +121,24 @@ local function layout(controller)
 
         controller.measured_width = width
         local y = 8
+        if controller.marker_status then
+            local clear_width = controller.clear_button.root.width
+            local status_width = math.max(1, width - clear_width - 24)
+            local status_height = math.max(
+                30,
+                text_layout.height(
+                    controller.status_text,
+                    status_width,
+                    config.Font.MUSEO_SANS_11PT_REGULAR,
+                    16
+                )
+            )
+            controller.marker_status:SetPos(8, 4)
+            controller.marker_status:SetSize(status_width, status_height)
+            controller.clear_button.root:SetPos(-clear_width - 8, 4, 1, 0)
+            controller.toolbar:SetHeight(status_height + 8)
+            y = y + status_height + 12
+        end
 
         for _, row in ipairs(controller.rows) do
             y = y + layout_row(row, width, y)
@@ -115,16 +159,52 @@ function locations_view.render(page, result)
         { page = page, root = widgets.layer(page.content, 1), rows = {}, building = true }
     local rows = result.locations or {}
 
+    controller.source_title = result.title
+    controller.update_status = function()
+        if controller.destroyed or not controller.marker_status then
+            return
+        end
+        controller.status_text = controller.problem or marker.status()
+        controller.marker_status.content = controller.status_text
+        controller.clear_button:SetDisabled(not marker.has_target())
+        controller.measured_width = nil
+        layout(controller)
+    end
+
     if #rows > 0 then
-        controller.rows[1] = create_row(controller.root, nil, 0)
+        controller.toolbar = widgets.layer(controller.root, 1)
+        controller.marker_status = create_text(controller.toolbar, "", true)
+        controller.clear_button = prettyui.SimpleButton.new(
+            controller.toolbar,
+            "Clear marker",
+            function()
+                if controller.destroyed then
+                    return
+                end
+                controller.problem = nil
+                marker.clear()
+            end,
+            { height = 24 }
+        )
+        widgets.forward_wheel(
+            controller.clear_button.root,
+            "monster_lookup_location_clear_wheel",
+            page
+        )
+        controller.unsubscribe = marker.subscribe(function()
+            controller.problem = nil
+            controller.update_status()
+        end)
+        controller.update_status()
+        controller.rows[1] = create_row(controller, nil, 0)
 
         for index, location in ipairs(rows) do
-            controller.rows[#controller.rows + 1] = create_row(controller.root, location, index)
+            controller.rows[#controller.rows + 1] = create_row(controller, location, index)
         end
 
         controller.note = "Source: RuneScape Wiki - "
             .. wiki_text.plain(result.title)
-            .. ". Locations cover the variants listed on that page; check levels and access requirements. Floors are numbered from 1 (ground floor)."
+            .. ". Locations cover the variants listed on that page; check levels and access requirements."
     else
         controller.note = empty_message(result)
     end
@@ -139,6 +219,17 @@ function locations_view.render(page, result)
     return {
         destroy = function()
             controller.destroyed = true
+            if controller.unsubscribe then
+                controller.unsubscribe()
+            end
+            if controller.clear_button then
+                controller.clear_button:Destroy()
+            end
+            for _, row in ipairs(controller.rows) do
+                if row.button then
+                    row.button:Destroy()
+                end
+            end
             controller.root:Destroy()
         end,
     }

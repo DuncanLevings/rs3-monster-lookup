@@ -11,6 +11,7 @@ function picker.new(page, on_refresh)
     local model
     local destroyed = false
     local field, status
+    local refresh_generation = 0
 
     local function clear_results()
         for _, button in ipairs(buttons) do
@@ -37,8 +38,21 @@ function picker.new(page, on_refresh)
 
         if monster then
             clear_results()
-            status.content = "Refresh requested. Search to select another saved monster."
-            on_refresh(monster)
+            refresh_generation = refresh_generation + 1
+            local request_generation = refresh_generation
+            status.content = "Refreshing " .. result.label .. "..."
+            on_refresh(monster, function(ok, problem)
+                if destroyed or request_generation ~= refresh_generation then
+                    return
+                end
+                if ok then
+                    status.content = "Refreshed "
+                        .. result.label
+                        .. ". Other saved variants were cleared."
+                else
+                    status.content = problem or "Could not refresh this monster."
+                end
+            end)
         end
     end
 

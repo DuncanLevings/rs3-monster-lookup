@@ -14,6 +14,7 @@
 local identity = require("src/utils/monster_identity")
 local json = require("src/utils/json")
 local clock = require("src/utils/cache_clock")
+local location_map = require("src/data/location_map")
 
 ---@class CacheMetadata
 ---@field saved_at number? UTC seconds when saved, nil for older clockless entries
@@ -126,6 +127,10 @@ local function valid_locations(result)
             end
         end
 
+        if location.map ~= nil and not location_map.valid(location.map) then
+            return false
+        end
+
         count = count + 1
     end
 
@@ -197,7 +202,8 @@ local function valid_entry(entry)
         and is_whole(entry.slot, 1)
         and is_whole(entry.chunks, 1)
         and entry.chunks <= math.ceil(MAX_ENTRY_BYTES / CHUNK_BYTES)
-        and is_whole(entry.bytes, 1)
+        and (entry.invalidated == nil or type(entry.invalidated) == "boolean")
+        and is_whole(entry.bytes, entry.invalidated and 0 or 1)
         and entry.bytes <= MAX_ENTRY_BYTES
         and is_finite(entry.order)
         and entry.order >= 0
@@ -288,6 +294,7 @@ local function persisted_entries()
                 saved_at = entry.saved_at,
                 summary = entry.summary,
                 manual_refresh_at = entry.manual_refresh_at,
+                invalidated = entry.invalidated,
             }
         end
     end
@@ -472,7 +479,7 @@ function cache.list(include_summaries)
     for _, entry in ipairs(entries) do
         local monster = identity.selection(entry.key)
 
-        if monster then
+        if monster and not entry.invalidated then
             if include_summaries and entry.summary then
                 monster.summary = {
                     title = entry.summary.title,
@@ -518,21 +525,35 @@ function cache.describe(monster)
     end
 end
 
--- Record the attempt before HTTP starts: failures and cancelled lookups still count.
--- Session time covers clients without a wall clock; UTC keeps the limit across reloads.
+local function entry_family(entry)
+    local monster = identity.selection(entry.key)
+    return identity.family(
+        entry.summary and entry.summary.title or monster and (monster.wiki_title or monster.name)
+    )
+end
+
+local function selected_family(monster)
+    local key = identity.key(monster)
+    for _, entry in ipairs(entries) do
+        if entry.key == key then
+            return entry_family(entry)
+        end
+    end
+    return identity.family(monster.wiki_title or monster.name)
+end
+
+-- Record the attempt before HTTP starts: failures and cancellations still count.
+-- Matching variants share the limit even after their payloads have been erased.
 function cache.manual_refresh_remaining(monster)
     load()
-    local key = identity.key(monster)
-    local remaining = 0
-    if manual_attempts[key] then
-        remaining = MANUAL_REFRESH_SECONDS - (clock.elapsed() - manual_attempts[key])
-    end
+    local family = selected_family(monster)
+    local attempt = manual_attempts[family]
+    local remaining = attempt and MANUAL_REFRESH_SECONDS - (clock.elapsed() - attempt.elapsed) or 0
     local now = clock.now()
     for _, entry in ipairs(entries) do
-        if entry.key == key and entry.manual_refresh_at and now then
+        if entry_family(entry) == family and entry.manual_refresh_at and now then
             remaining =
                 math.max(remaining, MANUAL_REFRESH_SECONDS - (now - entry.manual_refresh_at))
-            break
         end
     end
     return math.max(0, math.min(MANUAL_REFRESH_SECONDS, math.ceil(remaining)))
@@ -543,16 +564,37 @@ function cache.begin_manual_refresh(monster)
     if remaining > 0 then
         return remaining
     end
-    local key = identity.key(monster)
+    local family = selected_family(monster)
+    manual_attempts[family] = { elapsed = clock.elapsed(), utc = clock.now() }
     for _, entry in ipairs(entries) do
-        if entry.key == key then
-            manual_attempts[key] = clock.elapsed()
+        if entry_family(entry) == family then
             entry.manual_refresh_at = clock.now()
-            save_index()
-            break
         end
     end
+    save_index()
     return 0
+end
+
+function cache.invalidate_family(monster)
+    load()
+    local family = selected_family(monster)
+    local count = 0
+    for _, entry in ipairs(entries) do
+        if entry_family(entry) == family and not entry.invalidated then
+            if entry.slot then
+                pending_deletes[#pending_deletes + 1] = { slot = entry.slot, chunks = entry.chunks }
+            end
+            -- Retain only indexed identity/summary/cooldown metadata. Commit that
+            -- invalidation before deleting chunks, just as for normal replacements.
+            entry.invalidated, entry.bytes, entry.payload = true, 0, nil
+            session_fetches[entry.key] = nil
+            count = count + 1
+        end
+    end
+    if count > 0 then
+        save_index()
+    end
+    return count
 end
 
 ---@param monster MonsterSelection
@@ -566,7 +608,7 @@ function cache.get(monster, refresh_minutes)
     for position = #entries, 1, -1 do
         local entry = entries[position]
 
-        if entry.key == key then
+        if entry.key == key and not entry.invalidated then
             local payload = read_payload(entry)
             local result, reason
 
@@ -613,13 +655,22 @@ function cache.put(monster, result)
 
     local key = identity.key(monster)
     local order = 1
-    local manual_refresh_at
+    local family = identity.family(result.title)
+    local attempt = manual_attempts[family]
+    local manual_refresh_at = attempt and attempt.utc or nil
 
     for position = #entries, 1, -1 do
         order = math.max(order, entries[position].order + 1)
 
+        local previous = entries[position]
+        if entry_family(previous) == family and previous.manual_refresh_at then
+            manual_refresh_at = math.max(manual_refresh_at or 0, previous.manual_refresh_at)
+        end
         if entries[position].key == key then
-            manual_refresh_at = entries[position].manual_refresh_at
+            manual_refresh_at = math.max(manual_refresh_at or 0, previous.manual_refresh_at or 0)
+            if manual_refresh_at == 0 then
+                manual_refresh_at = nil
+            end
             remove_entry(position)
         end
     end

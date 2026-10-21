@@ -33,9 +33,24 @@ local function remember_failure(key, problem)
     failures[key] = { problem = problem, retry_at = now + RETRY_SECONDS }
 end
 
+local function complete_request(request, result, problem, metadata)
+    request.on_complete(result, problem, metadata)
+    if request.foreground_complete then
+        request.foreground_complete(result, problem, metadata)
+    end
+end
+
+local function abandon_active()
+    local previous = active
+    active = nil
+    if previous and previous.force_refresh then
+        previous.on_complete(nil, "Refresh cancelled.", { stale = true })
+    end
+end
+
 function service.cancel()
     generation = generation + 1
-    active = nil
+    abandon_active()
     wiki_lookup.cancel()
 end
 
@@ -49,15 +64,21 @@ local function finish_lookup(request, result, problem)
     if result then
         failures[request.key] = nil
         local saved_at = cache.put(request.monster, result)
-        request.on_complete(result, nil, { saved_at = saved_at, age_seconds = 0, stale = false })
+        complete_request(
+            request,
+            result,
+            nil,
+            { saved_at = saved_at, age_seconds = 0, stale = false }
+        )
     else
         remember_failure(request.key, problem or "The Wiki lookup failed.")
         request.metadata.refreshing = false
-        request.on_complete(request.saved, problem, request.metadata)
+        complete_request(request, request.saved, problem, request.metadata)
     end
 end
 
 local function synchronize_for_lookup(request)
+    request.syncing_clock = true
     -- Establish the current date once per client session, then recheck entry age.
     -- This avoids treating every saved lookup as expired after a plugin reload.
     wiki_lookup.synchronize_clock(function(ok, problem)
@@ -68,11 +89,13 @@ local function synchronize_for_lookup(request)
         active = nil
 
         if ok then
-            service.fetch(request.monster, request.on_complete, request.force_refresh)
+            service.fetch(request.monster, function(result, message, metadata)
+                complete_request(request, result, message, metadata)
+            end, request.force_refresh)
         else
             remember_failure("clock", problem or "Could not check the current Wiki time.")
             request.metadata.refreshing = false
-            request.on_complete(request.saved, problem, request.metadata)
+            complete_request(request, request.saved, problem, request.metadata)
         end
     end)
 end
@@ -99,21 +122,44 @@ end
 ---@param on_complete fun(result: MonsterResult?, problem: string?, metadata: CacheMetadata?)
 ---@param force_refresh boolean? skip fresh saved data, used by settings
 function service.fetch(monster, on_complete, force_refresh)
+    force_refresh = force_refresh == true
     local key = identity.key(monster)
 
     -- A repeated click follows the request already in flight instead of restarting it.
     if active and active.key == key then
-        active.on_complete = on_complete
-
+        if force_refresh and not active.force_refresh then
+            -- The in-flight lookup already fetches fresh data. Promote it instead
+            -- of restarting HTTP; clock synchronization has not started that fetch yet.
+            if not active.syncing_clock then
+                local remaining = cache.begin_manual_refresh(monster)
+                if remaining > 0 then
+                    on_complete(
+                        nil,
+                        "Manual refresh available in " .. math.ceil(remaining / 60) .. " minutes.",
+                        { stale = true }
+                    )
+                    return
+                end
+                cache.invalidate_family(monster)
+                active.saved, active.metadata = nil, { stale = true }
+            end
+            active.force_refresh = true
+            active.on_complete = on_complete
+        elseif active.force_refresh and not force_refresh then
+            -- Opening a lookup during settings refresh can follow the same result
+            -- without stealing the settings completion message.
+            active.foreground_complete = on_complete
+        else
+            active.on_complete = on_complete
+        end
         if active.saved then
             on_complete(active.saved, nil, active.metadata)
         end
-
         return
     end
 
     generation = generation + 1
-    active = nil
+    abandon_active()
     local saved, metadata = cache.get(monster, REFRESH_MINUTES)
     metadata = metadata or { stale = true }
 
@@ -138,12 +184,16 @@ function service.fetch(monster, on_complete, force_refresh)
     }
     active = request
 
-    if saved then
+    if saved and not force_refresh then
         metadata.refreshing = true
         on_complete(saved, nil, metadata)
     end
 
-    if saved and clock.now() == nil and (force_refresh or metadata.age_seconds == nil) then
+    if
+        (saved or force_refresh)
+        and clock.now() == nil
+        and (force_refresh or metadata.age_seconds == nil)
+    then
         synchronize_for_lookup(request)
     else
         if force_refresh then
@@ -159,6 +209,9 @@ function service.fetch(monster, on_complete, force_refresh)
                 )
                 return
             end
+            cache.invalidate_family(monster)
+            request.saved = nil
+            request.metadata = { stale = true }
         end
         -- fetch cancels the previous lookup itself
         wiki_lookup.fetch(monster, function(result, problem)

@@ -23,4 +23,15 @@ function identity.selection(key)
     end
 end
 
+-- Wiki disambiguators identify variants of the same monster. Match the complete
+-- base name, never a substring or fuzzy search query ("gob" must not erase Goblins).
+function identity.family(name)
+    name = (name or ""):gsub("_", " "):gsub("#.*$", "")
+    name = name:gsub("%s+", " "):match("^%s*(.-)%s*$")
+    while name:match("%b()$") do
+        name = name:gsub("%s*%b()$", ""):match("^%s*(.-)%s*$")
+    end
+    return name:lower()
+end
+
 return identity
