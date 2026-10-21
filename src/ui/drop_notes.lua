@@ -62,8 +62,7 @@ function drop_notes.layout(controller, width, y)
         entry.label.hidden = not controller.expanded
 
         if controller.expanded then
-            local height =
-                text_layout.height(entry.value, width - 16, entry.font, entry.line_height)
+            local height = text_layout.entry_height(entry, width - 16)
             entry.label:SetPos(8, y)
             entry.label:SetSize(-16, height, 1, 0)
             y = y + height + 8

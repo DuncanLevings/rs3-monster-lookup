@@ -15,4 +15,15 @@ function text_layout.height(value, width, font, line_height)
     return math.max(1, lines) * (line_height or 22) + 8
 end
 
+-- entries keep the same text and font for the life of a rendered view. cache just the
+-- latest width so filtering can reposition notes without measuring them again
+function text_layout.entry_height(entry, width)
+    if entry.text_width ~= width then
+        entry.text_height = text_layout.height(entry.value, width, entry.font, entry.line_height)
+        entry.text_width = width
+    end
+
+    return entry.text_height
+end
+
 return text_layout

@@ -61,6 +61,7 @@ local function choose_monster(rows)
     return { title = first.page_name, info = variants[1], variants = variants }
 end
 
+-- use Wiki page titles for ID queries; displayed names can include membership or noted suffixes
 local function collect_item_names(sections)
     local seen = {}
     local names = {}
@@ -85,6 +86,8 @@ local function apply_item_ids(sections, item_ids)
     end
 end
 
+-- icons are optional enrichment. keep the parsed drops and IDs from earlier batches
+-- if a later batch fails, rather than losing the whole lookup or sending more requests
 local function finish_item_resolution(result, item_ids, on_complete, problem)
     apply_item_ids(result.sections, item_ids)
 
@@ -187,6 +190,7 @@ local function resolve_monster(monster, field, value, allow_fallback, on_complet
         elseif match_problem then
             on_complete(nil, match_problem)
         elseif allow_fallback then
+            -- only an empty ID match warrants trying the name; ambiguity or bad data stays visible
             resolve_monster(monster, "page_name", monster.name, false, on_complete)
         else
             on_complete(nil, "No matching monster was found on the RuneScape Wiki.")

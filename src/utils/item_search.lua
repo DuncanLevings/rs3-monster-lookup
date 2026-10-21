@@ -7,6 +7,8 @@ local function normalize(value)
     return value:lower():gsub("[^%w%s]", " "):gsub("%s+", " "):match("^%s*(.-)%s*$")
 end
 
+-- only * and ? have special meaning; everything else is literal, not a Lua pattern
+-- remember the last star so a mismatch can extend its match without recursive calls
 local function wildcard_matches(name, pattern)
     local position, token = 1, 1
     local star, retry
@@ -50,6 +52,7 @@ local function is_subsequence(word, query)
     return true
 end
 
+-- typo tolerance on very short queries produces too many unrelated matches
 local function differs_by_one_edit(word, query)
     if #query < 4 or math.abs(#word - #query) > 1 then
         return false
@@ -90,6 +93,7 @@ local function matches_token(words, token)
     return false
 end
 
+-- prepare each item once, then reuse it as the player types new queries
 function item_search.prepare(name)
     local normalized = normalize(name)
     local words = {}
@@ -101,6 +105,8 @@ function item_search.prepare(name)
     return { name = name:lower(), normalized = normalized, words = words }
 end
 
+-- build one matcher per query, shared by every row. wildcard queries bypass fuzzy
+-- matching; otherwise all query tokens must match, in any order
 function item_search.compile(query)
     query = query:sub(1, 128):lower():match("^%s*(.-)%s*$")
 

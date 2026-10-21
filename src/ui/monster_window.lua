@@ -147,6 +147,8 @@ end
 
 local show_drops
 
+-- refreshes rebuild the view but keep the search and drop mode. selecting another
+-- monster resets both in open(), so a previous filter cannot hide its drops
 local function replace_drop_tables(sections)
     drop_table_controller.destroy()
     drop_table_controller = drop_table.render(drops_page, sections, window.parent, {
@@ -264,6 +266,7 @@ function monster_window.show_result(result, problem, metadata)
     show_monster_info(result)
 end
 
+-- only the drops view depends on these settings; leave the chosen info variant alone
 function monster_window.refresh_settings()
     if current_result then
         show_drops(current_result)

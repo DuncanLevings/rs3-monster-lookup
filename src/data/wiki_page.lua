@@ -42,6 +42,7 @@ local function extract_notes(html)
     return notes
 end
 
+-- Wiki citation IDs are page-wide; give each drop table its own numbering in first-use order
 local function row_notes(html, notes, section)
     local values = {}
     local seen = {}

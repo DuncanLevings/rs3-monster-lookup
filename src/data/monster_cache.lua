@@ -152,6 +152,7 @@ local function write_chunks(slot, payload)
         local piece = payload:sub((index - 1) * CHUNK_BYTES + 1, index * CHUNK_BYTES)
 
         if not PersistentDB:SetString(chunk_key(slot, index), piece) then
+            -- discard the partial payload; only complete writes can be added to the index
             delete_chunks(slot, index)
             return nil
         end
@@ -181,6 +182,7 @@ local function read_payload(entry)
     return table.concat(pieces)
 end
 
+-- session-only entries have no slot and must not be advertised to the next client session
 local function save_index()
     local saved = {}
 
@@ -213,7 +215,8 @@ local function remove_entry(position)
     end
 end
 
--- newest first, then drop anything past the entry count or total size limits
+-- newest fetch first, then drop anything past the entry count or total size limits
+-- opening a saved result does not change its eviction order
 local function trim()
     table.sort(entries, function(a, b)
         return a.order > b.order
@@ -276,6 +279,7 @@ local function load()
     trim()
 end
 
+-- names alone collide across NPCs; keep the selected game ID in the cache identity
 local function key_for(monster)
     return tostring(monster.npc_id) .. ":" .. monster.name
 end
@@ -308,6 +312,7 @@ function cache.get(monster, refresh_minutes)
             local payload = read_payload(entry)
             local result, reason
 
+            -- decode a fresh table so UI changes cannot mutate the saved copy
             if payload then
                 result, _, _, reason = json.decode(payload)
             end

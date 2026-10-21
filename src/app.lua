@@ -1,3 +1,5 @@
+-- owns the plugin lifecycle and connects menu selections to the lookup and window
+
 local npc_menu = require("src/game/npc_menu")
 local monster_window = require("src/ui/monster_window")
 local lookup_service = require("src/data/lookup_service")
@@ -10,6 +12,7 @@ local GAME_STATE_SUBSCRIPTION = "monster_lookup_window_lifecycle"
 
 local function on_game_state_changed(event)
     if event.newState == GameState.LOBBY or event.newState == GameState.LOGINSCREEN then
+        -- native UI belongs to the current game session; rebuild it after login
         lookup_service.cancel()
         monster_window.destroy()
     end

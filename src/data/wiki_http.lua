@@ -227,6 +227,8 @@ end
 
 local function process_tick()
     logic_tick = logic_tick + 1
+    -- take this ticks work out of the live queues. follow-up requests from callbacks
+    -- wait until the next tick, so a lookup chain cannot run recursively in one tick
     local outgoing = queued
     local responses = completed
     queued = {}
@@ -258,6 +260,7 @@ end
 
 function wiki_http.cancel()
     generation = generation + 1
+    -- detach the old queues before calling native Cancel, which may invoke a callback
     local requests = pending
     pending = {}
     queued = {}

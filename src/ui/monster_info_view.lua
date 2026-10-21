@@ -205,6 +205,8 @@ local function layout(controller)
     end)
 end
 
+-- tooltips live under the overlay parent, outside the body being replaced
+-- destroying the body alone would leave them behind
 local function destroy_tooltips(controller)
     widgets.destroy_tooltips(controller.tooltips)
     controller.tooltips = {}

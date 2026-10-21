@@ -18,6 +18,8 @@ function service.cancel()
     wiki_lookup.cancel()
 end
 
+-- on_complete can run twice: saved data first, then the refresh result or failure
+-- expiry is checked when opening a monster, there is no background refresh timer
 ---@param monster MonsterSelection
 ---@param on_complete fun(result: MonsterResult?, problem: string?, metadata: CacheMetadata?)
 ---@param force_refresh boolean? skip fresh saved data, used by the Refresh button

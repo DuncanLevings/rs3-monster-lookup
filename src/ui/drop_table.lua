@@ -196,7 +196,7 @@ local function add_section_text(section, value, before_table, reference_note)
 end
 
 local function layout_text(entry, width, y)
-    local height = text_layout.height(entry.value, width - 16, entry.font, entry.line_height)
+    local height = text_layout.entry_height(entry, width - 16)
     entry.label:SetPos(8, y)
     entry.label:SetSize(-16, height, 1, 0)
     return height
@@ -251,8 +251,12 @@ local function create_section_body(controller, data)
     for index, drop in ipairs(data.drops) do
         local y = HEADER_HEIGHT + (index - 1) * ROW_HEIGHT
         local row = add_drop_row(table_layer, drop, y, index, controller)
-        section.rows[#section.rows + 1] =
-            { root = row, search_item = item_search.prepare(drop.name) }
+        section.rows[#section.rows + 1] = {
+            root = row,
+            search_item = item_search.prepare(drop.name),
+            hidden = false,
+            y = y,
+        }
     end
 
     local references = drop_notes.referenced_numbers(data.drops)
@@ -354,8 +358,25 @@ local function layout_sections(controller)
     end)
 end
 
+-- row state is owned here; keep it in Lua to avoid redundant native property writes
+local function update_filtered_row(entry, visible, y)
+    local hidden = not visible
+
+    if entry.hidden ~= hidden then
+        entry.root.hidden = hidden
+        entry.hidden = hidden
+    end
+
+    if visible and entry.y ~= y then
+        entry.root:SetPos(0, y)
+        entry.y = y
+    end
+end
+
 -- hides rows that dont match and moves the rest up. sections with no matches are hidden
 -- altogether, and every section is opened while searching then put back how it was after
+-- reuse existing rows and controls to keep keyboard focus in the search field
+-- keep the notes intact so numbered references still point to the same explanations
 local function apply_search(controller, query)
     local searching = query:find("%S") ~= nil
     local matches = item_search.compile(query)
@@ -374,18 +395,23 @@ local function apply_search(controller, query)
         local count = 0
 
         for _, entry in ipairs(section.rows) do
-            entry.root.hidden = not matches(entry.search_item)
+            local visible = matches(entry.search_item)
+            update_filtered_row(entry, visible, HEADER_HEIGHT + count * ROW_HEIGHT)
 
-            if not entry.root.hidden then
-                entry.root:SetPos(0, HEADER_HEIGHT + count * ROW_HEIGHT)
+            if visible then
                 count = count + 1
             end
         end
 
         section.filtered_out = searching and count == 0
-        section.table_height = HEADER_HEIGHT + count * ROW_HEIGHT
-        section.table_layer:SetSize(0, section.table_height, 1, 0)
-        section.measured_width = nil
+        local height = HEADER_HEIGHT + count * ROW_HEIGHT
+
+        if section.table_height ~= height then
+            section.table_height = height
+            section.table_layer:SetSize(0, height, 1, 0)
+            section.measured_width = nil
+        end
+
         total = total + count
     end
 

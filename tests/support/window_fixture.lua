@@ -16,6 +16,7 @@ function fixture.new(root, saved)
         text_fields = {},
         nodes = {},
         tooltips = {},
+        text_measurements = {},
     }
     local environment = setmetatable({}, { __index = _G })
     local modules = {}
@@ -31,8 +32,27 @@ function fixture.new(root, saved)
     local function native_component(parent)
         local node =
             { parent = parent, width = 840, height = 40, x = 0, y = 0, xyGlobal = { x = 0, y = 0 } }
+        local hidden = false
+        node.position_updates = 0
+        node.visibility_updates = 0
+        setmetatable(node, {
+            __index = function(_, key)
+                if key == "hidden" then
+                    return hidden
+                end
+            end,
+            __newindex = function(component, key, value)
+                if key == "hidden" then
+                    hidden = value
+                    component.visibility_updates = component.visibility_updates + 1
+                else
+                    rawset(component, key, value)
+                end
+            end,
+        })
 
         function node:SetPos(x, y, x_anchor, y_anchor)
+            self.position_updates = self.position_updates + 1
             self.x = x
             self.y = y
             self.x_anchor = x_anchor
@@ -210,6 +230,8 @@ function fixture.new(root, saved)
         Font = {
             MUSEO_SANS_15PT_REGULAR = {
                 GetStringLineCount = function(_, text, width)
+                    context.text_measurements[#context.text_measurements + 1] =
+                        { text = text, width = width }
                     local lines = 0
 
                     for line in (text .. "<br>"):gmatch("(.-)<br>") do

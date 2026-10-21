@@ -48,6 +48,7 @@ local function load()
     ---@type table<string, any>
     local loaded = { version = 1 }
 
+    -- recover each setting separately so one invalid saved value does not reset the others
     for key, valid in pairs(VALID) do
         if valid(saved[key]) then
             loaded[key] = saved[key]
@@ -88,6 +89,7 @@ function settings.set(key, value)
         return false
     end
 
+    -- a failed save still leaves the choice active for this session
     load()[key] = value
     local saved = PersistentDB:SetStructuredData(STORAGE_KEY, values)
 

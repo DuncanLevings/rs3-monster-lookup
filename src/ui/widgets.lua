@@ -88,6 +88,7 @@ function widgets.dropdown(parent, options)
         ui.Hook.ONSELECTIONCHANGED,
         "monster_lookup_dropdown",
         function(_, entry_id, selection_event)
+            -- this is an enum, not a boolean; deselection can be 0, which Lua treats as true
             if selection_event == ui.SelectionChangeEvent.SELECTED and entry_id ~= current then
                 current = entry_id
                 options.on_change(entry_id)

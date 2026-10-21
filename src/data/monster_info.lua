@@ -50,6 +50,8 @@ local function format_susceptibilities(values)
     return #names > 0 and table.concat(names, "\n") or "None listed"
 end
 
+-- facts use alternating label/value columns. widths are fractions of the available
+-- tab width; labels tells the renderer which cells need label styling
 local function facts(title, rows)
     return {
         title = title,
@@ -190,6 +192,7 @@ local function affinity_section(info)
     }
 end
 
+-- the Wiki fields describe susceptibility, so true means Not immune in this section
 local function immunity_section(info)
     local values = {}
 

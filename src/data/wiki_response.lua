@@ -4,6 +4,7 @@ local json = require("src/utils/json")
 
 local response = {}
 
+-- ipairs alone would silently skip holes or object keys in a malformed record list
 local function is_array(value)
     if type(value) ~= "table" then
         return false
@@ -30,6 +31,8 @@ function response.bucket(value)
     return value.bucket
 end
 
+-- the bucket embeds infobox data as another JSON string inside the API response
+-- missing stats are allowed, but broken stats must not become a cacheable empty result
 function response.monster_info(value)
     if value == nil then
         return {}
@@ -90,6 +93,7 @@ function response.item_ids(value)
                 return nil, "The Wiki returned an invalid item ID list."
             end
 
+            -- a Wiki item can have several game IDs; one representative ID is enough for its icon
             if #item.item_id > 0 then
                 local resolved = item_id(item.item_id[1])
 

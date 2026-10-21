@@ -62,6 +62,51 @@ return function(root)
         lu.assertEquals(item_row(self.context, "Rune scimitar").y, 70)
     end
 
+    function suite:test_equivalent_search_results_do_not_rewrite_rows()
+        self.field:SetText("scim", true)
+        local rows = {}
+
+        for _, section in ipairs(self.context.sample.sections) do
+            for _, drop in ipairs(section.drops) do
+                local row = item_row(self.context, drop.name)
+                rows[#rows + 1] = {
+                    root = row,
+                    positions = row.position_updates,
+                    visibility = row.visibility_updates,
+                }
+            end
+        end
+
+        self.field:SetText("scimi", true)
+
+        for _, row in ipairs(rows) do
+            lu.assertEquals(row.root.position_updates, row.positions)
+            lu.assertEquals(row.root.visibility_updates, row.visibility)
+        end
+    end
+
+    function suite:test_filter_only_moves_rows_whose_position_changed()
+        local bronze = item_row(self.context, "Bronze arrow")
+        local rune = item_row(self.context, "Rune scimitar")
+        local bronze_positions = bronze.position_updates
+        local rune_positions = rune.position_updates
+
+        self.field:SetText("scim", true)
+
+        lu.assertTrue(bronze.hidden)
+        lu.assertEquals(bronze.position_updates, bronze_positions)
+        lu.assertFalse(rune.hidden)
+        lu.assertEquals(rune.position_updates, rune_positions + 1)
+        lu.assertEquals(rune.y, 30)
+
+        self.field:SetText("", true)
+
+        lu.assertFalse(bronze.hidden)
+        lu.assertEquals(bronze.position_updates, bronze_positions)
+        lu.assertEquals(rune.position_updates, rune_positions + 2)
+        lu.assertEquals(rune.y, 70)
+    end
+
     function suite:test_no_matches_message_disappears_after_clearing()
         local before = self.page.content_height
         self.field:SetText("nothing resembles this item", true)

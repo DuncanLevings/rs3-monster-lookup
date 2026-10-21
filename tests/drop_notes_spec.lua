@@ -136,5 +136,51 @@ return function(root)
         lu.assertTrue(button.root.destroyed)
     end
 
+    function suite:test_filtering_and_note_toggles_reuse_text_measurements()
+        self.result.sections[1].description = "Some drops have extra conditions."
+        self.result.sections[1].drops[2] =
+            { name = "Coins", quantity = "1", rate = "1/2", price = 1 }
+        self.context.subject.show_result(self.result)
+        toggle(self.context)
+        local measurements = #self.context.text_measurements
+        local field = self.context.text_fields[1]
+        local note = find_text(self.context, "[1] Only in members worlds.")
+        local note_y = note.y
+
+        field:SetText("scim", true)
+
+        lu.assertEquals(note.y, note_y - 40)
+        lu.assertEquals(#self.context.text_measurements, measurements)
+
+        field:SetText("nothing matches", true)
+        field:SetText("", true)
+        toggle(self.context)
+        toggle(self.context)
+
+        lu.assertEquals(#self.context.text_measurements, measurements)
+        lu.assertEquals(note.y, note_y)
+    end
+
+    function suite:test_resizing_remeasures_expanded_notes_and_updates_their_height()
+        self.result.sections[1].notes[1] = string.rep("Additional drop condition. ", 8)
+        self.context.subject.show_result(self.result)
+        toggle(self.context)
+        local note = find_text(self.context, "[1] " .. self.result.sections[1].notes[1])
+        local height = note.height
+        local measurements = #self.context.text_measurements
+        local body = self.context:find_node_with_hook(2, "monster_lookup_notes_resize")
+        self.context.tabs.pages[1].content.width = 420
+        body.width = 420
+        body.hooks[2](body)
+
+        lu.assertTrue(#self.context.text_measurements > measurements)
+        lu.assertTrue(note.height > height)
+
+        measurements = #self.context.text_measurements
+        self.context.text_fields[1]:SetText("scim", true)
+
+        lu.assertEquals(#self.context.text_measurements, measurements)
+    end
+
     return suite
 end

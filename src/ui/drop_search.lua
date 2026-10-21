@@ -41,6 +41,8 @@ function drop_search.new(page, query, on_change)
     search.field = prettyui.TextField.new(page.content, options)
     widgets.forward_wheel(search.field.root, "monster_lookup_search_wheel", page)
 
+    -- left reserves space for the other toolbar controls. return the actual bottom
+    -- so the caller can place status text and tables below a wrapped search field
     function search.layout(left, y)
         left = left or 236
         y = y or 12
