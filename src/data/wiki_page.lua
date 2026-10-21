@@ -153,9 +153,7 @@ local function paragraph_notes(html)
     for paragraph in html:gmatch("<p[^>]*>(.-)</p>") do
         local value = text.plain(paragraph)
 
-        local average_value = value:lower():match("^the average .- is worth ")
-
-        if value ~= "" and not average_value then
+        if value ~= "" then
             values[#values + 1] = value
         end
     end
@@ -217,9 +215,12 @@ local function add_drop_table(state, content, preceding_html)
 
     local descriptions = {}
 
+    -- an intro under a heading like "Drops (normal mode)" goes above the first table under it
+    -- only, otherwise it gets repeated above every category in that mode
     for level = 2, 6 do
         if state.introductions[level] then
             descriptions[#descriptions + 1] = state.introductions[level]
+            state.introductions[level] = nil
         end
     end
 
@@ -264,6 +265,53 @@ local function scan_tables(html, state)
             break
         end
     end
+end
+
+---@class DropGroup
+---@field name string shown in the mode picker eg "Normal mode"
+---@field sections DropSection[]
+---@field titles string[] section titles without the group part eg "Unique"
+
+-- "Drops (hard mode)" reads better as "Hard mode" in a dropdown
+local function group_name(heading)
+    local inside = heading:match("^Drops %((.+)%)$")
+
+    if inside then
+        return inside:sub(1, 1):upper() .. inside:sub(2)
+    end
+
+    return heading
+end
+
+-- splits sections into modes using the first part of their title, eg normal and hard mode
+-- on bosses. only when every section has a group part and theres more than one group,
+-- otherwise a page with just a "Tertiary / Charms" subsection would get a pointless picker
+---@param sections DropSection[]
+---@return DropGroup[]? groups nil when the page shouldnt be split
+function wiki_page.mode_groups(sections)
+    local groups = {}
+    local by_heading = {}
+
+    for _, section in ipairs(sections) do
+        local heading, rest = section.title:match("^(.-) / (.+)$")
+
+        if not heading then
+            return nil
+        end
+
+        local group = by_heading[heading]
+
+        if not group then
+            group = { name = group_name(heading), sections = {}, titles = {} }
+            by_heading[heading] = group
+            groups[#groups + 1] = group
+        end
+
+        group.sections[#group.sections + 1] = section
+        group.titles[#group.titles + 1] = rest
+    end
+
+    return #groups > 1 and groups or nil
 end
 
 -- true if the page looks like it has drops (a Drops heading or an item-drops table) even

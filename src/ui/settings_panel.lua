@@ -33,6 +33,21 @@ local function add_controls(page, on_change)
         end,
     })
 
+    local colour_options = {}
+
+    for _, colour in ipairs(settings.MENU_COLOURS) do
+        colour_options[#colour_options + 1] = { text = colour.name, value = colour.id }
+    end
+
+    page:AddTitle("View drops colour")
+    page:AddText("Colour of the View drops option in the right click menu.")
+    page:AddRadioButton(colour_options, {
+        selectedValue = current.menu_colour,
+        onChange = function(_, value)
+            settings.set("menu_colour", value)
+        end,
+    })
+
     page:AddTitle("Drop rarity")
     page:AddCheckboxButton({
         {

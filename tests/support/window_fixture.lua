@@ -12,7 +12,7 @@ function fixture.new(root, saved)
         radio_controls = {},
         checkbox_controls = {},
         settings_views = {},
-        combo_boxes = {},
+        dropdowns = {},
         text_fields = {},
         nodes = {},
         tooltips = {},
@@ -29,7 +29,8 @@ function fixture.new(root, saved)
     end
 
     local function native_component(parent)
-        local node = { parent = parent, width = 840, height = 40, x = 0, y = 0 }
+        local node =
+            { parent = parent, width = 840, height = 40, x = 0, y = 0, xyGlobal = { x = 0, y = 0 } }
 
         function node:SetPos(x, y, x_anchor, y_anchor)
             self.x = x
@@ -185,12 +186,23 @@ function fixture.new(root, saved)
 
     environment.require = load_module
     environment.log = function() end
+    -- context.saved is the full windows geometry, anything else goes in context.storage
+    context.storage = {}
     environment.PersistentDB = {
-        GetStructuredData = function()
-            return context.saved
+        GetStructuredData = function(_, key)
+            if key == "monster_lookup_window" then
+                return context.saved
+            end
+
+            return context.storage[key]
         end,
-        SetStructuredData = function(_, _, value)
-            context.saved = value
+        SetStructuredData = function(_, key, value)
+            if key == "monster_lookup_window" then
+                context.saved = value
+            else
+                context.storage[key] = value
+            end
+
             return true
         end,
     }
@@ -216,19 +228,55 @@ function fixture.new(root, saved)
     }
     environment.id = { Component = { TOPLEVEL_V2__GAME_AREA = 1 } }
     environment.id.Font = { MUSEO_SANS_15PT_REGULAR = 30, MUSEO_SANS_11PT_REGULAR = 11 }
+    environment.id.StyleSheet = { DROPDOWN_DEFAULT = "dropdown" }
     environment.config.Font.MUSEO_SANS_11PT_REGULAR =
         environment.config.Font.MUSEO_SANS_15PT_REGULAR
     environment.ui = {
         Interfaces = {
-            GetComponent = function()
+            GetComponent = function(_, component_id)
+                context.requested_parent_id = component_id
                 return context.parent
             end,
         },
         Layer = { new = native_component },
         Rectangle = { new = native_component },
         Sprite = { new = native_component },
+        -- native dropdown list, dropdown:pick(id) acts like the player choosing an entry
+        List = {
+            new = function(parent)
+                local list = native_component(parent)
+                list.entries = {}
+
+                function list:Add(label, entry_id)
+                    self.entries[#self.entries + 1] = { text = label, id = entry_id }
+                    return true
+                end
+
+                function list:SetEntrySelected(entry_id, selected)
+                    if selected then
+                        self.selected = entry_id
+                    end
+                end
+
+                function list:pick(entry_id)
+                    self.selected = entry_id
+                    self.hooks[6](self, entry_id, 1)
+                end
+
+                context.dropdowns[#context.dropdowns + 1] = list
+                return list
+            end,
+        },
+        SelectionChangeEvent = { DESELECTED = 0, SELECTED = 1 },
         AlignMode = { TOPLEFT = 0, CENTRE = 1, BOTTOMRIGHT = 2 },
-        Hook = { ONSCROLLWHEEL = 1, ONRESIZE = 2, ONMOUSEOVER = 3, ONCLICK = 4, ONMOUSELEAVE = 5 },
+        Hook = {
+            ONSCROLLWHEEL = 1,
+            ONRESIZE = 2,
+            ONMOUSEOVER = 3,
+            ONCLICK = 4,
+            ONMOUSELEAVE = 5,
+            ONSELECTIONCHANGED = 6,
+        },
     }
     environment.Plugin = { resources = {} }
     for _, key in ipairs({
@@ -288,18 +336,6 @@ function fixture.new(root, saved)
 
                 context.text_fields[#context.text_fields + 1] = field
                 return field
-            end,
-        },
-        ComboBox = {
-            new = function(parent, options)
-                local box = { root = native_component(parent), options = options }
-
-                function box:Destroy()
-                    self.root:Destroy()
-                end
-
-                context.combo_boxes[#context.combo_boxes + 1] = box
-                return box
             end,
         },
         SimpleView = {
@@ -370,6 +406,7 @@ function fixture.new(root, saved)
         CollapseButton = {
             new = function(parent, title, options)
                 local button = {
+                    title = title,
                     root = native_component(parent),
                     left = native_component(parent),
                     middle = native_component(parent),

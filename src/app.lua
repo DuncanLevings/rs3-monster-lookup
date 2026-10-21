@@ -2,6 +2,7 @@ local npc_menu = require("src/game/npc_menu")
 local monster_window = require("src/ui/monster_window")
 local lookup_service = require("src/data/lookup_service")
 local settings_panel = require("src/ui/settings_panel")
+local settings = require("src/settings")
 
 local app = {}
 local started = false
@@ -45,7 +46,7 @@ function app.start()
     )
     lookup_service.start()
     settings_panel.start(monster_window.refresh_settings)
-    npc_menu.start(on_monster_selected)
+    npc_menu.start(on_monster_selected, settings.menu_colour_hex)
     Event.GameStateChanged.Subscribe(GAME_STATE_SUBSCRIPTION, on_game_state_changed)
 
     started = true

@@ -50,9 +50,12 @@ function fixture.new(root)
 
     context.subject = assert(loadfile(root .. "/src/game/npc_menu.lua", "t", environment))()
 
+    -- set context.colour to a hex string to colour the View drops text
     function context:start()
         self.subject.start(function(monster)
             self.selections[#self.selections + 1] = monster
+        end, function()
+            return self.colour
         end)
     end
 

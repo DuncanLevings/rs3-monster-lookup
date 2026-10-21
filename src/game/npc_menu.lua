@@ -4,7 +4,7 @@
 
 local npc_menu = {}
 local SUBSCRIPTION_ID = "monster_lookup_npc_menu"
-local VIEW_DROPS_LABEL = "<col=80bfff>View drops</col> "
+local VIEW_DROPS = "View drops"
 local active_session
 
 ---@class MonsterSelection
@@ -105,10 +105,19 @@ local function position_lookup_entry(menu, examine_index)
     end
 end
 
-local function add_lookup_entry(menu, candidate, on_select)
+-- the subject keeps the npcs own name and level colours from its Attack entry
+local function view_drops_label(colour_hex)
+    if colour_hex then
+        return "<col=" .. colour_hex .. ">" .. VIEW_DROPS .. "</col> "
+    end
+
+    return VIEW_DROPS .. " "
+end
+
+local function add_lookup_entry(menu, candidate, label, on_select)
     local examine_index = find_examine_index(menu.entries, candidate.monster.entity_uid)
     local subject = candidate.subject or candidate.monster.name
-    menu:Add(VIEW_DROPS_LABEL .. subject, on_select, candidate.monster)
+    menu:Add(label .. subject, on_select, candidate.monster)
     position_lookup_entry(menu, examine_index)
 end
 
@@ -121,22 +130,25 @@ local function create_selection_handler(session, on_select)
     end
 end
 
-local function create_menu_handler(session, on_select)
+local function create_menu_handler(session, on_select, get_colour)
     return function(event)
         if active_session ~= session then
             return
         end
 
         local menu = event.miniMenu
+        -- read every time the menu opens so a settings change shows up straight away
+        local label = view_drops_label(get_colour and get_colour())
 
         for _, candidate in ipairs(collect_candidates(menu.entries)) do
-            add_lookup_entry(menu, candidate, on_select)
+            add_lookup_entry(menu, candidate, label, on_select)
         end
     end
 end
 
 ---@param on_select fun(monster: MonsterSelection)
-function npc_menu.start(on_select)
+---@param get_colour (fun(): string?)? hex colour for "View drops", nil for the default text
+function npc_menu.start(on_select, get_colour)
     if active_session then
         return
     end
@@ -144,7 +156,10 @@ function npc_menu.start(on_select)
     local session = {}
     active_session = session
     local select_monster = create_selection_handler(session, on_select)
-    Event.MiniMenuReady.Subscribe(SUBSCRIPTION_ID, create_menu_handler(session, select_monster))
+    Event.MiniMenuReady.Subscribe(
+        SUBSCRIPTION_ID,
+        create_menu_handler(session, select_monster, get_colour)
+    )
 end
 
 function npc_menu.stop()

@@ -17,6 +17,7 @@ local widgets = require("src/ui/widgets")
 local internals = require("src/ui/prettyui_internals")
 
 local item_search = require("src/utils/item_search")
+local wiki_page = require("src/data/wiki_page")
 local drop_search = require("src/ui/drop_search")
 local drop_notes = require("src/ui/drop_notes")
 
@@ -26,9 +27,10 @@ local HEADER_HEIGHT = 30
 local SECTION_HEIGHT = 28
 local SECTION_GAP = 12
 local CONTENT_TOP_PADDING = 12
-local TOOLBAR_HEIGHT = 36
 local NO_MATCHES_HEIGHT = 36
 local ICON_SIZE = 32
+
+local MODE_PICKER_WIDTH = 150
 
 -- columns are anchored to the right edge so the item name column takes whatever width is left
 local ITEM_X = 44
@@ -75,8 +77,30 @@ local function add_header(parent, y)
     add_text(row, "GE price", PRICE_X, PRICE_WIDTH, true)
 end
 
+-- for drops with no item id, eg ability unlocks like Cremation that never sit in the
+-- inventory so the wiki has no item record for them. drawn natively so no image is needed
+local function add_missing_icon(row)
+    local slot = widgets.layer(row, ICON_SIZE)
+    slot:SetPos(6, (ROW_HEIGHT - ICON_SIZE) / 2)
+    slot:SetSize(ICON_SIZE, ICON_SIZE)
+    widgets.background(slot, theme.MISSING_ICON)
+
+    local mark = prettyui.Text.new(slot, {
+        text = "?",
+        x = 0,
+        y = 0,
+        width = ICON_SIZE,
+        height = ICON_SIZE,
+        colour = theme.TEXT_MUTED,
+        alignHorizontal = ui.AlignMode.CENTRE,
+    })
+    mark.clickthrough = true
+    mark.enabled = false
+end
+
 local function add_item_icon(row, item_id)
     if not item_id then
+        add_missing_icon(row)
         return
     end
 
@@ -85,6 +109,11 @@ local function add_item_icon(row, item_id)
     icon:SetSize(ICON_SIZE, ICON_SIZE)
     icon:SetAssociatedObject(item_id)
     icon.clickthrough = true
+end
+
+local function add_tooltip(controller, label, text)
+    local tooltip = hover_tooltip.attach(controller.page, label, controller.overlay_parent, text)
+    controller.tooltips[#controller.tooltips + 1] = tooltip
 end
 
 local function add_rarity_cell(row, drop, controller)
@@ -104,9 +133,18 @@ local function add_rarity_cell(row, drop, controller)
     label.maxLines = 2
 
     if drop.notes and drop.notes ~= "" then
-        local tooltip =
-            hover_tooltip.attach(controller.page, label, controller.overlay_parent, drop.notes)
-        controller.tooltips[#controller.tooltips + 1] = tooltip
+        add_tooltip(controller, label, drop.notes)
+    end
+end
+
+-- quantities like "30-40 (noted)" dont fit the column and get cut off with "...", so those
+-- get a tooltip with the whole thing. measured with the same font the label draws with
+local function add_quantity(row, drop, controller)
+    local label = add_text(row, drop.quantity, QUANTITY_X, QUANTITY_WIDTH, true)
+    local font = config.Font.MUSEO_SANS_15PT_REGULAR
+
+    if font:GetStringLineCount(drop.quantity, QUANTITY_WIDTH) > 1 then
+        add_tooltip(controller, label, "Quantity: " .. drop.quantity)
     end
 end
 
@@ -114,7 +152,7 @@ local function add_drop_row(parent, drop, y, index, controller)
     local row = create_row(parent, y, ROW_HEIGHT, theme.row_colour(index))
     add_item_icon(row, drop.item_id)
     add_text(row, drop.name, ITEM_X, ITEM_WIDTH, false)
-    add_text(row, drop.quantity, QUANTITY_X, QUANTITY_WIDTH, true)
+    add_quantity(row, drop, controller)
     add_rarity_cell(row, drop, controller)
     add_text(row, price_format.format(drop.price), PRICE_X, PRICE_WIDTH, true, theme.TEXT_PRICE)
 
@@ -228,15 +266,37 @@ local function create_section_body(controller, data)
     return section
 end
 
-local function position_sections(controller)
+local function layout_toolbar(controller)
     local y = CONTENT_TOP_PADDING
+    local last_button = controller.refresh_button or controller.toggle_all
+    local right = last_button.root.x + last_button.root.width
 
-    if controller.toggle_all then
-        y = y + (controller.toolbar_height or TOOLBAR_HEIGHT)
+    if controller.mode_picker then
+        local x = right + 12
+
+        if x + MODE_PICKER_WIDTH + 8 > controller.page.content.width then
+            x = 8
+            y = y + 32
+        end
+
+        controller.mode_picker:SetPos(x, y - 2)
+        right = x + MODE_PICKER_WIDTH
     end
 
+    local bottom = controller.search.layout(right + 16, y)
+
+    if controller.status_label then
+        controller.status_label:SetPos(8, bottom + 6)
+        return bottom + 6 + controller.status_label.height + 8
+    end
+
+    return bottom + 12
+end
+
+local function position_sections(controller)
+    local y = controller.toggle_all and layout_toolbar(controller) or CONTENT_TOP_PADDING
+
     if controller.search then
-        controller.search.layout()
         controller.search.no_matches:SetPos(8, y)
 
         if not controller.search.no_matches.hidden then
@@ -335,11 +395,7 @@ local function apply_search(controller, query)
 end
 
 local function style_section_button(button, expanded)
-    internals.set_collapse_alpha(
-        button,
-        expanded and 0.35 or 0.55,
-        expanded and 0.60 or 0.75
-    )
+    internals.set_collapse_alpha(button, expanded and 0.35 or 0.55, expanded and 0.60 or 0.75)
 end
 
 local function toggle_all_sections(controller)
@@ -378,7 +434,6 @@ local function create_refresh_controls(controller)
     end
 
     -- the status line wraps to two lines when theres a refresh error to show
-    controller.toolbar_height = options.problem and 78 or 56
     controller.refresh_button = create_toolbar_button(
         controller,
         "Refresh",
@@ -423,7 +478,7 @@ local function create_section_button(controller, section, title)
     return button
 end
 
-local function add_section(controller, data)
+local function add_section(controller, data, title)
     local section = create_section_body(controller, data)
 
     if #section.reference_notes > 0 then
@@ -434,7 +489,7 @@ local function add_section(controller, data)
         end, controller.page)
     end
 
-    section.button = create_section_button(controller, section, data.title)
+    section.button = create_section_button(controller, section, title)
     controller.sections[#controller.sections + 1] = section
 
     local width = section.body.width
@@ -464,6 +519,10 @@ local function destroy_sections(controller)
         controller.status_label:Destroy()
     end
 
+    if controller.mode_picker then
+        controller.mode_picker:Destroy()
+    end
+
     for index = #controller.sections, 1, -1 do
         local section = controller.sections[index]
         section.button:Destroy()
@@ -478,11 +537,38 @@ local function destroy_sections(controller)
     controller.sections = {}
 end
 
+-- dropdown for pages split into modes, picking one asks the window to render that mode
+local function create_mode_picker(controller, x)
+    local entries = {}
+
+    for index, group in ipairs(controller.groups) do
+        entries[#entries + 1] = { text = group.name, id = index }
+    end
+
+    controller.mode_picker = widgets.dropdown(controller.page.content, {
+        x = x,
+        y = CONTENT_TOP_PADDING - 2,
+        width = MODE_PICKER_WIDTH,
+        height = 28,
+        entries = entries,
+        selected = controller.mode,
+        on_change = function(entry_id)
+            if controller.options.on_mode_change then
+                controller.options.on_mode_change(entry_id)
+            end
+        end,
+    })
+end
+
 local function create_toolbar(controller)
     controller.toggle_all = create_toolbar_button(controller, "Collapse all", 8, 112, function()
         toggle_all_sections(controller)
     end, "monster_lookup_toggle_all_wheel")
     create_refresh_controls(controller)
+
+    if controller.groups then
+        create_mode_picker(controller, controller.refresh_button and 232 or 132)
+    end
 
     local query = controller.options.search_query or ""
     controller.search = drop_search.new(controller.page, query, function(new_query)
@@ -510,23 +596,37 @@ end
 ---@field problem string? refresh error, makes the status line a warning
 ---@field search_query string? search text to carry over from the last render
 ---@field on_search_change fun(query: string)?
+---@field mode integer? which mode to show when the page is split into modes, defaults to 1
+---@field on_mode_change fun(mode: integer)? the caller re-renders with the new mode
 
 ---@param page table tab page to draw into
 ---@param sections DropSection[]
 ---@param overlay_parent table where tooltips get drawn, normally the game area
 ---@param options DropTableOptions?
 function drop_table.render(page, sections, overlay_parent, options)
+    options = options or {}
     local controller = {
         page = page,
-        options = options or {},
+        options = options,
         overlay_parent = overlay_parent,
+        groups = wiki_page.mode_groups(sections),
         sections = {},
         tooltips = {},
         building = true,
     }
 
-    for _, section in ipairs(sections) do
-        add_section(controller, section)
+    if controller.groups then
+        -- only the picked mode gets built, its titles drop the "Drops (hard mode) / " part
+        controller.mode = math.min(math.max(options.mode or 1, 1), #controller.groups)
+        local group = controller.groups[controller.mode]
+
+        for index, section in ipairs(group.sections) do
+            add_section(controller, section, group.titles[index])
+        end
+    else
+        for _, section in ipairs(sections) do
+            add_section(controller, section, section.title)
+        end
     end
 
     if #controller.sections > 0 then

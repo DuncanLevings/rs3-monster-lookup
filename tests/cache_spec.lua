@@ -178,6 +178,17 @@ return function(root)
         lu.assertEquals(self.settings.get().refresh_minutes, 15)
     end
 
+    function suite:test_menu_colour_defaults_to_plain_and_only_accepts_listed_colours()
+        lu.assertEquals(self.settings.get().menu_colour, "default")
+        lu.assertNil(self.settings.menu_colour_hex())
+        lu.assertFalse(self.settings.set("menu_colour", "ff0000"))
+        lu.assertTrue(self.settings.set("menu_colour", "orange"))
+        self:reload()
+
+        lu.assertEquals(self.settings.get().menu_colour, "orange")
+        lu.assertEquals(self.settings.menu_colour_hex(), "e6a96b")
+    end
+
     function suite:test_invalid_saved_data_is_ignored_and_missing_clock_never_marks_data_fresh()
         local broken = '{"title":"Goblin","info":{},"sections":[false]}'
         self.storage.monster_lookup_cache_index = {
@@ -207,7 +218,10 @@ return function(root)
 
     function suite:test_monsters_without_drops_are_saved_but_unexplained_empty_results_are_not()
         local duckling = { npc_id = 6112, name = "Duckling" }
-        self.cache.put(duckling, { title = "Duckling", info = {}, sections = {}, no_drops = "none" })
+        self.cache.put(
+            duckling,
+            { title = "Duckling", info = {}, sections = {}, no_drops = "none" }
+        )
         self.cache.put(self.monster, { title = "Goblin", info = {}, sections = {} })
         self:reload()
 

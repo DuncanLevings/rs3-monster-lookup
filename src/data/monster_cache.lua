@@ -91,7 +91,11 @@ local function valid_result(result)
         or type(result.title) ~= "string"
         or type(result.info) ~= "table"
         or type(result.sections) ~= "table"
-        or (result.no_drops ~= nil and result.no_drops ~= "none" and result.no_drops ~= "unreadable")
+        or (
+            result.no_drops ~= nil
+            and result.no_drops ~= "none"
+            and result.no_drops ~= "unreadable"
+        )
     then
         return false
     end

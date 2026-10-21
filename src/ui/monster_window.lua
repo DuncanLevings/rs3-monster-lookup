@@ -13,18 +13,21 @@ local clock = require("src/utils/cache_clock")
 
 local monster_window = {}
 local window
+local tabs
+local drops_page
+local info_page
 local info_controller
 local info_label
 local loading_label
-local tabs
 local drop_table_controller
+local error_notice
 local current_result
 local current_metadata
 local current_problem
 local refresh_action
 local close_action
-local error_notice
 local search_query = ""
+local drop_mode = 1
 
 local function hide_window_tooltips()
     if drop_table_controller then
@@ -57,29 +60,23 @@ local function create_window_options(parent)
     return options
 end
 
-local function add_loading_message(page)
-    loading_label = page:AddText({
-        text = "Loading RuneScape Wiki...",
-        colour = theme.TEXT_WARNING,
-        height = 40,
-    })
-end
-
-local function add_monster_info(page)
-    info_label = page:AddText({ text = "", height = 60 })
-end
-
 local function add_content_tabs()
     tabs = window:AddTabs(
         { { text = "Drops" }, { text = "Monster info" } },
         { height = 320, scrollStep = theme.WHEEL_STEP, onChange = hide_window_tooltips }
     )
     tabs.root:SetSize(-tabs.root.x * 2, -tabs.root.y - 8, 1, 1)
+    drops_page = tabs:GetPage(1)
+    info_page = tabs:GetPage(2)
 
-    add_loading_message(tabs:GetPage(1))
-    drop_table_controller = drop_table.render(tabs:GetPage(1), {}, window.parent)
-    error_notice = lookup_notice.new(tabs:GetPage(1))
-    add_monster_info(tabs:GetPage(2))
+    loading_label = drops_page:AddText({
+        text = "Loading RuneScape Wiki...",
+        colour = theme.TEXT_WARNING,
+        height = 40,
+    })
+    drop_table_controller = drop_table.render(drops_page, {}, window.parent)
+    error_notice = lookup_notice.new(drops_page)
+    info_label = info_page:AddText({ text = "", height = 60 })
 end
 
 local function create_window(parent)
@@ -106,22 +103,7 @@ end
 
 local function show_drops_tab()
     tabs:SetActive(1, false)
-    tabs:GetPage(1):SetScrollPosition(0)
-end
-
-local function clear_window_references()
-    window = nil
-    info_label = nil
-    info_controller = nil
-    loading_label = nil
-    tabs = nil
-    drop_table_controller = nil
-    error_notice = nil
-    current_result = nil
-    current_metadata = nil
-    current_problem = nil
-    refresh_action = nil
-    close_action = nil
+    drops_page:SetScrollPosition(0)
 end
 
 local function plural(count, unit)
@@ -163,9 +145,11 @@ local function cache_status(metadata, problem)
     return updated
 end
 
+local show_drops
+
 local function replace_drop_tables(sections)
     drop_table_controller.destroy()
-    drop_table_controller = drop_table.render(tabs:GetPage(1), sections, window.parent, {
+    drop_table_controller = drop_table.render(drops_page, sections, window.parent, {
         percentage_rarity = settings.get().percentage_rarity,
         on_refresh = refresh_action,
         refreshing = current_metadata and current_metadata.refreshing,
@@ -174,6 +158,16 @@ local function replace_drop_tables(sections)
         search_query = search_query,
         on_search_change = function(query)
             search_query = query
+        end,
+        mode = drop_mode,
+        on_mode_change = function(mode)
+            drop_mode = mode
+            hide_window_tooltips()
+
+            if current_result then
+                show_drops(current_result)
+                drops_page:SetScrollPosition(0)
+            end
         end,
     })
 end
@@ -186,13 +180,23 @@ local function clear_monster_info()
 
     info_label.hidden = false
     info_label:SetHeight(60)
-    tabs:GetPage(2):SetContentHeight(84)
+    info_page:SetContentHeight(84)
 end
 
 local function show_monster_info(result)
     clear_monster_info()
     info_label.hidden = true
-    info_controller = monster_info_view.render(tabs:GetPage(2), result, window.parent)
+    info_controller = monster_info_view.render(info_page, result, window.parent)
+end
+
+local function show_loading()
+    lookup_notice.hide(error_notice)
+    replace_drop_tables({})
+    loading_label.hidden = false
+    drops_page:SetContentHeight(64)
+    clear_monster_info()
+    info_label.content = "Loading monster information..."
+    show_drops_tab()
 end
 
 ---opens (or reuses) the window for a monster and shows the loading state
@@ -209,17 +213,11 @@ function monster_window.open(monster, on_refresh, on_close)
     current_metadata = nil
     current_problem = nil
     search_query = ""
+    drop_mode = 1
     refresh_action = on_refresh
     close_action = on_close
     window:SetTitle(monster.name)
-    lookup_notice.hide(error_notice)
-    replace_drop_tables({})
-    loading_label.hidden = false
-    tabs:GetPage(1):SetContentHeight(64)
-    clear_monster_info()
-    info_label.content = "Loading monster information..."
-
-    show_drops_tab()
+    show_loading()
     window:Show()
 
     return true
@@ -244,7 +242,7 @@ local function show_no_drops_notice(result)
     lookup_notice.show(error_notice, message, "No drops to show", "info")
 end
 
-local function show_drops(result)
+show_drops = function(result)
     replace_drop_tables(result.sections)
 
     if #result.sections == 0 then
@@ -277,6 +275,7 @@ function monster_window.show_error(problem)
         return
     end
 
+    current_result = nil
     replace_drop_tables({})
     loading_label.hidden = true
     clear_monster_info()
@@ -291,11 +290,26 @@ function monster_window.destroy()
         return
     end
 
+    hide_window_tooltips()
     window_state.save(window)
     clear_monster_info()
     drop_table_controller.destroy()
     window:Destroy()
-    clear_window_references()
+
+    window = nil
+    tabs = nil
+    drops_page = nil
+    info_page = nil
+    info_controller = nil
+    info_label = nil
+    loading_label = nil
+    drop_table_controller = nil
+    error_notice = nil
+    current_result = nil
+    current_metadata = nil
+    current_problem = nil
+    refresh_action = nil
+    close_action = nil
 end
 
 return monster_window

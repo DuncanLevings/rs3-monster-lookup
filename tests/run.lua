@@ -15,10 +15,14 @@ local create_icons_suite = require("tests/stat_icons_spec")
 local create_search_suite = require("tests/item_search_spec")
 local create_drop_search_suite = require("tests/drop_search_spec")
 local create_drop_notes_suite = require("tests/drop_notes_spec")
+local create_drop_table_suite = require("tests/drop_table_spec")
+local create_lookup_suite = require("tests/wiki_lookup_spec")
 local runner = lu.LuaUnit.new()
 
 runner:runSuiteByInstances({
+    { "TestWikiLookup", create_lookup_suite(root) },
     { "TestDropNotes", create_drop_notes_suite(root) },
+    { "TestDropTable", create_drop_table_suite(root) },
     { "TestItemSearch", create_search_suite() },
     { "TestDropSearch", create_drop_search_suite(root) },
     { "TestNpcMenu", create_npc_menu_suite(root) },

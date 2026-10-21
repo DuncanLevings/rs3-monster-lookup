@@ -10,6 +10,10 @@ function internals.set_button_text(button, text)
     button.content.content = text
 end
 
+function internals.set_button_font(button, font)
+    button.content.font = font
+end
+
 -- CollapseButton draws its bar from three sprites (left, middle, right end).
 function internals.set_collapse_alpha(button, bar_alpha, end_alpha)
     button.left.alpha = bar_alpha

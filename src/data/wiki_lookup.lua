@@ -10,7 +10,7 @@
 local http = require("src/data/wiki_http")
 local queries = require("src/data/wiki_queries")
 local parser = require("src/data/wiki_page")
-local json = require("src/utils/json")
+local wiki_response = require("src/data/wiki_response")
 
 ---@class MonsterResult
 ---@field title string wiki page title
@@ -25,19 +25,23 @@ local lookup = {}
 local ITEM_BATCH_SIZE = 40
 
 local function choose_monster(rows)
-    if type(rows) ~= "table" or #rows == 0 then
+    if #rows == 0 then
         return nil
     end
 
     local first = rows[1]
 
-    if type(first) ~= "table" or type(first.page_name) ~= "string" then
+    if type(first) ~= "table" or type(first.page_name) ~= "string" or first.page_name == "" then
         return nil, "The Wiki returned an invalid monster record."
     end
 
-    -- several rows for one page are variants, rows from different pages that cannot be choosen between
+    -- rows for one page are variants; different pages need disambiguation
     for _, row in ipairs(rows) do
-        if type(row) ~= "table" or row.page_name ~= first.page_name then
+        if type(row) ~= "table" or type(row.page_name) ~= "string" or row.page_name == "" then
+            return nil, "The Wiki returned an invalid monster record."
+        end
+
+        if row.page_name ~= first.page_name then
             return nil, "The Wiki has several matches for this NPC."
         end
     end
@@ -45,7 +49,13 @@ local function choose_monster(rows)
     local variants = {}
 
     for _, row in ipairs(rows) do
-        variants[#variants + 1] = json.decode(row.json or "{}") or {}
+        local info, problem = wiki_response.monster_info(row.json)
+
+        if not info then
+            return nil, problem
+        end
+
+        variants[#variants + 1] = info
     end
 
     return { title = first.page_name, info = variants[1], variants = variants }
@@ -75,10 +85,22 @@ local function apply_item_ids(sections, item_ids)
     end
 end
 
+local function finish_item_resolution(result, item_ids, on_complete, problem)
+    apply_item_ids(result.sections, item_ids)
+
+    if problem then
+        log(
+            "Monster Lookup: some item icons could not be loaded; showing available data. "
+                .. problem
+        )
+    end
+
+    on_complete(result)
+end
+
 local function request_item_batch(result, names, offset, item_ids, on_complete)
     if offset > #names then
-        apply_item_ids(result.sections, item_ids)
-        on_complete(result)
+        finish_item_resolution(result, item_ids, on_complete)
         return
     end
 
@@ -89,15 +111,19 @@ local function request_item_batch(result, names, offset, item_ids, on_complete)
     end
 
     http.get(queries.items(batch), function(response, problem)
-        if not response then
-            on_complete(nil, problem)
+        local resolved
+
+        if response then
+            resolved, problem = wiki_response.item_ids(response)
+        end
+
+        if not resolved then
+            finish_item_resolution(result, item_ids, on_complete, problem)
             return
         end
 
-        for _, item in ipairs(response.bucket or {}) do
-            if type(item.item_id) == "table" then
-                item_ids[item.page_name] = tonumber(item.item_id[1])
-            end
+        for name, item_id in pairs(resolved) do
+            item_ids[name] = item_id
         end
 
         request_item_batch(result, names, offset + #batch, item_ids, on_complete)
@@ -111,7 +137,13 @@ local function request_page(result, on_complete)
             return
         end
 
-        local html = response.parse and response.parse.text
+        local html, page_problem = wiki_response.page_text(response)
+
+        if not html then
+            on_complete(nil, page_problem)
+            return
+        end
+
         local sections, parse_problem = parser.parse(html)
 
         if not sections then
@@ -141,7 +173,14 @@ local function resolve_monster(monster, field, value, allow_fallback, on_complet
             return
         end
 
-        local result, match_problem = choose_monster(response.bucket)
+        local rows, response_problem = wiki_response.bucket(response)
+
+        if not rows then
+            on_complete(nil, response_problem)
+            return
+        end
+
+        local result, match_problem = choose_monster(rows)
 
         if result then
             request_page(result, on_complete)

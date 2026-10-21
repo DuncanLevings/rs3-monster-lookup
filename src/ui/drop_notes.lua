@@ -46,7 +46,7 @@ function drop_notes.new(parent, entries, on_toggle, page)
         colour = theme.TEXT_MUTED,
         shadowed = false,
     })
-    controller.toggle.content.font = id.Font.MUSEO_SANS_11PT_REGULAR
+    internals.set_button_font(controller.toggle, id.Font.MUSEO_SANS_11PT_REGULAR)
     update_toggle(controller)
     widgets.forward_wheel(controller.toggle.root, "monster_lookup_notes_wheel", page)
 

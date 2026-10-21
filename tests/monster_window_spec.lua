@@ -13,6 +13,30 @@ return function(root)
         self.context.subject.destroy()
     end
 
+    function suite:test_window_uses_the_game_area()
+        self.context.subject.open(self.monster)
+
+        lu.assertEquals(self.context.requested_parent_id, 1)
+        lu.assertEquals(self.context.windows[1].parent, self.context.parent)
+    end
+
+    function suite:test_source_credit_identifies_the_resolved_wiki_page()
+        self.context.subject.open(self.monster)
+        self.context.subject.show_result({ title = "Guard (Varrock)", info = {}, sections = {} })
+        local source
+
+        for _, text in ipairs(self.context.texts) do
+            if
+                text.content
+                == "Source: RuneScape Wiki - Guard (Varrock). Stats apply to the selected variant."
+            then
+                source = text
+            end
+        end
+
+        lu.assertNotNil(source)
+    end
+
     function suite:test_reuses_the_window_when_selecting_another_monster()
         self.context.subject.open(self.monster)
 
@@ -274,10 +298,14 @@ return function(root)
         lu.assertEquals(first.options.heightAnchor, 1)
         self.context.checkbox_controls[1].options.onChange(nil, nil, nil, true)
         self.context.radio_controls[1].options.onChange(nil, 360)
+        lu.assertEquals(self.context.radio_controls[2].options.selectedValue, "default")
+        self.context.radio_controls[2].options.onChange(nil, "purple")
         self.context.on_settings_ready({ component = self.context.parent })
 
+        -- two radio groups per mount: refresh interval then View drops colour
         lu.assertTrue(first.root.destroyed)
-        lu.assertEquals(self.context.radio_controls[2].options.selectedValue, 360)
+        lu.assertEquals(self.context.radio_controls[3].options.selectedValue, 360)
+        lu.assertEquals(self.context.radio_controls[4].options.selectedValue, "purple")
         lu.assertTrue(self.context.checkbox_controls[2].entries[1].selected)
         self.context.settings_panel.stop()
 
@@ -490,7 +518,7 @@ return function(root)
         lu.assertTrue(found["Not immune"])
         lu.assertEquals(self.context.panels, 0)
         lu.assertTrue(self.context.tabs:GetPage(2).content_height > 300)
-        lu.assertEquals(#self.context.combo_boxes, 0)
+        lu.assertEquals(#self.context.dropdowns, 0)
     end
 
     function suite:test_monster_info_omits_examine_text_and_positions_icon_tooltips_after_scrolling()
@@ -562,10 +590,10 @@ return function(root)
             info = hard,
             variants = { hard, normal },
         })
-        local box = self.context.combo_boxes[1]
+        local box = self.context.dropdowns[1]
         local root = self.context:find_node_with_hook(2, "monster_lookup_info_resize")
         local before = #self.context.texts
-        box.options.onChange(box, 2)
+        box:pick(2)
         local found = false
 
         for index = before + 1, #self.context.texts do
@@ -577,10 +605,10 @@ return function(root)
         lu.assertTrue(found)
         lu.assertEquals(self.context.tabs:GetPage(2).scroll_position, 0)
         self.context.subject.refresh_settings()
-        lu.assertEquals(#self.context.combo_boxes, 1)
+        lu.assertEquals(#self.context.dropdowns, 1)
         self.context.subject.open({ name = "Cow" })
 
-        lu.assertTrue(box.root.destroyed)
+        lu.assertTrue(box.destroyed)
         lu.assertTrue(root.destroyed)
     end
 

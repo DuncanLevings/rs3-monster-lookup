@@ -4,7 +4,6 @@ local theme = require("src/ui/theme")
 
 local widgets = {}
 
--- full width layer that doesnt take mouse input
 function widgets.layer(parent, height)
     local layer = ui.Layer.new(parent)
     layer:SetSize(0, height, 1, 0)
@@ -12,7 +11,6 @@ function widgets.layer(parent, height)
     return layer
 end
 
--- solid rectangle filling its parent
 function widgets.background(parent, colour)
     local background = ui.Rectangle.new(parent)
     background:SetSize(0, 0, 1, 1)
@@ -56,6 +54,50 @@ function widgets.run_layout(state, layout)
     end
 
     state.laying_out = false
+end
+
+-- pick one of a few options. prettyuis ComboBox is built on the native ComboField which
+-- always lets you type to filter, so this uses the native dropdown List instead which you
+-- can only pick from
+---@class DropdownOptions
+---@field x number
+---@field y number
+---@field width number
+---@field widthAnchor number? 1 makes width relative to the parent like other components
+---@field height number
+---@field entries {text: string, id: integer}[]
+---@field selected integer id shown when it opens
+---@field on_change fun(id: integer) only called when a different entry is picked
+
+---@param options DropdownOptions
+function widgets.dropdown(parent, options)
+    local list = ui.List.new(parent)
+    list.stylesheetID = id.StyleSheet.DROPDOWN_DEFAULT
+    list:SetPos(options.x, options.y)
+    list:SetSize(options.width, options.height, options.widthAnchor or 0, 0)
+    list.entryHeight = 24
+    list.dropdownMaxVisibleEntries = math.min(#options.entries, 8)
+
+    for _, entry in ipairs(options.entries) do
+        list:Add(entry.text, entry.id)
+    end
+
+    local current = options.selected
+    list:SetEntrySelected(current, true, false)
+    list:Subscribe(
+        ui.Hook.ONSELECTIONCHANGED,
+        "monster_lookup_dropdown",
+        function(_, entry_id, selection_event)
+            if selection_event == ui.SelectionChangeEvent.SELECTED and entry_id ~= current then
+                current = entry_id
+                options.on_change(entry_id)
+            end
+
+            return false
+        end
+    )
+
+    return list
 end
 
 function widgets.hide_tooltips(tooltips)

@@ -11,15 +11,17 @@ The **Monster info** tab groups combat details, offensive and defensive stats, w
 base hit chance, immunities and Slayer requirements. If the Wiki lists several variants or
 boss modes, use the variant selector to compare their stats. Missing values show as **Unknown**.
 
-Monster Lookup shows all the drop tables listed on a monster's Wiki page, including other
-variants or boss modes. Check the headings and notes for the conditions that apply to your fight.
+Monster Lookup shows the drop tables listed on a monster's Wiki page. When the page splits its
+drops into modes, such as a boss's normal and hard mode, pick one from the dropdown next to
+**Refresh**. Check the headings and notes for the conditions that apply to your fight.
 
 ## Settings
 
 Open **Plugin Hub > Manage** and click Monster Lookup's settings cog to choose how often saved
 data should be refreshed: 15 minutes, 1 hour, 6 hours or 24 hours. The default is 1 hour. This
 checks for updates when you open a monster; it does not fetch pages in the background. You can
-also switch numeric rarities from fractions to percentages.
+also switch numeric rarities from fractions to percentages, and give the **View drops** menu
+option a colour (cyan, purple or orange) instead of the default text.
 
 ## Requirements
 
@@ -32,3 +34,14 @@ also switch numeric rarities from fractions to percentages.
 Information comes from the [RuneScape Wiki](https://runescape.wiki/). Prices reflect the values
 on the Wiki page and may differ from what an item actually buys or sells for. Items that cannot
 be traded on the GE show **Not sold**, rather than treating an alchemy value as a GE price.
+
+## Data and privacy
+
+When you look up a monster, Monster Lookup sends its NPC ID, or its name if the ID cannot be
+matched, to `https://runescape.wiki/api.php` over HTTPS. Further requests fetch the monster's
+Wiki page and item IDs for its drops.
+
+Saved Wiki results, your settings and the window position stay on your device. The cache keeps
+up to 50 lookups within its storage limit; older entries are removed to make room. Results are
+checked for a refresh when you open a monster after the interval in settings. Expired entries
+can still be shown while a refresh is loading or if the Wiki is unavailable.

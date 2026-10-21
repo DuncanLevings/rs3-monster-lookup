@@ -3,6 +3,7 @@
 -- for header text, the variant picker swaps the body without rebuilding the whole tab
 
 local model = require("src/data/monster_info")
+local wiki_text = require("src/utils/wiki_text")
 local text_layout = require("src/ui/text_layout")
 local hover_tooltip = require("src/ui/hover_tooltip")
 local stat_icons = require("src/ui/stat_icons")
@@ -53,10 +54,7 @@ local function create_row(controller, parent, section, values, is_header, index)
             or config.Font.MUSEO_SANS_15PT_REGULAR,
         line_height = is_header and 16 or 18,
     }
-    add_background(
-        row.root,
-        is_header and theme.COLUMN_HEADER or theme.row_colour(index)
-    )
+    add_background(row.root, is_header and theme.COLUMN_HEADER or theme.row_colour(index))
 
     for column, value in ipairs(values) do
         local label_column = section.labels and section.labels[column]
@@ -237,8 +235,12 @@ local function replace_body(controller, info)
             create_section(controller, controller.body, section)
     end
 
-    controller.blocks[#controller.blocks + 1] =
-        create_note(controller.body, "Source: RuneScape Wiki. Stats apply to the selected variant.")
+    controller.blocks[#controller.blocks + 1] = create_note(
+        controller.body,
+        "Source: RuneScape Wiki - "
+            .. controller.source_title
+            .. ". Stats apply to the selected variant."
+    )
 end
 
 local function add_variant_selector(controller, variants)
@@ -253,15 +255,15 @@ local function add_variant_selector(controller, variants)
     end
 
     create_text(controller.root, "Wiki variant", { x = 8, y = PADDING, width = 140, height = 32 })
-    controller.selector = prettyui.ComboBox.new(controller.root, {
+    controller.selector = widgets.dropdown(controller.root, {
         x = 156,
         y = PADDING,
         width = -164,
         widthAnchor = 1,
         height = 32,
         entries = entries,
-        selectedID = 1,
-        onChange = function(_, entry_id)
+        selected = 1,
+        on_change = function(entry_id)
             local info = variants[entry_id]
 
             if info then
@@ -277,6 +279,7 @@ end
 function monster_info_view.render(page, result, overlay_parent)
     local controller =
         { page = page, overlay_parent = overlay_parent, body_y = 0, building = true, tooltips = {} }
+    controller.source_title = wiki_text.plain(result.title or "Monster information")
     controller.root = create_layer(page.content, 1)
     local variants = model.variants(result)
     add_variant_selector(controller, variants)

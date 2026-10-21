@@ -1,7 +1,7 @@
 local lu = require("luaunit")
 local fixture = require("tests/support/menu_fixture")
 
-local VIEW_DROPS_LABEL = "<col=80bfff>View drops</col> "
+local VIEW_DROPS_LABEL = "View drops "
 
 return function(root)
     local suite = {}
@@ -19,6 +19,16 @@ return function(root)
         self.context:start()
 
         lu.assertEquals(self.context.subscribe_count, 1)
+    end
+
+    function suite:test_view_drops_uses_the_chosen_colour_from_the_next_menu_on()
+        local npc = fixture.npc()
+        local first = self.context:open_menu({ fixture.entry(npc) })
+        self.context.colour = "8fd3d3"
+        local second = self.context:open_menu({ fixture.entry(npc) })
+
+        lu.assertEquals(first.added[1].label, "View drops Goblin")
+        lu.assertEquals(second.added[1].label, "<col=8fd3d3>View drops</col> Goblin")
     end
 
     function suite:test_adds_one_entry_for_multiple_actions_on_the_same_npc()

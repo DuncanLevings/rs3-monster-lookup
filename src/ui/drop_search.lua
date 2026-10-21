@@ -8,8 +8,6 @@ local internals = require("src/ui/prettyui_internals")
 local drop_search = {}
 local MAX_WIDTH = 240
 local MIN_WIDTH = 80
--- room left of the box for the Collapse all and Refresh buttons
-local BUTTON_ROW_WIDTH = 244
 
 ---@param page table tab page the drop tables are on
 ---@param query string text to start with, kept when the tables are rebuilt
@@ -43,11 +41,20 @@ function drop_search.new(page, query, on_change)
     search.field = prettyui.TextField.new(page.content, options)
     widgets.forward_wheel(search.field.root, "monster_lookup_search_wheel", page)
 
-    function search.layout()
-        local space = page.content.width - BUTTON_ROW_WIDTH
-        local width = math.min(MAX_WIDTH, math.max(MIN_WIDTH, space))
-        search.field.root:SetPos(-width - 8, 12, 1, 0)
+    function search.layout(left, y)
+        left = left or 236
+        y = y or 12
+        local space = page.content.width - left - 8
+
+        if space < MIN_WIDTH then
+            y = y + 32
+            space = math.max(1, page.content.width - 16)
+        end
+
+        local width = math.min(MAX_WIDTH, space)
+        search.field.root:SetPos(-width - 8, y, 1, 0)
         search.field.root:SetSize(width, 24)
+        return y + 24
     end
 
     function search.destroy()

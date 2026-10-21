@@ -49,8 +49,13 @@ return function(root)
     function suite:test_keeps_table_conditions_and_under_table_paragraphs()
         local section = parser.parse(markup)[1]
 
-        lu.assertEquals(section.description, "Two rolls per kill.\n\nOnly on a members' world.")
-        lu.assertEquals(section.afterword, "Luck boosts can affect these drops.")
+        -- average value lines are kept, the wiki puts them with the other table text
+        lu.assertEquals(
+            section.description,
+            "Two rolls per kill.\n\nThe average Goblin kill is worth 2,142 coins."
+                .. "\n\nOnly on a members' world."
+        )
+        lu.assertStrContains(section.afterword, "Luck boosts can affect these drops.")
     end
 
     function suite:test_rejects_invalid_or_oversize_pages_and_ignores_unrelated_tables()
@@ -67,6 +72,55 @@ return function(root)
         lu.assertEquals(text.plain("<sup>[1]</sup><a>Rune scimitar</a>"), "Rune scimitar")
     end
 
+    function suite:test_modes_are_only_split_out_when_every_table_has_one()
+        local function sections(...)
+            local list = {}
+            for _, title in ipairs({ ... }) do
+                list[#list + 1] = { title = title, drops = {} }
+            end
+            return list
+        end
+
+        local groups = assert(
+            parser.mode_groups(
+                sections(
+                    "Drops (normal mode) / 100%",
+                    "Drops (hard mode) / 100%",
+                    "Drops (hard mode) / Seeds"
+                )
+            )
+        )
+
+        lu.assertEquals(#groups, 2)
+        lu.assertEquals(groups[1].name, "Normal mode")
+        lu.assertEquals(groups[2].titles, { "100%", "Seeds" })
+        lu.assertNil(parser.mode_groups(sections("100%", "Tertiary / Charms")))
+        lu.assertNil(parser.mode_groups(sections("Tertiary / Charms", "Tertiary / Clues")))
+        lu.assertNil(parser.mode_groups({}))
+    end
+
+    function suite:test_a_mode_intro_shows_once_not_above_every_category()
+        local row = '<tr><td data-sort-value="Bones"></td><td class="item-col">Bones</td>'
+            .. "<td>1</td><td>Always</td><td>250</td></tr>"
+        local drops = '<table class="item-drops">' .. row .. "</table>"
+        local html = "<h3>Drops (normal mode)</h3>"
+            .. "<p>Excluding unique drops, the average kill in normal mode is worth 21,879.</p>"
+            .. "<p>Killing the three minions yields more loot.</p>"
+            .. "<h4>Stone spirits</h4>"
+            .. drops
+            .. "<h4>Salvage</h4>"
+            .. drops
+
+        local sections = assert(parser.parse(html))
+
+        lu.assertEquals(
+            sections[1].description,
+            "Excluding unique drops, the average kill in normal mode is worth 21,879."
+                .. "\n\nKilling the three minions yields more loot."
+        )
+        lu.assertEquals(sections[2].description, "")
+    end
+
     function suite:test_attribute_matches_whole_names_only()
         local attributes = ' data-id="wrong" id="cite_note-1" data-sort-value="Coins"'
 
@@ -76,7 +130,9 @@ return function(root)
     end
 
     function suite:test_tables_after_many_headings_keep_their_headings()
-        local html = string.rep("<h3>Filler</h3><p>x</p>", 200) .. "<h2>Drops</h2><h3>Common</h3>" .. markup
+        local html = string.rep("<h3>Filler</h3><p>x</p>", 200)
+            .. "<h2>Drops</h2><h3>Common</h3>"
+            .. markup
 
         local sections = assert(parser.parse(html))
 
@@ -320,7 +376,10 @@ return function(root)
         self.context.lookup.fetch({ npc_id = 1, name = "Goblin" }, self.complete)
         self.context:tick()
         self.context:respond(1, { bucket = { { page_name = "Goblin" } } })
-        self.context:respond(2, { parse = { text = '<h2 id="Drops">Drops</h2><ul><li>Bones</li></ul>' } })
+        self.context:respond(
+            2,
+            { parse = { text = '<h2 id="Drops">Drops</h2><ul><li>Bones</li></ul>' } }
+        )
 
         lu.assertEquals(self.results[1].result.no_drops, "unreadable")
         lu.assertNil(self.results[1].problem)
