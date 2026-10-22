@@ -119,6 +119,28 @@ return function(root)
         lu.assertEquals(section_titles(self.context), { "Commons / Potions", "Tertiary" })
     end
 
+    function suite:test_a_drop_search_pick_opens_on_its_mode_with_the_item_filled_in()
+        self.context.subject.open(self.monster, function() end, { item = "Dragon", mode = "Hard mode" })
+        self.context.subject.show_result(grouped_result())
+
+        local picker = self.context.dropdowns[#self.context.dropdowns]
+        lu.assertEquals(picker.selected, 1)
+        lu.assertEquals(self.context.text_fields[#self.context.text_fields].text, "Dragon")
+        lu.assertEquals(self.context.tabs.active, 1)
+
+        -- a refresh arriving later keeps what the player picked since
+        picker:pick(0)
+        self.context.subject.show_result(grouped_result())
+        lu.assertEquals(self.context.dropdowns[#self.context.dropdowns].selected, 0)
+    end
+
+    function suite:test_a_top_stats_pick_opens_on_the_monster_info_tab()
+        self.context.subject.open(self.monster, function() end, { tab = "info" })
+        self.context.subject.show_result(single_section({}))
+
+        lu.assertEquals(self.context.tabs.active, 2)
+    end
+
     function suite:test_opening_another_monster_goes_back_to_the_first_mode()
         self.context.subject.open(self.monster, function() end)
         self.context.subject.show_result(grouped_result())

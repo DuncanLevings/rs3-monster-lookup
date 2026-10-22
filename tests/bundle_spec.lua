@@ -136,5 +136,34 @@ return function(root)
         end
     end
 
+    -- the drop search and top stats indexes that ship with the bundle
+    function suite:test_shipped_search_indexes_read_back_with_real_monsters()
+        local drops = require("src/data/drop_index")
+        local whip
+
+        for position, item in ipairs(drops.items()) do
+            if item.name == "Abyssal whip" then
+                whip = drops.droppers(position)
+            end
+        end
+
+        local titles = {}
+        for _, dropper in ipairs(assert(whip)) do
+            titles[dropper.title] = dropper.rate
+        end
+        lu.assertNotNil(titles["Abyssal demon"])
+        lu.assertTrue(#drops.items() > 2000)
+
+        local stats = require("src/data/stat_rankings")
+        local results, total = stats.rank(1, { bosses = "hide", max_combat = 100 })
+        lu.assertTrue(total > 1000)
+        lu.assertEquals(#results, 50)
+
+        for _, result in ipairs(stats.rank(1, { bosses = "hide" })) do
+            lu.assertNotEquals(result.title, "Nex")
+            lu.assertNotEquals(result.title, "General Graardor")
+        end
+    end
+
     return suite
 end

@@ -6,7 +6,7 @@
 -- of showing up in game
 --
 -- usage, from the plugin folder, with any lua 5.4+:
---   lua tools/build_bundle.lua [--install] [--budget 1000000]
+--   lua tools/build_bundle.lua [--install] [--budget 1750000]
 -- writes to work/bundle/ unless --install is given, then to src/data/bundle/
 
 local ROOT = (arg and arg[0] or ""):match("^(.*)[/\\]tools[/\\][^/\\]+$") or "."
@@ -20,10 +20,12 @@ local codec = require("src/data/bundle_codec")
 local shapes = require("src/data/bundle_shapes")
 local encoder_module = require("tools/bundle_encoder")
 local bundle_pack = require("tools/bundle_pack")
+local search_index = require("tools/search_index")
 
 local FORMAT_VERSION = 2
 local SHARD_TARGET = 64 * 1024
-local install, budget = false, 1500000
+-- the drop and stat search indexes take it from about 1.4 MB to 1.7 MB, zipped its ~200 KB
+local install, budget = false, 1750000
 
 for index = 1, #(arg or {}) do
     if arg[index] == "--install" then
@@ -390,7 +392,37 @@ sizes.index = write(
         .. "}\n"
 )
 
-local total = sizes.strings + sizes.shared + sizes.shards + sizes.index
+-- the drop search and top stats indexes, see tools/search_index.lua
+local drops_source, drop_counts = search_index.drops(pages, header, encoder.string_index)
+-- bosses, their minions, elite dungeon and sanctum fights, and elite slayer spawns that turn
+-- up at random. none of them are something you can just go and farm, so top stats hides them
+-- by default
+local BOSS_CATEGORIES = {}
+for _, category in ipairs({
+    "Bosses",
+    "Boss minions",
+    "Elite spawns",
+    "Temple of Aminishi",
+    "Dragonkin Laboratory",
+    "The Shadow Reef",
+    "The Zamorakian Undercity",
+    "Sanctum of Rebirth",
+}) do
+    BOSS_CATEGORIES["Category:" .. category] = true
+end
+local bosses = {}
+for title, categories in pairs(json.decode(read(ROOT .. "/work/wiki/page_categories.json"))) do
+    for _, category in ipairs(categories) do
+        if BOSS_CATEGORIES[category] then
+            bosses[title] = true
+        end
+    end
+end
+local stats_source, stat_rows = search_index.stats(pages, header, encoder.string_index, bosses)
+sizes.drops = write(output .. "/drops.lua", drops_source)
+sizes.stats = write(output .. "/stats.lua", stats_source)
+
+local total = sizes.strings + sizes.shared + sizes.shards + sizes.index + sizes.drops + sizes.stats
 local missing = 0
 for _ in pairs(missing_ids) do
     missing = missing + 1
@@ -430,6 +462,12 @@ print("    strings.lua            " .. kb(sizes.strings))
 print("    shared.lua             " .. kb(sizes.shared))
 print("    shards                 " .. kb(sizes.shards))
 print("    index.lua              " .. kb(sizes.index))
+print(
+    "    drops.lua              "
+        .. kb(sizes.drops)
+        .. string.format("  (%d items, %d dropper rows)", drop_counts.items, drop_counts.rows)
+)
+print("    stats.lua              " .. kb(sizes.stats) .. string.format("  (%d variants)", stat_rows))
 -- what takes the space inside pages (shared tables count as their reference only)
 local parts = {}
 local function add_part(name, value)

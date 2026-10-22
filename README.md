@@ -10,11 +10,21 @@ Browse items, quantities, drop rates, GE guide prices and notes from the [RuneSc
 
 See weaknesses, behaviour and immunities at a glance. Expand **Slayer** for task and player-owned Slayer Dungeon details, or **Detailed stats** for combat information. Both sections remember your preference. Use the variant selector where available.
 
+On wider windows a 3D model of the monster sits beside its stats. Drag to turn it round or tilt it, hold Shift and drag to move it up or down, and scroll to zoom.
+
 The **Locations** tab lists spawn locations, levels, access requirements and spawn counts. Use **Mark** for world locations or **Entrance** for dungeon access. Supported routes continue through parent portals, known exits and floor transitions toward a spawn on your current floor when available. After entering a known dungeon, the marker clears if interior guidance is unavailable. Unknown areas pause guidance. Waypoints do not calculate a walking path. Only the final destination clears within 16 tiles on the matching floor.
 
 ## Search and settings
 
 Choose **Search monsters** and enter at least three characters. Up to 50 results are shown. Search supports partial names, small typos, `*` and `?`. Include a location to distinguish variants, such as **Bloodveld God Wars**. Select a result to open its lookup. Search and lookup windows remember their position and size.
+
+The dropdown beside the search box switches what you search:
+
+- **Monsters** finds monsters by name or location.
+- **Drops** finds a dropped item and lists the monsters that drop it, best chance first (up to 50). Selecting one opens its drops already filtered to that item, in the right boss mode.
+- **Top stats** ranks monsters by combat XP, combat XP per life point, Slayer XP, life points, combat level or max hit. Bosses, their minions, elite dungeon and Sanctum fights and elite Slayer spawns are hidden unless you include them or choose bosses only. Optional maximum combat and Slayer levels and a name or Slayer category filter narrow the list. Selecting one opens its Monster info.
+
+Drops and Top stats cover the bundled monsters only.
 
 Choose **Customize** to change the View drops menu colour, display numeric drop rates as percentages, or refresh a saved monster. Saved data refreshes when opened after two weeks; manual refresh clears matching variants and fetches the selected monster, with a shared one-hour cooldown. Saved results remain available when the Wiki cannot be reached. With the optional [GE Price Library](https://github.com/CerenMD/ge-prices-library) plugin installed, GE prices are live traded prices; without it they are the Wiki's GE prices from when the bundled data was built.
 

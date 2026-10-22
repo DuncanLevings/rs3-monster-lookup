@@ -36,7 +36,11 @@ local function fetch_monster(monster, force_refresh)
 end
 
 local function on_monster_selected(monster, force_refresh)
-    local opened = monster_window.open(monster, lookup_service.cancel)
+    -- where to open the window (an item to filter on, a tab) isnt part of which monster it is,
+    -- so it stays out of the lookup and the saved data
+    local focus = monster.focus
+    monster.focus = nil
+    local opened = monster_window.open(monster, lookup_service.cancel, focus)
 
     if opened then
         fetch_monster(monster, force_refresh == true)

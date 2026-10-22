@@ -26,6 +26,28 @@ return function(root)
                 end,
             },
             ["src/utils/cache_clock"] = { TICKS_PER_SECOND = 50 },
+            -- stands in for the bundled drops.lua, see tests/search_index_spec.lua for that
+            ["src/data/drop_index"] = {
+                items = function()
+                    return {
+                        { name = "Abyssal whip", count = 2 },
+                        { name = "Bones", count = 120 },
+                        { name = "Big bones", count = 1 },
+                    }
+                end,
+                droppers = function(position)
+                    return ({
+                        {
+                            { title = "Abyssal demon (elite)", rate = "1/500", quantity = "1" },
+                            { title = "Abyssal demon", rate = "1/1,024", quantity = "1" },
+                        },
+                        {
+                            { title = "Goblin", rate = "Always", quantity = "1" },
+                            { title = "Kerapac", rate = "Always", quantity = "2", mode = "Hard mode" },
+                        },
+                    })[position] or {}
+                end,
+            },
         }
         self.subscribers = {}
         local environment = setmetatable({
@@ -71,6 +93,58 @@ return function(root)
     function suite:tearDown()
         self.search.stop()
         lu.assertEquals(self.http_calls, 0)
+    end
+
+    function suite:items_search()
+        local context = self
+        local items = self.factory.new(function(results, message)
+            context.item_results, context.item_message = results, message
+        end, false, "items")
+        items.start()
+        return items
+    end
+
+    function suite:test_item_search_lists_matching_items_with_how_many_monsters_drop_them()
+        local items = self:items_search()
+        lu.assertStrContains(self.item_message, "dropped items")
+        items.set_query("bone")
+        self:tick(12)
+
+        lu.assertEquals(self.item_results[1].label, "Bones - 120 monsters")
+        lu.assertEquals(self.item_results[2].label, "Big bones - 1 monster")
+        lu.assertStrContains(self.item_message, "Select an item")
+
+        -- picking one hands back the name for the field, the search carries on
+        lu.assertEquals(items.choose(self.item_results[2]), { item = "Big bones" })
+        items.set_query("big bones")
+        lu.assertEquals(self.item_message, "No monsters in the saved data drop Big bones.")
+        items.stop()
+    end
+
+    function suite:test_an_exact_item_name_lists_who_drops_it_straight_away()
+        local items = self:items_search()
+        items.set_query("BONES")
+
+        lu.assertEquals(self.item_results[1].label, "Goblin - Always")
+        lu.assertEquals(self.item_results[2].label, "Kerapac (Hard mode) - Always | x2")
+        lu.assertEquals(
+            self.item_message,
+            "Showing the 2 best chances of the 120 monsters that drop Bones."
+        )
+
+        local selection = items.choose(self.item_results[2])
+        lu.assertEquals(selection, {
+            name = "Kerapac",
+            wiki_title = "Kerapac",
+            focus = { item = "Bones", mode = "Hard mode" },
+        })
+        -- the search stops once a monster is picked, like monster search does
+        lu.assertNil(items.choose(self.item_results[1]))
+
+        items.start()
+        items.set_query("abyssal whip")
+        lu.assertEquals(self.item_message, "2 monsters drop Abyssal whip, best chance first.")
+        items.stop()
     end
 
     function suite:test_typing_is_debounced_and_only_the_latest_query_is_published()

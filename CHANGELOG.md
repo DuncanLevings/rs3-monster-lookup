@@ -13,6 +13,9 @@
 - Bundle Wiki data for monsters you can meet repeatedly, so most lookups need no Wiki request.
 - Show live GE prices when the optional GE Price Library plugin is installed.
 - Look up monsters added after the bundle date through Wiki Bucket data only, never full pages.
+- Search by dropped item to see which monsters drop it, best chance first, and open a monster straight to that drop.
+- Rank monsters by combat XP, XP per life point, Slayer XP and other stats, with level caps and bosses hidden by default.
+- Show a 3D model of the monster on the Monster info tab that you can turn, tilt, move and zoom.
 
 ## 0.0.1
 

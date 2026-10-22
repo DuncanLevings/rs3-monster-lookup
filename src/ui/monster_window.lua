@@ -12,9 +12,11 @@ local theme = require("src/ui/theme")
 local settings = require("src/settings")
 local clock = require("src/utils/cache_clock")
 local prices = require("src/data/prices")
+local drop_groups = require("src/data/drop_groups")
 
 local monster_window = {}
 local window
+local destroying = false
 local tabs
 local drops_page
 local info_page
@@ -30,6 +32,9 @@ local current_result
 local current_metadata
 local current_problem
 local current_selection
+-- set by the search window: an item to filter drops on, its mode, or a tab to start on
+local pending_focus
+local info_active = false
 local close_action
 local search_query = ""
 local drop_mode = 1
@@ -47,7 +52,14 @@ end
 
 -- the window is only hidden on close so it can be reused, nothing is destroyed here
 local function on_window_closed(closed_window)
+    if destroying then
+        return
+    end
     hide_window_tooltips()
+    info_active = false
+    if info_controller then
+        info_controller.set_active(false)
+    end
     window_state.save(closed_window)
 
     if close_action then
@@ -69,7 +81,20 @@ end
 local function add_content_tabs()
     tabs = window:AddTabs(
         { { text = "Drops" }, { text = "Monster info" }, { text = "Locations" } },
-        { height = 320, scrollStep = theme.WHEEL_STEP, onChange = hide_window_tooltips }
+        {
+            height = 320,
+            scrollStep = theme.WHEEL_STEP,
+            onChange = function(_, index)
+                if destroying then
+                    return
+                end
+                hide_window_tooltips()
+                info_active = index == 2
+                if info_controller then
+                    info_controller.set_active(info_active)
+                end
+            end,
+        }
     )
     tabs.root:SetSize(-tabs.root.x * 2, -tabs.root.y - 8, 1, 1)
     drops_page = tabs:GetPage(1)
@@ -110,6 +135,10 @@ local function ensure_window_exists()
 end
 
 local function show_drops_tab()
+    info_active = false
+    if info_controller then
+        info_controller.set_active(false)
+    end
     tabs:SetActive(1, false)
     drops_page:SetScrollPosition(0)
 end
@@ -216,7 +245,8 @@ end
 local function show_monster_info(result)
     clear_monster_info()
     info_label.hidden = true
-    info_controller = monster_info_view.render(info_page, result, window.parent)
+    info_controller = monster_info_view.render(info_page, result, window.parent, current_selection)
+    info_controller.set_active(info_active)
 end
 
 local function clear_locations(message)
@@ -248,11 +278,17 @@ local function show_loading()
     show_drops_tab()
 end
 
+---@class WindowFocus
+---@field item string? fill the drop search with this item
+---@field mode string? drop mode to start on eg "Hard mode"
+---@field tab "info"? start on the Monster info tab instead of Drops
+
 ---opens (or reuses) the window for a monster and shows the loading state
 ---@param monster MonsterSelection
 ---@param on_close fun()? called when the player closes the window, eg to stop the lookup
+---@param focus WindowFocus? where to start, from a drop or top stats search
 ---@return boolean opened false if the game area isnt ready yet
-function monster_window.open(monster, on_close)
+function monster_window.open(monster, on_close, focus)
     if not ensure_window_exists() then
         return false
     end
@@ -261,9 +297,10 @@ function monster_window.open(monster, on_close)
     current_selection = monster
     current_metadata = nil
     current_problem = nil
-    search_query = ""
+    search_query = focus and focus.item or ""
     drop_mode = 1
     drop_section_state = {}
+    pending_focus = focus
     close_action = on_close
     window:SetTitle(monster.name)
     show_loading()
@@ -334,9 +371,27 @@ function monster_window.show_result(result, problem, metadata)
     end
     lookup_notice.hide(error_notice)
     loading_label.hidden = true
+
+    -- only the first result for this monster, a refresh arriving later keeps what the player
+    -- has picked since
+    local focus = pending_focus
+    pending_focus = nil
+
+    if focus and focus.mode then
+        for index, group in ipairs(drop_groups.mode_groups(result.sections) or {}) do
+            if group.name == focus.mode then
+                drop_mode = index
+            end
+        end
+    end
+
     show_drops(result)
     show_monster_info(result)
     show_locations(result)
+
+    if focus and focus.tab == "info" then
+        tabs:SetActive(2)
+    end
 end
 
 -- only the drops view depends on these settings; leave the chosen info variant alone
@@ -363,18 +418,30 @@ function monster_window.show_error(problem)
 end
 
 function monster_window.destroy()
-    if not window then
+    if not window or destroying then
         return
     end
 
+    destroying = true
+    local old_window = window
     hide_window_tooltips()
-    window_state.save(window)
-    clear_monster_info()
-    clear_locations()
-    drop_table_controller.destroy()
-    window:Destroy()
+    window_state.save(old_window)
+
+    -- Shutdown releases views directly. Resetting their placeholder labels and
+    -- scroll heights here can fire layout callbacks into a half-destroyed window.
+    if info_controller then
+        info_controller.destroy()
+    end
+    if locations_controller then
+        locations_controller.destroy()
+    end
+    if drop_table_controller then
+        drop_table_controller.destroy()
+    end
 
     window = nil
+    current_selection = nil
+    info_active = false
     tabs = nil
     drops_page = nil
     info_page = nil
@@ -390,6 +457,8 @@ function monster_window.destroy()
     current_metadata = nil
     current_problem = nil
     close_action = nil
+    old_window:Destroy()
+    destroying = false
 end
 
 return monster_window

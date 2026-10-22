@@ -18,6 +18,8 @@ function fixture.new(root, saved)
         nodes = {},
         tooltips = {},
         text_measurements = {},
+        models = {},
+        logs = {},
     }
     local environment = setmetatable({}, { __index = _G })
     local modules = {}
@@ -73,6 +75,9 @@ function fixture.new(root, saved)
 
         function node:SetHeight(height)
             self.height = height
+        end
+        function node:SetScrollSize(width, height)
+            self.scroll_width, self.scroll_height = width, height
         end
 
         function node:Destroy()
@@ -247,7 +252,9 @@ function fixture.new(root, saved)
     end
 
     environment.require = load_module
-    environment.log = function() end
+    environment.log = function(message)
+        context.logs[#context.logs + 1] = message
+    end
     -- context.saved is the full windows geometry, anything else goes in context.storage
     context.storage = {}
     environment.PersistentDB = {
@@ -323,6 +330,51 @@ function fixture.new(root, saved)
         Layer = { new = native_component },
         Rectangle = { new = native_component },
         Sprite = { new = native_component },
+        ModelType = { NPC_MODEL = 6 },
+        Model = {
+            new = function(parent)
+                if context.model_error then
+                    error("Model creation unavailable")
+                end
+                local node = native_component(parent)
+                local base = getmetatable(node)
+                local offset = { x = 0, y = 0, z = 0, vector_kind = "integer" }
+                setmetatable(node, {
+                    __index = function(component, key)
+                        if key == "worldOffset" then
+                            return offset
+                        end
+                        return base.__index(component, key)
+                    end,
+                    __newindex = function(component, key, value)
+                        if key == "worldOffset" then
+                            assert(
+                                value.vector_kind == "integer",
+                                "Model worldOffset requires an integer vector"
+                            )
+                            offset = value
+                        elseif key == "rotation" then
+                            error("Model rotation requires a native integer vector")
+                        else
+                            base.__newindex(component, key, value)
+                        end
+                    end,
+                })
+                function node:SetModel(kind, npc_id)
+                    self.model_type, self.npc_id = kind, npc_id
+                end
+                function node:SetTransform(position, rotation, scale, duration)
+                    self.transform = {
+                        position = position,
+                        rotation = rotation,
+                        scale = scale,
+                        duration = duration,
+                    }
+                end
+                context.models[#context.models + 1] = node
+                return node
+            end,
+        },
         -- native dropdown list, dropdown:pick(id) acts like the player choosing an entry
         List = {
             new = function(parent)
@@ -365,6 +417,11 @@ function fixture.new(root, saved)
         },
     }
     environment.Plugin = { resources = {} }
+    environment.Vector3 = {
+        new = function(x, y, z)
+            return { x = x, y = y, z = z }
+        end,
+    }
     for _, key in ipairs({
         "no",
         "yes",

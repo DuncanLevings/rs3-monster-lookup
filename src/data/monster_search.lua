@@ -1,5 +1,8 @@
 -- Local name search: typing never sends a request. Result selection uses the normal lookup.
+-- the "items" kind searches dropped item names instead, and an exact item name lists the
+-- monsters that drop it (src/data/drop_index.lua)
 local names = require("src/data/monster_names")
+local drop_index = require("src/data/drop_index")
 local cache = require("src/data/monster_cache")
 local identity = require("src/utils/monster_identity")
 local matcher = require("src/utils/item_search")
@@ -14,6 +17,64 @@ local LEGACY_READS_PER_TICK = 3
 
 local function normalize(text)
     return tostring(text or ""):sub(1, 80):gsub("[%c]", " "):gsub("%s+", " "):match("^%s*(.-)%s*$")
+end
+
+local function plural(count, word)
+    return count .. " " .. word .. (count == 1 and "" or "s")
+end
+
+local function build_item_index()
+    local entries, exact = {}, {}
+
+    for position, item in ipairs(drop_index.items()) do
+        local entry = {
+            item = position,
+            item_name = item.name,
+            label = item.name .. " - " .. plural(item.count, "monster"),
+            key = item.name:lower(),
+            saved = false,
+            resolved = true,
+            monster = { name = item.name },
+        }
+        entries[#entries + 1] = entry
+        exact[entry.key] = entry
+    end
+
+    return entries, exact
+end
+
+-- results for an exact item name: who drops it, best chance first
+local function dropper_results(entry)
+    local count = drop_index.items()[entry.item].count
+    local results = {}
+
+    for _, dropper in ipairs(drop_index.droppers(entry.item)) do
+        local name = dropper.mode and (dropper.title .. " (" .. dropper.mode .. ")") or dropper.title
+        local quantity = dropper.quantity ~= "1" and (" | x" .. dropper.quantity) or ""
+        results[#results + 1] = {
+            label = name .. " - " .. dropper.rate .. quantity,
+            key = dropper.title:lower(),
+            monster = { name = dropper.title, wiki_title = dropper.title },
+            -- opens the monster on this item, in the mode the chance is for
+            focus = { item = entry.item_name, mode = dropper.mode },
+        }
+    end
+
+    local name = entry.item_name
+
+    -- only if the index and the bundle titles dont agree, eg a half updated install
+    if #results == 0 then
+        return results, "No monsters in the saved data drop " .. name .. "."
+    end
+
+    if #results < count then
+        return results,
+            "Showing the " .. #results .. " best chances of the " .. count .. " monsters that drop "
+                .. name .. "."
+    end
+
+    local verb = count == 1 and " drops " or " drop "
+    return results, plural(count, "monster") .. verb .. name .. ", best chance first."
 end
 
 local function build_index(saved_only)
@@ -181,6 +242,16 @@ local function scan_batch(state)
         distinguish_saved_results(results)
     end
 
+    if state.items then
+        publish(
+            state,
+            results,
+            #results == 0 and "No dropped items match your search."
+                or "Select an item to see which monsters drop it."
+        )
+        return
+    end
+
     publish(
         state,
         results,
@@ -190,10 +261,19 @@ local function scan_batch(state)
     )
 end
 
-function search.new(on_update, saved_only)
+---@param on_update fun(results: table[], message: string)
+---@param saved_only boolean? only monsters with saved lookups, for refreshing them
+---@param kind "items"? search dropped items instead of monsters
+function search.new(on_update, saved_only, kind)
     next_subscription = next_subscription + 1
     local subscription = "monster_lookup_search_" .. next_subscription
-    local state = { tick = 0, on_update = on_update, results = {}, saved_only = saved_only == true }
+    local state = {
+        tick = 0,
+        on_update = on_update,
+        results = {},
+        saved_only = saved_only == true,
+        items = kind == "items",
+    }
     local controller = {}
 
     function controller.get_query()
@@ -213,15 +293,20 @@ function search.new(on_update, saved_only)
         end
 
         state.query, state.key, state.due, state.position = query, key, nil, nil
-        if #query >= 3 or (state.saved_only and #query > 0) then
+        local exact = state.items and state.exact[key]
+
+        if exact then
+            publish(state, dropper_results(exact))
+        elseif #query >= 3 or (state.saved_only and #query > 0) then
             state.matches = matcher.compile(query)
             state.due = state.tick + DEBOUNCE_TICKS
-            publish(state, {}, "Searching names...")
+            publish(state, {}, state.items and "Searching items..." or "Searching names...")
         else
             publish(
                 state,
                 {},
                 state.saved_only and "Search saved monsters by name or location."
+                    or state.items and "Type at least 3 characters to search dropped items."
                     or "Type at least 3 characters to search monsters."
             )
         end
@@ -238,12 +323,19 @@ function search.new(on_update, saved_only)
             -- Only buttons from the current results can select a monster.
             for _, current in ipairs(state.results) do
                 if current == result then
+                    -- picking an item from the list asks for its droppers, the search keeps
+                    -- going and the window fills the field with the full name
+                    if result.item then
+                        return { item = result.item_name }
+                    end
+
                     local monster = result.monster
                     controller.stop()
                     return {
                         name = monster.name,
                         npc_id = monster.npc_id,
                         wiki_title = monster.wiki_title,
+                        focus = result.focus,
                     }
                 end
             end
@@ -255,7 +347,11 @@ function search.new(on_update, saved_only)
             return
         end
 
-        state.index = build_index(state.saved_only)
+        if state.items then
+            state.index, state.exact = build_item_index()
+        else
+            state.index = build_index(state.saved_only)
+        end
         state.started = true
         Event.Logic.Subscribe(subscription, function()
             state.tick = state.tick + 1

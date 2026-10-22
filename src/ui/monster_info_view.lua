@@ -11,6 +11,7 @@ local hover_tooltip = require("src/ui/hover_tooltip")
 local stat_icons = require("src/ui/stat_icons")
 local theme = require("src/ui/theme")
 local widgets = require("src/ui/widgets")
+local monster_preview = require("src/ui/monster_preview")
 
 local monster_info_view = {}
 local PADDING = 6
@@ -119,6 +120,48 @@ local function create_row(controller, parent, section, values, is_header, index)
 end
 
 local layout
+
+-- The summary reads down one column beside the model. Keep the underlying data
+-- sections unchanged; detailed stats and other consumers still use those tables.
+local function summary_section(sections)
+    local overview, immunities
+    for _, section in ipairs(sections) do
+        if section.title == "Overview" then
+            overview = section
+        end
+        if section.title == "Immunities" then
+            immunities = section
+        end
+    end
+    if not overview or not immunities then
+        return nil
+    end
+    local rows = overview.rows
+    local immune = immunities.rows
+    return {
+        title = "Overview",
+        widths = { 0.40, 0.60 },
+        labels = { true, false },
+        rows = {
+            { rows[1][1], rows[1][2] },
+            { rows[2][1], rows[2][2] },
+            { rows[1][3], rows[1][4] },
+            { immune[1][1], immune[1][2] },
+            { immune[2][1], immune[2][2] },
+            { immune[1][3], immune[1][4] },
+            { immune[2][3], immune[2][4] },
+        },
+        value_icons = {
+            { [2] = overview.value_icons[1][2] },
+            {},
+            {},
+            { [2] = "poison" },
+            { [2] = "stun" },
+            { [2] = "deflect" },
+            { [2] = "drain" },
+        },
+    }
+end
 
 local function create_section(controller, parent, section, hide_heading)
     local header_height = (hide_heading or section.title == "Overview" or section.continuation)
@@ -294,9 +337,64 @@ local function layout_section(block, width, y)
     return height
 end
 
+local function clear_preview(controller)
+    if controller.preview_tooltip then
+        controller.preview_tooltip:Destroy()
+        controller.preview_tooltip = nil
+    end
+    if controller.preview then
+        monster_preview.destroy(controller.preview)
+        controller.preview = nil
+    end
+    if controller.preview_frame then
+        controller.preview_frame:Destroy()
+        controller.preview_frame = nil
+    end
+end
+
 local function layout_blocks(controller)
     local width = math.max(200, controller.root.width)
     local y = PADDING
+    local show_preview = controller.active
+        and controller.has_overview
+        and width >= 620
+        and not controller.preview_failed
+    if not show_preview and controller.preview then
+        clear_preview(controller)
+    elseif show_preview and not controller.preview then
+        -- A model may draw outside its own rectangle. Its parent layer provides
+        -- the native clipping boundary, just like the page's scroll viewport.
+        controller.preview_frame = create_layer(controller.body, 210)
+        controller.preview = monster_preview.create(
+            controller.preview_frame,
+            controller.source_title,
+            controller.info,
+            controller.selection,
+            function()
+                if controller.preview_tooltip then
+                    controller.preview_tooltip:Hide()
+                end
+            end
+        )
+        controller.preview_failed = controller.preview == nil
+        if not controller.preview then
+            clear_preview(controller)
+        end
+        if controller.preview then
+            -- The preview owns its wheel gesture; the stat-tooltip helper
+            -- forwards wheel input to the page, which would also scroll here.
+            controller.preview_tooltip = prettyui.Tooltip.attach(
+                controller.preview,
+                controller.overlay_parent,
+                {
+                    text = monster_preview.can_turn(controller.preview)
+                            and "Drag to turn the monster preview, Shift+drag to move it up or down, scroll to zoom."
+                        or "Scroll to zoom the monster preview.",
+                    maxWidth = 260,
+                }
+            )
+        end
+    end
 
     for index, block in ipairs(controller.blocks) do
         local height
@@ -307,7 +405,24 @@ local function layout_blocks(controller)
             block.label:SetPos(8, y)
             block.label:SetSize(width - 16, height)
         else
-            height = layout_section(block, width, y)
+            local overview = block.data and block.data.title == "Overview"
+            local block_width = controller.preview and overview and math.floor((width - 12) * 2 / 3)
+                or width
+            height = layout_section(block, block_width, y)
+            block.root:SetSize(block_width, height)
+            if controller.preview and overview then
+                local preview_height = math.max(210, math.min(280, height))
+                local preview_width = width - block_width - 12
+                controller.preview_frame:SetSize(preview_width, preview_height)
+                controller.preview_frame:SetScrollSize(preview_width, preview_height)
+                controller.preview_frame:SetPos(
+                    block_width + 12,
+                    y + math.max(0, math.floor((height - preview_height) / 2))
+                )
+                monster_preview.resize(controller.preview, preview_width, preview_height)
+                controller.preview:SetPos(0, 0)
+                height = math.max(height, preview_height)
+            end
         end
 
         local next_block = controller.blocks[index + 1]
@@ -340,6 +455,10 @@ end
 
 local function replace_body(controller, info)
     destroy_tooltips(controller)
+    clear_preview(controller)
+    controller.info = info
+    controller.has_overview = next(info) ~= nil
+    controller.preview_failed = false
     if controller.body then
         for _, block in ipairs(controller.blocks) do
             if block.toggle then
@@ -365,9 +484,16 @@ local function replace_body(controller, info)
     end
 
     local detailed, slayer = {}, {}
+    local summary = summary_section(data.sections)
+    if summary then
+        controller.blocks[#controller.blocks + 1] =
+            create_section(controller, controller.body, summary)
+    end
 
     for _, section in ipairs(data.sections) do
-        if section.title == "Slayer" or section.title == "Player-owned Slayer Dungeon" then
+        if summary and (section.title == "Overview" or section.title == "Immunities") then
+            -- Already included in the single summary beside the preview.
+        elseif section.title == "Slayer" or section.title == "Player-owned Slayer Dungeon" then
             slayer[#slayer + 1] = section
         elseif section.detailed then
             detailed[#detailed + 1] = section
@@ -428,7 +554,7 @@ local function add_variant_selector(controller, variants)
     controller.body_y = 48
 end
 
-function monster_info_view.render(page, result, overlay_parent)
+function monster_info_view.render(page, result, overlay_parent, selection)
     local controller = {
         page = page,
         overlay_parent = overlay_parent,
@@ -436,6 +562,8 @@ function monster_info_view.render(page, result, overlay_parent)
         building = true,
         tooltips = {},
         expanded = {},
+        selection = selection,
+        active = false,
     }
     controller.source_title = wiki_text.plain(result.title or "Monster information")
     controller.root = create_layer(page.content, 1)
@@ -452,11 +580,25 @@ function monster_info_view.render(page, result, overlay_parent)
     layout(controller)
 
     return {
+        set_active = function(active)
+            if controller.active == active then
+                return
+            end
+            controller.active = active
+            layout(controller)
+        end,
         hide_tooltips = function()
             widgets.hide_tooltips(controller.tooltips)
+            if controller.preview_tooltip then
+                controller.preview_tooltip:Hide()
+            end
         end,
         destroy = function()
+            if controller.destroyed then
+                return
+            end
             controller.destroyed = true
+            clear_preview(controller)
             destroy_tooltips(controller)
 
             if controller.selector then

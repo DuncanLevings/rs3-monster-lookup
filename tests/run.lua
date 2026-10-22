@@ -19,6 +19,8 @@ local create_drop_table_suite = require("tests/drop_table_spec")
 local create_bundle_suite = require("tests/bundle_spec")
 local create_prices_suite = require("tests/prices_spec")
 local create_bucket_data_suite = require("tests/bucket_data_spec")
+local create_search_index_suite = require("tests/search_index_spec")
+local create_preview_suite = require("tests/monster_preview_spec")
 local create_lookup_suite = require("tests/wiki_lookup_spec")
 local create_locations_suite = require("tests/monster_locations_spec")
 local create_locations_view_suite = require("tests/locations_view_spec")
@@ -51,6 +53,8 @@ runner:runSuiteByInstances({
     { "TestBundle", create_bundle_suite(root) },
     { "TestPrices", create_prices_suite(root) },
     { "TestBucketData", create_bucket_data_suite() },
+    { "TestSearchIndex", create_search_index_suite(root) },
+    { "TestMonsterPreview", create_preview_suite(root) },
     { "TestItemSearch", create_search_suite() },
     { "TestDropSearch", create_drop_search_suite(root) },
     { "TestNpcMenu", create_npc_menu_suite(root) },

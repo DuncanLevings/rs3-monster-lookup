@@ -576,7 +576,7 @@ return function(root)
         lu.assertTrue(tooltip.destroyed)
     end
 
-    function suite:test_weakness_icon_is_centred_when_susceptibility_values_wrap()
+    function suite:test_weakness_icon_is_centred_with_susceptibility_on_its_own_row()
         self.context.subject.open(self.monster)
         self.context.subject.show_result({
             title = "Abyssal demon",
@@ -590,7 +590,7 @@ return function(root)
         for _, tooltip in ipairs(self.context.tooltips) do
             if tooltip.component.sprite == "test:weak_slash" then
                 local icon = tooltip.component
-                lu.assertTrue(icon.parent.height > 24)
+                lu.assertEquals(icon.parent.height, 24)
                 lu.assertEquals(icon.y, math.floor((icon.parent.height - icon.height) / 2))
                 return
             end
@@ -847,7 +847,7 @@ return function(root)
         lu.assertEquals(self.context.section_buttons[2].title, "Detailed stats")
         lu.assertFalse(self.context.section_buttons[2].expanded)
         local page = self.context.tabs:GetPage(2)
-        lu.assertTrue(page.content_height < 320)
+        local collapsed_height = page.content_height
         local air
 
         for _, text in ipairs(self.context.texts) do
@@ -861,7 +861,7 @@ return function(root)
         lu.assertTrue(air.x > 160)
         lu.assertTrue(air.width > 0)
         self.context.section_buttons[2]:SetExpanded(true)
-        lu.assertTrue(page.content_height > 320)
+        lu.assertTrue(page.content_height > collapsed_height)
     end
 
     function suite:test_slayer_and_dungeon_share_one_toggle_and_keep_it_across_variants()
@@ -921,6 +921,329 @@ return function(root)
         lu.assertTrue(group("Detailed stats").expanded)
         lu.assertFalse(self.context.storage.monster_lookup_settings.slayer_expanded)
         lu.assertTrue(self.context.storage.monster_lookup_settings.detailed_stats_expanded)
+    end
+
+    local function enable_preview(context)
+        context.environment.config.NPC = {
+            FromID = function(npc_id)
+                if npc_id == 1 then
+                    return { visibleCombatLevel = 2, gridSize = 1 }
+                elseif npc_id == 2 then
+                    return { visibleCombatLevel = 5, gridSize = 2 }
+                end
+            end,
+        }
+        context.stub_module("src/data/bundle", {
+            npc_ids = function()
+                return { 1, 2 }
+            end,
+        })
+    end
+
+    function suite:test_preview_is_only_owned_by_the_visible_info_tab()
+        local context = self.context
+        enable_preview(context)
+        context.subject.open({ name = "Goblin", npc_id = 1 })
+        context.subject.show_result({ title = "Goblin", sections = {}, info = { combat_level = 2 } })
+        lu.assertEquals(#context.models, 0)
+        context.tabs:SetActive(2)
+        lu.assertEquals(#context.models, 1)
+        local first = context.models[1]
+        lu.assertEquals(first.npc_id, 1)
+        lu.assertEquals(first.animID, -1)
+        lu.assertEquals(first.worldOffset.vector_kind, "integer")
+        lu.assertTrue(first.worldOffset.y > 0)
+        lu.assertFalse(pcall(function()
+            first.worldOffset = { x = 0, y = -180, z = 0, vector_kind = "float" }
+        end))
+        lu.assertFalse(first.clickthrough)
+        context.tabs:SetActive(3)
+        lu.assertTrue(first.destroyed)
+        context.tabs:SetActive(2)
+        lu.assertEquals(#context.models, 2)
+        context.windows[1]:Close()
+        lu.assertTrue(context.models[2].destroyed)
+    end
+
+    function suite:test_preview_follows_variant_level_and_releases_the_previous_model()
+        local context = self.context
+        enable_preview(context)
+        context.subject.open({ name = "Goblin", npc_id = 1 })
+        context.subject.show_result({
+            title = "Goblin",
+            sections = {},
+            variants = {
+                { combat_level = 2 },
+                { combat_level = 5 },
+            },
+        })
+        context.tabs:SetActive(2)
+        local first = context.models[1]
+        context.dropdowns[#context.dropdowns]:pick(2)
+        lu.assertTrue(first.destroyed)
+        lu.assertEquals(#context.models, 2)
+        lu.assertEquals(context.models[2].npc_id, 2)
+        context.subject.open({ name = "Cow" })
+        lu.assertTrue(context.models[2].destroyed)
+    end
+
+    function suite:test_preview_reflows_without_overlapping_stats_and_hides_on_narrow_windows()
+        local context = self.context
+        enable_preview(context)
+        context.subject.open(self.monster)
+        context.subject.show_result({ title = "Goblin", sections = {}, info = { combat_level = 2 } })
+        context.tabs:SetActive(2)
+        local root = context:find_node_with_hook(2, "monster_lookup_info_resize")
+        local first = context.models[1]
+        lu.assertTrue(first.width >= 180)
+        lu.assertTrue(first.height >= 210)
+        lu.assertTrue(first.x + first.width <= root.width)
+        local weakness
+        for _, label in ipairs(context.texts) do
+            if label.content == "Weakness" then
+                weakness = label
+                break
+            end
+        end
+        lu.assertNotNil(weakness)
+        lu.assertTrue(weakness.parent.parent.parent.width < first.parent.x)
+        root.width = 660
+        root.hooks[2](root)
+        lu.assertFalse(first.destroyed == true)
+        lu.assertTrue(first.x + first.width <= root.width)
+        root.width = 540
+        root.hooks[2](root)
+        lu.assertTrue(first.destroyed)
+        local count = #context.models
+        root.hooks[2](root)
+        lu.assertEquals(#context.models, count)
+        root.width = 800
+        root.hooks[2](root)
+        lu.assertEquals(#context.models, count + 1)
+    end
+
+    function suite:test_unavailable_preview_leaves_the_info_readable_and_does_not_retry_on_resize()
+        local context = self.context
+        enable_preview(context)
+        context.model_error = true
+        context.subject.open(self.monster)
+        context.subject.show_result({ title = "Goblin", sections = {}, info = { combat_level = 2 } })
+        context.tabs:SetActive(2)
+        local root = context:find_node_with_hook(2, "monster_lookup_info_resize")
+        lu.assertStrContains(context.logs[#context.logs], "Model creation unavailable")
+        context.model_error = false
+        root.width = 900
+        root.hooks[2](root)
+        lu.assertEquals(#context.models, 0)
+        lu.assertTrue(context.tabs.pages[2].content_height > 0)
+    end
+
+    function suite:test_shutdown_does_not_resize_or_reset_the_info_page()
+        local context = self.context
+        context.subject.open(self.monster)
+        context.subject.show_result({ title = "Goblin", sections = {}, info = { combat_level = 2 } })
+        local page = context.tabs.pages[2]
+        page.SetContentHeight = function()
+            error("Shutdown must not relayout the info page")
+        end
+        context.subject.destroy()
+        lu.assertEquals(context.windows[1].destroy_count, 1)
+    end
+
+    function suite:test_preview_shutdown_ignores_reentrant_native_destroy_and_close_callbacks()
+        local context = self.context
+        enable_preview(context)
+        context.subject.open(self.monster)
+        context.subject.show_result({ title = "Goblin", sections = {}, info = { combat_level = 2 } })
+        context.tabs:SetActive(2)
+        local native_model = context.models[1]
+        local destroy_model = native_model.Destroy
+        native_model.Destroy = function(component)
+            context.subject.destroy()
+            context.windows[1].options.onClose(context.windows[1])
+            destroy_model(component)
+        end
+        context.subject.destroy()
+        context.subject.destroy()
+        lu.assertTrue(native_model.destroyed)
+        lu.assertEquals(context.windows[1].destroy_count, 1)
+        context.subject.open(self.monster)
+        lu.assertEquals(#context.windows, 2)
+    end
+
+    function suite:test_shutdown_handles_a_window_whose_tabs_failed_to_initialize()
+        local context = self.context
+        local create_window = context.environment.prettyui.Window.new
+        context.environment.prettyui.Window.new = function(parent, options)
+            local host = create_window(parent, options)
+            ---@diagnostic disable-next-line: duplicate-set-field
+            host.AddTabs = function()
+                error("Tab creation failed")
+            end
+            return host
+        end
+        lu.assertFalse(pcall(function()
+            context.subject.open(self.monster)
+        end))
+        context.subject.destroy()
+        lu.assertEquals(context.windows[1].destroy_count, 1)
+    end
+
+    function suite:test_stacked_summary_and_preview_finish_before_slayer_and_details()
+        local context = self.context
+        enable_preview(context)
+        context.subject.open(self.monster)
+        context.subject.show_result({
+            title = "Goblin",
+            sections = {},
+            info = {
+                combat_level = 2,
+                slayer_level = 1,
+                susceptible_to = { "inquisitor", "Abyssal Bane", "Demon Slayer" },
+            },
+        })
+        context.tabs:SetActive(2)
+        local summary
+        for _, label in ipairs(context.texts) do
+            if label.content == "Weakness" then
+                summary = label.parent.parent.parent
+                break
+            end
+        end
+        local positions = {}
+        for _, label in ipairs(context.texts) do
+            if label.parent.parent.parent == summary then
+                positions[label.content] = label.parent.y
+                lu.assertTrue(label.x + label.width <= summary.width)
+            end
+        end
+        local previous = -1
+        for _, name in ipairs({
+            "Weakness",
+            "Aggressive",
+            "Susceptible to",
+            "Poison",
+            "Stun",
+            "Deflect",
+            "Stat drain",
+        }) do
+            lu.assertNotNil(positions[name])
+            lu.assertTrue(positions[name] > previous)
+            previous = positions[name]
+        end
+        local preview = context.models[1]
+        lu.assertTrue(preview.parent.x > summary.x + summary.width)
+        lu.assertEquals(preview.parent.scroll_width, preview.width)
+        lu.assertEquals(preview.parent.scroll_height, preview.height)
+        lu.assertEquals(preview.x, 0)
+        lu.assertEquals(preview.y, 0)
+        for _, button in ipairs(context.section_buttons) do
+            lu.assertTrue(button.root.parent.y >= preview.parent.y + preview.height)
+        end
+    end
+
+    function suite:test_preview_zoom_is_bounded_and_does_not_scroll_or_recreate_the_page()
+        local context = self.context
+        enable_preview(context)
+        context.subject.open(self.monster)
+        context.subject.show_result({ title = "Goblin", sections = {}, info = { combat_level = 2 } })
+        context.tabs:SetActive(2)
+        local preview = context.models[1]
+        local page = context.tabs.pages[2]
+        local scroll = page.scroll_position
+        local distance = preview.viewDistance
+        preview.hooks[1](preview, 1)
+        lu.assertTrue(preview.viewDistance > distance)
+        lu.assertFalse(preview.hooks[1](preview, -1))
+        lu.assertEquals(preview.viewDistance, distance)
+        for _ = 1, 200 do
+            preview.hooks[1](preview, -1)
+        end
+        lu.assertEquals(preview.viewDistance, distance)
+        for _ = 1, 200 do
+            preview.hooks[1](preview, 1)
+        end
+        lu.assertTrue(preview.viewDistance <= distance * 2 + 1)
+        lu.assertEquals(page.scroll_position, scroll)
+        lu.assertEquals(#context.models, 1)
+    end
+
+    function suite:test_large_npcs_and_tall_native_bounds_change_initial_framing()
+        local context = self.context
+        enable_preview(context)
+        context.subject.open(self.monster)
+        context.subject.show_result({ title = "Goblin", sections = {}, info = { combat_level = 2 } })
+        context.tabs:SetActive(2)
+        local small = context.models[1].viewDistance
+        context.environment.config.NPC = {
+            FromID = function()
+                return { visibleCombatLevel = 2, gridSize = 5 }
+            end,
+        }
+        context.subject.open({ name = "Large monster", npc_id = 1 })
+        context.subject.show_result({
+            title = "Large monster",
+            sections = {},
+            info = { combat_level = 2 },
+        })
+        context.tabs:SetActive(2)
+        lu.assertTrue(context.models[2].viewDistance > small * 4)
+        context.environment.config.NPC = {
+            FromID = function()
+                return {
+                    visibleCombatLevel = 2,
+                    gridSize = 1,
+                    hasCustomBounding = true,
+                    customBounding = {
+                        width = 300,
+                        height = 2000,
+                        length = 400,
+                        centre = { x = 25, y = -1000, z = 10 },
+                    },
+                }
+            end,
+        }
+        context.subject.open(self.monster)
+        context.subject.show_result({ title = "Goblin", sections = {}, info = { combat_level = 2 } })
+        context.tabs:SetActive(2)
+        local tall = context.models[3]
+        lu.assertTrue(tall.viewDistance > small * 4)
+        lu.assertEquals(tall.worldOffset.x, -25)
+        lu.assertEquals(tall.worldOffset.y, 1000)
+        lu.assertEquals(tall.worldOffset.z, -10)
+        local distance = tall.viewDistance
+        for _ = 1, 100 do
+            tall.hooks[1](tall, -1)
+        end
+        lu.assertEquals(tall.viewDistance, distance)
+        local selector_root = context:find_node_with_hook(2, "monster_lookup_info_resize")
+        local frame = tall.parent
+        lu.assertTrue(frame.y >= 0)
+        lu.assertTrue(selector_root.height >= frame.height)
+    end
+
+    function suite:test_preview_rectangle_starts_below_the_variant_selector_at_closest_zoom()
+        local context = self.context
+        enable_preview(context)
+        context.subject.open(self.monster)
+        context.subject.show_result({
+            title = "Goblin",
+            sections = {},
+            variants = {
+                { combat_level = 2 },
+                { combat_level = 5 },
+            },
+        })
+        context.tabs:SetActive(2)
+        local preview = context.models[1]
+        for _ = 1, 100 do
+            preview.hooks[1](preview, -1)
+        end
+        local frame = preview.parent
+        local selector = context.dropdowns[#context.dropdowns]
+        lu.assertTrue(frame.parent.y + frame.y >= selector.y + selector.height + 6)
+        lu.assertEquals(frame.scroll_height, preview.height)
+        lu.assertEquals(preview.y, 0)
     end
 
     return suite

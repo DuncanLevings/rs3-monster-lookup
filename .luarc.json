@@ -19,6 +19,7 @@
     "PersistentDB",
     "GameState",
     "HTTPRequest",
+    "Keyboard",
     "Plugin",
     "PluginPermissions",
     "HintList",
@@ -27,7 +28,9 @@
     "World",
     "Player",
     "LocList",
+    "NPCList",
     "Vector3",
+    "Vector4",
     "var"
   ],
   "workspace.checkThirdParty": false,
