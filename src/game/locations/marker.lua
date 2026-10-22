@@ -1,5 +1,16 @@
--- Button callbacks only change the desired destination. Native hints are changed
--- on Logic ticks, with a gap before replacement and fresh names for each target.
+-- the Mark / Entrance buttons on the Locations tab. marking a location shows a native
+-- arrow over the spot in game and an X on the world map, and walks you there a step at a
+-- time when its inside a dungeon (route.lua picks each step)
+--
+-- how it fits together:
+--   - the buttons only ever change desired, what the player asked for
+--   - everything touching the clients hint list happens on Logic ticks in update(), never
+--     straight from a button callback
+--   - installed is what the client is showing right now. replacing it retires the old one
+--     and waits REPLACEMENT_GAP ticks before adding the new one, and every new arrow gets a
+--     fresh name, the client didnt cope with reusing a name straight away
+--   - listeners (the Locations tab) get told whenever status() would say something new
+
 local location_map = require("src/data/locations/resolve")
 local route = require("src/game/locations/route")
 local clock = require("src/utils/cache_clock")
@@ -7,13 +18,37 @@ local map_symbol = require("src/game/locations/symbol")
 
 local marker = {}
 local SUBSCRIPTION = "monster_lookup_location_marker"
+-- ticks between removing a hint and adding its replacement
 local REPLACEMENT_GAP = 2
+-- the player position and terrain are only checked this often
 local CHECK_INTERVAL_TICKS = clock.TICKS_PER_SECOND
+-- within this many tiles of the last step counts as arrived
 local ARRIVAL_RADIUS = 16
+-- how high above the ground the arrow floats
 local ARROW_HEIGHT = 900
-local desired, installed, retired, problem, ready_at, reached, completed
-local changed, paused, started = false, false, false
+local UNAVAILABLE = "Native location markers are unavailable on this client."
+
+-- what the player asked for: the goal, its label and the current step towards it
+local desired
+-- the hints the client is showing now, nil when none
+local installed
+-- the last installed hints, kept alive until the replacement gap is over
+local retired
+-- an error to show instead of the normal status
+local problem
+-- tick the next hints can go in, nil when theres no gap to wait out
+local ready_at
+-- label of the destination just reached, for the "Arrived" status
+local reached
+-- status to show after the marker cleared itself for another reason
+local completed
+-- desired was changed by a button, the next tick has to swap the hints
+local changed = false
+-- inside an instance or while the world loads, no hints until thats over
+local paused = false
 local pause_reason
+local started = false
+-- the player position is read once per CHECK_INTERVAL_TICKS, these hold that reading
 local position_bucket, cached_position
 local tick, generation = 0, 0
 local listeners = {}
@@ -34,17 +69,23 @@ local function notify()
     end
 end
 
+-- "Goblin - Lumbridge", what the player picked. stays the same while the steps change
+local function selection_name(source_title, location)
+    return source_title .. " - " .. (location.name or "Location")
+end
+
 local function remove_hints(entry)
     if not entry or not HintList then
         return
     end
 
-    -- Only remove registrations which the client accepted. A partial failure
-    -- must not try to remove an unregistered name from the native hint list.
+    -- only remove what the client actually accepted, if adding failed part way theres
+    -- nothing registered under that name to remove
     if entry.arrow_added and HintList.RemoveArrow then
         entry.arrow_added = false
-        -- Keep a Lua frame between pcall and the client binding. Passing the
-        -- binding itself as pcall's target is shared by the reported crashes.
+
+        -- wrapped in a function, passing the client call straight to pcall is what the
+        -- reported crashes had in common
         pcall(function()
             HintList.RemoveArrow(entry.arrow_name)
         end)
@@ -60,8 +101,8 @@ local function retire_current()
         return
     end
 
-    -- Retain coordinate userdata across the replacement gap as well as keeping
-    -- the native registrations apart. The client may still be finishing a frame.
+    -- the old entry (and its coordinate objects) is kept through the gap as well, the client
+    -- might still be finishing a frame with them
     retired = { entry = installed, release_at = tick + REPLACEMENT_GAP }
     remove_hints(installed)
     installed = nil
@@ -76,6 +117,7 @@ local function same_target(a, b)
     return a and b and a.level == b.level and a.x == b.x and a.z == b.z
 end
 
+-- ground height at a tile, nil when that part of the map isnt loaded
 local function destination_height(target)
     if not World or type(World.GetGroundHeight) ~= "function" then
         return nil
@@ -86,6 +128,7 @@ local function destination_height(target)
             World.GetGroundHeight(target.level, target.x * 512 + 256, target.z * 512 + 256)
         return value, success
     end)
+
     if
         ok
         and loaded == true
@@ -102,8 +145,9 @@ end
 
 local function add_hints(entry)
     local target = entry.target
-    -- The native hint treats Y as an offset above terrain. Adding the sampled
-    -- floor height here lifts the arrow twice; use samples only to trigger a refresh.
+
+    -- the arrows height is already above the ground, adding the ground height lifted it
+    -- twice. the height is only saved to notice when the terrain changes (see update)
     entry.ground_height = destination_height(target)
     entry.fine =
         CoordFine.new(target.level, target.x * 512 + 256, ARROW_HEIGHT, target.z * 512 + 256)
@@ -112,6 +156,7 @@ local function add_hints(entry)
         coordFine = entry.fine,
         arrowID = 0,
     }) == true
+
     if not entry.arrow_added then
         return false
     end
@@ -132,13 +177,16 @@ local function register(player_level, player_height, position)
         area_name = "monster_lookup_location_area_" .. generation,
     }
     local ok, accepted = pcall(add_hints, entry)
+
     if not ok or not accepted then
         remove_hints(entry)
         desired = nil
         problem = "The client could not create the location marker."
+
         if not ok then
-            log("Monster Lookup location marker: " .. tostring(accepted))
+            log("Monster Lookup: location marker failed. " .. tostring(accepted))
         end
+
         return
     end
 
@@ -147,17 +195,19 @@ end
 
 local function supported_target(location)
     local resolution, reason = location_map.resolve(location)
+
     if not resolution then
         return nil, reason
     end
 
     if not available() then
-        return nil, "Native location markers are unavailable on this client."
+        return nil, UNAVAILABLE
     end
 
     return resolution.target, nil, resolution
 end
 
+---the button text for a location, its tooltip, and why it cant be marked if it cant
 function marker.action(location)
     local _, reason, resolution = supported_target(location)
     return resolution and resolution.kind == "entrance" and "Entrance" or "Mark",
@@ -170,7 +220,7 @@ function marker.reason(location)
     return reason
 end
 
--- compare the selected goal, not the current dungeon waypoint or native hint.
+-- compares what was picked, not the dungeon step its on or the hints showing right now
 local function same_selection(location, source_title, resolution)
     if not desired or not resolution then
         return false
@@ -178,7 +228,8 @@ local function same_selection(location, source_title, resolution)
 
     local same_interior = (not desired.goal.interior and not resolution.interior)
         or same_target(desired.goal.interior, resolution.interior)
-    local selection = (source_title or desired.source) .. " - " .. (location.name or "Location")
+    local selection = selection_name(source_title or desired.source, location)
+
     return desired.selection == selection
         and desired.goal.interior_map == resolution.interior_map
         and same_target(desired.goal.target, resolution.target)
@@ -189,8 +240,12 @@ function marker.is_target(location, source_title)
     return same_selection(location, source_title, location_map.resolve(location))
 end
 
+---asks for a location to be marked, the hints follow on the next tick
+---@return boolean marked
+---@return string? reason why it couldnt be
 function marker.mark(location, source_title)
     local target, reason, resolution = supported_target(location)
+
     if not target or not resolution then
         return false, reason
     end
@@ -199,18 +254,16 @@ function marker.mark(location, source_title)
         return false, "Location markers are available outside instances while logged in."
     end
 
-    local label = source_title .. " - " .. resolution.label
-    local selection = source_title .. " - " .. (location.name or "Location")
     if not same_selection(location, source_title, resolution) then
         desired = {
             goal = resolution,
-            selection = selection,
+            selection = selection_name(source_title, location),
             source = source_title,
             target = target,
-            label = label,
+            label = source_title .. " - " .. resolution.label,
             map_level = 0,
-            -- Allow the next periodic position snapshot to replace a cached
-            -- snapshot from the preceding selection before automatic completion.
+            -- arriving isnt checked until the next position reading, the one saved might
+            -- still be from before this was picked
             confirm_after = tick + CHECK_INTERVAL_TICKS,
         }
         changed = true
@@ -227,6 +280,9 @@ function marker.clear()
     notify()
 end
 
+---what the Locations tab shows above the list
+---@return string text
+---@return boolean? attention true when it needs the player to notice (paused)
 function marker.status()
     if problem then
         return problem
@@ -252,15 +308,17 @@ function marker.status()
     end
 
     return available() and "Select Mark, then open and pan the game map to the destination."
-        or "Native location markers are unavailable on this client."
+        or UNAVAILABLE
 end
 
 function marker.has_target()
     return desired ~= nil
 end
 
+---calls back whenever the status changes, returns a function that stops it
 function marker.subscribe(callback)
     listeners[callback] = true
+
     return function()
         listeners[callback] = nil
     end
@@ -268,18 +326,22 @@ end
 
 local function player_position()
     local bucket = math.floor(tick / CHECK_INTERVAL_TICKS)
+
     if position_bucket == bucket then
         return cached_position
     end
+
     position_bucket, cached_position = bucket, nil
+
     if not Player or not Player.IsAvailable() then
         return nil
     end
 
     local player = Player.GetEntity()
     local position = player and player.coordGrid
+
     if position then
-        -- Retain a value snapshot, not entity userdata that can move between checks.
+        -- copy the numbers out, the client object can change under us between checks
         cached_position = { level = position.level, x = position.x, z = position.z }
     end
 
@@ -296,22 +358,87 @@ end
 local function pause_navigation(reason)
     retire_current()
     ready_at = nil
+
     if not paused or pause_reason ~= reason then
         paused, pause_reason = true, reason
         notify()
     end
 end
 
+-- the route got into the dungeon but cant guide you any further inside, so the marker
+-- clears itself and says why
+local function finish_at_interior()
+    log("Monster Lookup: marker cleared, no guidance inside " .. desired.selection)
+    completed = "Dungeon entered. Interior guidance unavailable; marker cleared."
+    desired, problem, ready_at, reached = nil, nil, nil, nil
+    paused, pause_reason = false, nil
+    -- removed the same way as arriving or replacing, on this tick
+    retire_current()
+    notify()
+end
+
+local function arrive()
+    reached = desired.label
+    desired, problem = nil, nil
+    paused = false
+    retire_current()
+    ready_at = nil
+    notify()
+end
+
+-- for hints already showing. true when they have to be put in again (the next tick does),
+-- else keeps the map X up to date
+local function needs_reinstall(position, player_level, player_height)
+    local height = destination_height(installed.target)
+    local terrain_changed = height ~= nil and height ~= installed.ground_height
+    local floor_changed = player_level ~= nil and player_level ~= installed.player_level
+    -- walking onto a slope changes the ground height without changing floor, only a height
+    -- change on the same tile means the ground the arrow is measured from changed
+    local elevation_changed = same_target(installed.player_position, position)
+        and player_height ~= nil
+        and player_height ~= installed.player_height
+
+    if terrain_changed or floor_changed or elevation_changed then
+        -- the client can keep measuring a hint from the ground it was added on, so after
+        -- loading in or climbing its put in again
+        return true
+    end
+
+    installed.player_position = position
+
+    if player_height ~= nil then
+        installed.player_height = player_height
+    end
+
+    local refreshed, visible = pcall(map_symbol.refresh, installed.symbol)
+    local next_problem = not (refreshed and visible)
+            and "The map symbol could not update. The navigation arrow is still active."
+        or nil
+
+    if problem ~= next_problem then
+        problem = next_problem
+        notify()
+    end
+
+    return false
+end
+
+-- runs every tick: swaps hints after a button press, follows the route a step at a time,
+-- notices arriving, and puts hints back in when the ground under them changes
 local function update()
     tick = tick + 1
+
     if retired and tick >= retired.release_at then
         retired = nil
     end
 
+    -- a button changed desired, take down whats showing first
     local requested = changed
+
     if changed then
         changed = false
         retire_current()
+
         if not desired then
             ready_at = nil
             return
@@ -322,12 +449,13 @@ local function update()
         return
     end
 
-    -- nothing can be installed during the native replacement gap. wait before
-    -- routing or sampling terrain, then validate the destination when it ends.
+    -- nothing goes in during the replacement gap, so dont route or read terrain until its
+    -- over. the destination gets checked again then
     if ready_at and tick < ready_at then
         return
     end
 
+    -- otherwise only once a second, unless a button just asked for something
     if not requested and not ready_at and tick % CHECK_INTERVAL_TICKS ~= 0 then
         return
     end
@@ -339,23 +467,21 @@ local function update()
     end
 
     local position_ok, position = pcall(player_position)
+
     if not position_ok then
         position = nil
     end
 
+    -- which step of the route to point at now
     local routed, step, reason, outcome = pcall(route.next, desired.goal, position)
+
     if
         routed
         and not step
         and outcome == "interior_unavailable"
         and tick >= desired.confirm_after
     then
-        completed = "Dungeon entered. Interior guidance unavailable; marker cleared."
-        desired, problem, ready_at, reached = nil, nil, nil, nil
-        paused, pause_reason = false, nil
-        -- Use the same tick-owned removal path as normal arrival and replacement.
-        retire_current()
-        notify()
+        finish_at_interior()
         return
     end
 
@@ -368,6 +494,8 @@ local function update()
     local status_changed = paused or desired.label ~= label
     paused, pause_reason, desired.label = false, nil, label
     desired.target, desired.map_level = step.target, step.map_level
+
+    -- moved on to another step, the hints for the old one come down first
     if
         installed
         and (
@@ -386,59 +514,35 @@ local function update()
 
     local ok, nearby, player_level, player_height =
         pcall(near_destination, desired.target, position)
+
     if not ok then
         player_level, player_height = nil, nil
     end
 
     if ok and nearby and step.final then
-        reached = desired.label
-        desired, problem = nil, nil
-        paused = false
-        retire_current()
-        ready_at = nil
-        notify()
+        arrive()
         return
     end
 
     if installed then
-        local height = destination_height(installed.target)
-        local terrain_changed = height ~= nil and height ~= installed.ground_height
-        local floor_changed = player_level ~= nil and player_level ~= installed.player_level
-        -- moving onto a slope changes ground height without changing floors.
-        -- only a height change at the same tile means its terrain reference changed.
-        local elevation_changed = same_target(installed.player_position, position)
-            and player_height ~= nil
-            and player_height ~= installed.player_height
-        if terrain_changed or floor_changed or elevation_changed then
-            -- Native hints can retain their original terrain reference. Re-register
-            -- on loading or climbing, without adding absolute height to the offset.
+        if needs_reinstall(position, player_level, player_height) then
             retire_current()
             notify()
-            return
         end
 
-        installed.player_position = position
-        if player_height ~= nil then
-            installed.player_height = player_height
-        end
-
-        local refreshed, visible = pcall(map_symbol.refresh, installed.symbol)
-        local next_problem = not (refreshed and visible)
-                and "The map symbol could not update. The navigation arrow is still active."
-            or nil
-        if problem ~= next_problem then
-            problem = next_problem
-            notify()
-        end
         return
     end
+
+    -- nothing showing yet (first tick, or the gap just ended), put the hints in
     ready_at, paused = nil, false
+
     if available() then
         register(player_level, player_height, position)
     else
         desired = nil
-        problem = "Native location markers are unavailable on this client."
+        problem = UNAVAILABLE
     end
+
     notify()
 end
 
@@ -446,6 +550,7 @@ function marker.start()
     if started then
         return
     end
+
     started = true
     Event.Logic.Subscribe(SUBSCRIPTION, update)
 end
@@ -453,7 +558,7 @@ end
 function marker.stop()
     Event.Logic.Unsubscribe(SUBSCRIPTION)
     started = false
-    -- Shutdown must release accepted hints before the plugin's callbacks disappear.
+    -- the hints have to go before the plugin does, the client would keep showing them
     remove_hints(installed)
     installed, desired, retired, problem, ready_at, reached, completed =
         nil, nil, nil, nil, nil, nil, nil

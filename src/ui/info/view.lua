@@ -2,15 +2,15 @@
 -- tables are laid out by hand so cells can grow to fit wrapped text and icons can stand in
 -- for header text, the variant picker swaps the body without rebuilding the whole tab
 
-local internals = require("src/ui/prettyui_internals")
+local internals = require("src/ui/common/prettyui_internals")
 local model = require("src/data/monsters/info")
 local settings = require("src/settings")
 local wiki_text = require("src/utils/wiki_text")
-local text_layout = require("src/ui/text_layout")
-local hover_tooltip = require("src/ui/hover_tooltip")
+local text_layout = require("src/ui/common/text_layout")
+local hover_tooltip = require("src/ui/common/hover_tooltip")
 local stat_icons = require("src/ui/info/icons")
-local theme = require("src/ui/theme")
-local widgets = require("src/ui/widgets")
+local theme = require("src/ui/common/theme")
+local widgets = require("src/ui/common/widgets")
 local monster_preview = require("src/ui/info/preview")
 
 local monster_info_view = {}
@@ -118,8 +118,9 @@ end
 
 local layout
 
--- The summary reads down one column beside the model. Keep the underlying data
--- sections unchanged; detailed stats and other consumers still use those tables.
+-- the short summary that sits in one column beside the model, made from the Overview
+-- and Immunities sections. the sections themselves are left alone, detailed stats still
+-- shows them in full
 local function summary_section(sections)
     local overview, immunities
 
@@ -366,8 +367,8 @@ local function layout_blocks(controller)
     if not show_preview and controller.preview then
         clear_preview(controller)
     elseif show_preview and not controller.preview then
-        -- A model may draw outside its own rectangle. Its parent layer provides
-        -- the native clipping boundary, just like the page's scroll viewport.
+        -- a model can draw outside its own box, so it sits in a layer of its own that cuts
+        -- it off at the edges, the same way the scrolling page does
         controller.preview_frame = create_layer(controller.body, 210)
         controller.preview = monster_preview.create(
             controller.preview_frame,
@@ -386,8 +387,8 @@ local function layout_blocks(controller)
         end
 
         if controller.preview then
-            -- The preview owns its wheel gesture; the stat-tooltip helper
-            -- forwards wheel input to the page, which would also scroll here.
+            -- a plain prettyui tooltip, not the stat tooltip helper. that one passes the
+            -- scroll wheel on to the page, which would scroll the tab while zooming
             controller.preview_tooltip =
                 prettyui.Tooltip.attach(controller.preview, controller.overlay_parent, {
                     text = monster_preview.can_turn(controller.preview)
@@ -494,7 +495,7 @@ local function replace_body(controller, info)
 
     for _, section in ipairs(data.sections) do
         if summary and (section.title == "Overview" or section.title == "Immunities") then
-            -- Already included in the single summary beside the preview.
+            -- already shown in the summary beside the preview
         elseif section.title == "Slayer" or section.title == "Player-owned Slayer Dungeon" then
             slayer[#slayer + 1] = section
         elseif section.detailed then

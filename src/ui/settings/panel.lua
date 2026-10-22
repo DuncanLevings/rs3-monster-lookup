@@ -2,8 +2,8 @@
 -- the client clears the layer each time its opened so the view is rebuilt every time
 
 local settings = require("src/settings")
-local cache = require("src/data/monster_cache")
-local bundle = require("src/data/bundle")
+local cache = require("src/data/lookup/cache")
+local bundle = require("src/data/bundle/reader")
 local plugin_pages = require("src/ui/settings/pages")
 
 local settings_panel = {}

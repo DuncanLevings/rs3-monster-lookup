@@ -2,19 +2,24 @@
 -- its created the first time a monster is picked and then reused, closing just hides it.
 -- logout and plugin shutdown destroy it properly
 
-local window_state = require("src/ui/window_state")
+local window_state = require("src/ui/common/window_state")
 local drop_table = require("src/ui/drops/table")
 local monster_info_view = require("src/ui/info/view")
-local locations_view = require("src/ui/locations_view")
+local locations_view = require("src/ui/locations/view")
 local lookup_notice = require("src/ui/lookup_notice")
-local theme = require("src/ui/theme")
+local theme = require("src/ui/common/theme")
 
 local settings = require("src/settings")
 local clock = require("src/utils/cache_clock")
+local plural = require("src/utils/number_format").plural
 local prices = require("src/data/drops/prices")
 local drop_groups = require("src/data/drops/groups")
 
 local monster_window = {}
+-- tab numbers, in the order add_content_tabs adds them
+local DROPS_TAB = 1
+local INFO_TAB = 2
+
 local window
 local destroying = false
 local tabs
@@ -40,6 +45,15 @@ local search_query = ""
 local drop_mode = 1
 local drop_section_state = {}
 
+-- the info tab only animates its preview while its the tab showing
+local function set_info_active(active)
+    info_active = active
+
+    if info_controller then
+        info_controller.set_active(active)
+    end
+end
+
 local function hide_window_tooltips()
     if drop_table_controller then
         drop_table_controller.hide_tooltips()
@@ -56,11 +70,7 @@ local function on_window_closed(closed_window)
         return
     end
     hide_window_tooltips()
-    info_active = false
-    if info_controller then
-        info_controller.set_active(false)
-    end
-
+    set_info_active(false)
     window_state.save(closed_window)
 
     if close_action then
@@ -90,16 +100,13 @@ local function add_content_tabs()
                     return
                 end
                 hide_window_tooltips()
-                info_active = index == 2
-                if info_controller then
-                    info_controller.set_active(info_active)
-                end
+                set_info_active(index == INFO_TAB)
             end,
         }
     )
     tabs.root:SetSize(-tabs.root.x * 2, -tabs.root.y - 8, 1, 1)
-    drops_page = tabs:GetPage(1)
-    info_page = tabs:GetPage(2)
+    drops_page = tabs:GetPage(DROPS_TAB)
+    info_page = tabs:GetPage(INFO_TAB)
     locations_page = tabs:GetPage(3)
 
     loading_label = drops_page:AddText({
@@ -136,17 +143,9 @@ local function ensure_window_exists()
 end
 
 local function show_drops_tab()
-    info_active = false
-    if info_controller then
-        info_controller.set_active(false)
-    end
-
-    tabs:SetActive(1, false)
+    set_info_active(false)
+    tabs:SetActive(DROPS_TAB, false)
     drops_page:SetScrollPosition(0)
-end
-
-local function plural(count, unit)
-    return count .. " " .. unit .. (count == 1 and "" or "s")
 end
 
 local function describe_age(age)
@@ -395,7 +394,7 @@ function monster_window.show_result(result, problem, metadata)
     show_locations(result)
 
     if focus and focus.tab == "info" then
-        tabs:SetActive(2)
+        tabs:SetActive(INFO_TAB)
     end
 end
 
@@ -432,8 +431,8 @@ function monster_window.destroy()
     hide_window_tooltips()
     window_state.save(old_window)
 
-    -- Shutdown releases views directly. Resetting their placeholder labels and
-    -- scroll heights here can fire layout callbacks into a half-destroyed window.
+    -- the views are just destroyed here, not reset to their loading labels first. resetting
+    -- sizes fires layout callbacks, and those would run on a half destroyed window
     if info_controller then
         info_controller.destroy()
     end

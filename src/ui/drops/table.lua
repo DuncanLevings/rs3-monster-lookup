@@ -9,12 +9,12 @@
 -- whenever the data or settings change
 
 local price_format = require("src/ui/drops/price_format")
-local text_layout = require("src/ui/text_layout")
+local text_layout = require("src/ui/common/text_layout")
 local rarity_format = require("src/ui/drops/rarity_format")
-local hover_tooltip = require("src/ui/hover_tooltip")
-local theme = require("src/ui/theme")
-local widgets = require("src/ui/widgets")
-local internals = require("src/ui/prettyui_internals")
+local hover_tooltip = require("src/ui/common/hover_tooltip")
+local theme = require("src/ui/common/theme")
+local widgets = require("src/ui/common/widgets")
+local internals = require("src/ui/common/prettyui_internals")
 
 local item_search = require("src/data/search/matcher")
 local drop_groups = require("src/data/drops/groups")
@@ -393,7 +393,8 @@ local function layout_sections(controller)
     end)
 end
 
--- row state is owned here; keep it in Lua to avoid redundant native property writes
+-- the rows hidden and y are kept in lua too, so unchanged rows dont get written to the
+-- client again
 local function update_filtered_row(entry, visible, y)
     local hidden = not visible
 
@@ -409,9 +410,9 @@ local function update_filtered_row(entry, visible, y)
 end
 
 -- hides rows that dont match and moves the rest up. sections with no matches are hidden
--- altogether, and every section is opened while searching then put back how it was after
--- reuse existing rows and controls to keep keyboard focus in the search field
--- keep the notes intact so numbered references still point to the same explanations
+-- altogether, and every section is opened while searching then put back how it was after.
+-- the same rows and controls are reused so the search field keeps keyboard focus, and the
+-- notes are left alone so the numbers on the rows still point at the right one
 local function apply_search(controller, query)
     local searching = query:find("%S") ~= nil
     local matches = item_search.compile(query)
@@ -697,8 +698,8 @@ local function create_mode_picker(controller, x)
 end
 
 local function create_toolbar(controller)
-    -- PrettyUI scrolls the viewport itself with SetScrollPos. The tab root is
-    -- outside that scroll transform; draw this sibling last to cover passing rows.
+    -- the toolbar sits on the tab root, which doesnt scroll (prettyui scrolls the content
+    -- inside it). added last so its drawn on top of the rows scrolling under it
     controller.toolbar = widgets.layer(controller.page.root, 1)
     controller.toolbar.clickthrough = false
     widgets.background(controller.toolbar, theme.ROW_ODD)

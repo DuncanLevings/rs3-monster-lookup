@@ -1,7 +1,7 @@
--- Extracted map transforms from RuneScape Wiki contributors (2026-10-21).
--- Each row: source floor, floor count, source x/z bounds, plane/x/z offsets.
--- Rebuild with tools/build_dungeon_maps.py from saved map configuration JSON.
--- Source revision and CC BY-NC-SA 3.0 attribution: THIRD_PARTY_NOTICES.txt.
+-- how each wiki dungeon map is shifted from game coordinates, from the RuneScape Wiki
+-- contributors map config (2026-10-21). each row: source floor, floor count, source x/z
+-- bounds, then the plane/x/z offsets. generated, rebuild with tools/build_dungeon_maps.py.
+-- source revision and the CC BY-NC-SA 3.0 attribution are in THIRD_PARTY_NOTICES.txt
 return {
     [0] = {
         { 0, 1, 2688, 9664, 2751, 9791, 0, 0, 0 },

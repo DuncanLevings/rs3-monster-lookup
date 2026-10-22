@@ -1,9 +1,9 @@
 -- message box at the top of the Drops tab, red when a lookup fails with no saved data to fall
 -- back on, or a plain one when theres just nothing to show. resizes to fit as the window does
 
-local text_layout = require("src/ui/text_layout")
-local theme = require("src/ui/theme")
-local widgets = require("src/ui/widgets")
+local text_layout = require("src/ui/common/text_layout")
+local theme = require("src/ui/common/theme")
+local widgets = require("src/ui/common/widgets")
 
 local lookup_notice = {}
 local INSET = 14

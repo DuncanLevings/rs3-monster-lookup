@@ -1,8 +1,8 @@
--- Verified entrances and parent access points. Keep aliases exact: quest copies
--- can share a dungeon's name or diagram without sharing its game coordinates.
--- Parent records reuse the outer entrance. Interior guidance requires a unique
--- coordinate conversion from the selected location, not the entrance name.
--- Provenance and coordinates: resources/DUNGEON_ENTRANCE_SOURCES.json.
+-- checked dungeon entrances, and for places inside other places the entry they go through
+-- (parent). names must match exactly, quest copies of a dungeon can share its name or map
+-- but be somewhere else entirely in game. a parent entry reuses the outer entrance, guiding
+-- you on inside needs the location itself to convert to game coordinates, the entrance name
+-- isnt enough. where each one came from: resources/DUNGEON_ENTRANCE_SOURCES.json
 return {
     {
         pages = { "Taverley Dungeon" },

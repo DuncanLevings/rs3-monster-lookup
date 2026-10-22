@@ -1,5 +1,5 @@
--- Resource portal locations from the Wiki resource-dungeon overview.
--- Parent-area waypoints are separate from the monster spawn inside the portal.
+-- resource dungeon portals, from the wikis resource dungeon overview. the portal is a
+-- waypoint in the area outside, the monsters spawn inside it is a separate step
 return {
     ["brimhaven dungeon resource dungeon"] = {
         map_id = 589,

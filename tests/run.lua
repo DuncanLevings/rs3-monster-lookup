@@ -1,6 +1,10 @@
 local root = arg[0]:match("^(.*)[/\\]tests[/\\][^/\\]+$") or "."
 package.path = root .. "/?.lua;" .. package.path
 
+-- the client gives plugins a global log, plain lua doesnt. specs that check messages pass
+-- their own in, everything else just needs it to exist
+log = function(...) end
+
 local lu = require("luaunit")
 local create_npc_menu_suite = require("tests/npc_menu_spec")
 local create_window_suite = require("tests/monster_window_spec")

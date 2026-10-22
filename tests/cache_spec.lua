@@ -84,7 +84,7 @@ return function(root)
         }
         -- these tests are about the live lookup and its cache, so the bundle knows nothing
         -- unless a test sets context.bundle_match (tests/bundle_spec.lua covers the real one)
-        modules["src/data/bundle"] = {
+        modules["src/data/bundle/reader"] = {
             find = function()
                 return context.bundle_match
             end,
@@ -122,9 +122,9 @@ return function(root)
         environment.require = load_module
         self.modules = modules
         self.json = load_module("src/utils/json")
-        self.cache = load_module("src/data/monster_cache")
+        self.cache = load_module("src/data/lookup/cache")
         self.settings = load_module("src/settings")
-        self.service = load_module("src/data/lookup_service")
+        self.service = load_module("src/data/lookup/service")
         self.complete = function(result, problem, metadata)
             context.results[#context.results + 1] =
                 { result = result, problem = problem, metadata = metadata }

@@ -49,13 +49,14 @@ def build(manifest, output):
             raise ValueError("Scenery queries must be unique and bounded")
         edges.append({k: v for k, v in edge.items() if k != "source"})
     output.write_text(
-        "-- Reviewed native transitions; provenance and exceptions are recorded in\n"
-        "-- resources/DUNGEON_ROUTE_SOURCES.json. Rebuild with tools/build_dungeon_connections.py.\n"
+        "-- the ladders, doors and portals between dungeon floors, each one checked by hand. where\n"
+        "-- each came from (and the odd exception) is in resources/DUNGEON_ROUTE_SOURCES.json.\n"
+        "-- generated, rebuild with tools/build_dungeon_connections.py\n"
         "return {\n" + "".join("    " + literal(e) + ",\n" for e in edges) + "}\n",
         encoding="utf-8", newline="\n")
     instructions = {int(k): v for k, v in data.get("manual_guidance", {}).items()}
     output.with_name("route_instructions.lua").write_text(
-        "-- Manual guidance for transitions whose departure coordinates are unverified.\n"
+        "-- written directions for floor changes where the exact spot you leave from isnt known\n"
         "return " + literal(instructions) + "\n", encoding="utf-8", newline="\n")
     print(f"Wrote {len(edges)} route connections and {len(instructions)} area instructions")
 

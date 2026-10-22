@@ -1,6 +1,7 @@
--- Connections describe transitions, not walking paths. A gate may be discovered
--- from loaded scenery or explained in text when its position is not verified.
--- Keep dungeon-specific names and access rules out of the navigation engine.
+-- a connection is a way from one map to another (a ladder, a door), not a path to walk.
+-- its position is either known, found from scenery loaded nearby, or explained in text when
+-- nobody checked where it is. anything specific to one dungeon goes here, not in
+-- navigation.lua
 local graph = {
     surface = 28,
     nodes = {

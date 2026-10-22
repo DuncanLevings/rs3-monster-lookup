@@ -1,17 +1,17 @@
 -- ranks bundled monster variants by one stat for the Top stats search, read from
--- src/data/bundle/stats.lua (built by tools/search_index.lua)
+-- src/data/bundle/generated/stats.lua (built by tools/bundle/search_index.lua)
 --
 -- raw xp per kill mostly lists big bosses, so the level filters matter as much as the stat
 -- itself, and xp per life point is there to compare quick kills against damage sponges
 
-local bundle = require("src/data/bundle")
+local bundle = require("src/data/bundle/reader")
 local monster_info = require("src/data/monsters/info")
 local matcher = require("src/data/search/matcher")
 local number_format = require("src/utils/number_format")
 
 local stat_rankings = {}
 
--- must match tools/search_index.lua
+-- must match tools/bundle/search_index.lua
 local FORMAT = 1
 local MAX_RESULTS = 50
 
@@ -99,9 +99,9 @@ local function load()
     end
 
     local ok, problem = pcall(function()
-        local raw = require("src/data/bundle/stats")
+        local raw = require("src/data/bundle/generated/stats")
         assert(type(raw) == "table" and raw.format == FORMAT, "unexpected stats format")
-        local strings = require("src/data/bundle/strings")
+        local strings = require("src/data/bundle/generated/strings")
         local titles = bundle.titles()
         local list = {}
 
@@ -142,7 +142,7 @@ local function load()
                     slayer_xp = field_number(fields[7], 100),
                     slayer_level = field_number(fields[8]),
                     max_hit = field_number(fields[9]),
-                    -- a boss, boss minion or instanced fight, see tools/search_index.lua
+                    -- a boss, boss minion or instanced fight, see tools/bundle/search_index.lua
                     boss = fields[11] == "1",
                     -- the name filter also matches slayer categories, eg "dragons"
                     searchable = table.concat(

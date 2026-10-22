@@ -774,10 +774,10 @@ return function(root)
             return content
         end
         local rows = self.context
-            .load_module("tools/monster_locations")
+            .load_module("tools/wiki/monster_locations")
             .parse(read("infested_axe_locations.html"))
         self.context
-            .load_module("tools/location_spawns")
+            .load_module("tools/wiki/location_spawns")
             .attach(rows, read("infested_axe_locations.wiki"))
         self.hints.player = { level = 0, x = 3410, z = 3330 }
         lu.assertTrue(self.marker.mark(rows[1], "Infested axe"))

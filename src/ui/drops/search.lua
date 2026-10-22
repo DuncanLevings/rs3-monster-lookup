@@ -1,9 +1,9 @@
 -- the search box above the drop tables and its "no matches" line
 -- this only owns the widgets, the actual filtering of rows lives in drop_table
 
-local theme = require("src/ui/theme")
-local widgets = require("src/ui/widgets")
-local internals = require("src/ui/prettyui_internals")
+local theme = require("src/ui/common/theme")
+local widgets = require("src/ui/common/widgets")
+local internals = require("src/ui/common/prettyui_internals")
 
 local drop_search = {}
 local MAX_WIDTH = 240

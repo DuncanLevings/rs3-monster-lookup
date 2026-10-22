@@ -8,6 +8,8 @@
 -- these are traded prices (instant buys and sells), not the Wiki's GE guide price. a drops
 -- price is the unit price times the drop quantity, same as the Wiki's GE price column
 
+local numbers = require("src/utils/numbers")
+
 local prices = {}
 local SUBSCRIPTION = "monster_lookup_price_wait"
 local CHECK_TICKS = 50 -- about once a second
@@ -36,17 +38,13 @@ local function call(name, ...)
     return ok and value or nil
 end
 
-local function positive(value)
-    return type(value) == "number" and value == value and value > 0 and value < math.huge
-end
-
 local function middle(high, low)
-    if positive(high) and positive(low) then
+    if numbers.is_positive(high) and numbers.is_positive(low) then
         return math.floor((high + low) / 2 + 0.5)
     end
 
-    return positive(high) and math.floor(high + 0.5)
-        or positive(low) and math.floor(low + 0.5)
+    return numbers.is_positive(high) and math.floor(high + 0.5)
+        or numbers.is_positive(low) and math.floor(low + 0.5)
         or nil
 end
 
@@ -83,13 +81,13 @@ function prices.unit(item_id, reference)
     end
 
     local latest = call("getLatest", item_id)
-    local high = type(latest) == "table" and positive(latest.high) and latest.high or nil
-    local low = type(latest) == "table" and positive(latest.low) and latest.low or nil
+    local high = type(latest) == "table" and numbers.is_positive(latest.high) and latest.high or nil
+    local low = type(latest) == "table" and numbers.is_positive(latest.low) and latest.low or nil
     candidates[#candidates + 1] = middle(high, low)
     candidates[#candidates + 1] = high and math.floor(high + 0.5) or nil
     candidates[#candidates + 1] = low and math.floor(low + 0.5) or nil
 
-    if positive(reference) then
+    if numbers.is_positive(reference) then
         local best
 
         for _, price in pairs(candidates) do
@@ -197,6 +195,7 @@ function prices.when_live(key, callback)
                     ready()
                 end
             elseif waited >= GIVE_UP_TICKS or not library() then
+                log("Monster Lookup: live GE prices didnt load, showing the saved prices")
                 stop_waiting()
             end
         end)

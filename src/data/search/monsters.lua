@@ -1,12 +1,14 @@
--- Local name search: typing never sends a request. Result selection uses the normal lookup.
+-- the search behind the search window and the saved monster picker. its all local, typing
+-- never sends a request, and picking a result goes through the normal lookup
 -- the "items" kind searches dropped item names instead, and an exact item name lists the
 -- monsters that drop it (src/data/search/drops.lua)
 local names = require("src/data/monsters/names")
 local drop_index = require("src/data/search/drops")
-local cache = require("src/data/monster_cache")
+local cache = require("src/data/lookup/cache")
 local identity = require("src/data/monsters/identity")
 local matcher = require("src/data/search/matcher")
 local clock = require("src/utils/cache_clock")
+local plural = require("src/utils/number_format").plural
 
 local search = {}
 local next_subscription = 0
@@ -17,10 +19,6 @@ local LEGACY_READS_PER_TICK = 3
 
 local function normalize(text)
     return tostring(text or ""):sub(1, 80):gsub("[%c]", " "):gsub("%s+", " "):match("^%s*(.-)%s*$")
-end
-
-local function plural(count, word)
-    return count .. " " .. word .. (count == 1 and "" or "s")
 end
 
 local function build_item_index()
@@ -111,10 +109,10 @@ local function build_index(saved_only)
     end
 
     for _, monster in ipairs(cache.list(saved_only)) do
-        -- NPC names and levels do not identify their Wiki page (eg Bloodveld).
-        -- Keep the picker page-based; clicked NPCs retain their separate cache identity.
+        -- an npcs name and level dont say which wiki page its on (eg Bloodveld), so the
+        -- search lists pages. clicked npcs still keep their own saved entry
         if saved_only then
-            if not require("src/data/bundle").find(monster) then
+            if not require("src/data/bundle/reader").find(monster) then
                 add(monster, true)
             end
         elseif monster.wiki_title and seen[identity.key(monster)] then
@@ -329,7 +327,7 @@ function search.new(on_update, saved_only, kind)
 
     function controller.choose(result)
         if state.started then
-            -- Only buttons from the current results can select a monster.
+            -- only a result thats still showing can be picked, not one from an old search
             for _, current in ipairs(state.results) do
                 if current == result then
                     -- picking an item from the list asks for its droppers, the search keeps

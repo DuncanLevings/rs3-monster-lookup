@@ -1,4 +1,4 @@
--- Map names from the bundled Wiki map configuration.
+-- map names from the wikis map config, by map id
 return {
     [0] = "Ardougne Underground",
     [5] = "Fremennik Dungeon",

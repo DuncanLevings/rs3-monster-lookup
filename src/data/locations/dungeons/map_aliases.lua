@@ -1,4 +1,4 @@
--- Exact location aliases used to disambiguate shared Wiki diagrams.
+-- exact location names for telling apart places that share one wiki map
 return {
     ["al kharid resource dungeon"] = { 383 },
     ["ancient cavern"] = { 36 },

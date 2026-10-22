@@ -7,11 +7,11 @@
 
 local search = require("src/data/search/monsters")
 local stat_rankings = require("src/data/search/stats")
-local window_state = require("src/ui/window_state")
-local widgets = require("src/ui/widgets")
-local text_layout = require("src/ui/text_layout")
-local theme = require("src/ui/theme")
-local internals = require("src/ui/prettyui_internals")
+local window_state = require("src/ui/common/window_state")
+local widgets = require("src/ui/common/widgets")
+local text_layout = require("src/ui/common/text_layout")
+local theme = require("src/ui/common/theme")
+local internals = require("src/ui/common/prettyui_internals")
 
 local search_window = {}
 local GEOMETRY = {
@@ -65,8 +65,8 @@ local function controls_bottom(width)
         return 38
     end
 
-    -- Fill each row rather than leaving the fixed-width fields stranded on the
-    -- left. Stack dropdowns in narrow windows so their choices remain readable.
+    -- the controls share the full width instead of sitting at a fixed width on the left,
+    -- and in a narrow window the dropdowns stack so their text still fits
     local available = math.max(1, width - 16)
     local first_width = math.floor((available - 8) / 2)
     local second_width = available - first_width - 8

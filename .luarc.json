@@ -39,6 +39,6 @@
     "dist",
     "work",
     "src/vendor",
-    "src/data/bundle"
+    "src/data/bundle/generated"
   ]
 }

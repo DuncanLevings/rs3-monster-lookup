@@ -16,13 +16,13 @@ return function(root)
     function suite:load()
         local context = self
         local modules = {
-            ["src/data/bundle"] = {
+            ["src/data/bundle/reader"] = {
                 find = function(monster)
                     return context.bundled and context.bundled[monster.name]
                 end,
             },
             ["src/data/monsters/names"] = self.names,
-            ["src/data/monster_cache"] = {
+            ["src/data/lookup/cache"] = {
                 list = function()
                     return context.cached
                 end,

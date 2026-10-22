@@ -36,8 +36,8 @@ function clock.now()
     return nil
 end
 
--- One tiny API query establishes wall time when the client has no os library.
--- Only the anchor stays in memory; entry timestamps are persisted by the cache.
+-- the client has no os clock, so one tiny wiki request tells us the real time. only that
+-- reading (and the tick it was taken on) is kept, the cache saves its own timestamps
 function clock.synchronize(timestamp)
     local seconds = utc.parse(timestamp)
 

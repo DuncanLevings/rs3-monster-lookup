@@ -1,4 +1,4 @@
--- Manual guidance for transitions whose departure coordinates are unverified.
+-- written directions for floor changes where the exact spot you leave from isnt known
 return {
     [16] = "Return through Waterbirth Island Dungeon to the cave entrance on the island",
     [19] = "Leave the 'Rum'-geon and use the island's boat transport to return to the main world",

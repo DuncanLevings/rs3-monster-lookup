@@ -108,7 +108,7 @@ return function(root)
                 end
             end,
         }
-        context.stub_module("src/data/bundle", {
+        context.stub_module("src/data/bundle/reader", {
             npc_ids = function()
                 return { 1 }
             end,

@@ -1,5 +1,6 @@
--- Each mount owns its controls: the hub and ribbon can be open at the same time.
-local widgets = require("src/ui/widgets")
+-- settings pages get drawn in two places (the Plugin Hub and the ribbon panel) that can be
+-- open at once, so every mount makes and owns its own controls
+local widgets = require("src/ui/common/widgets")
 
 local plugin_pages = {}
 local SEARCH_PAGE, CUSTOMIZE_PAGE = 0, 1

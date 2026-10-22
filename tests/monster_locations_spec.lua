@@ -13,7 +13,7 @@ return function(root)
         return modules[path]
     end
 
-    local locations = environment.require("tools/monster_locations")
+    local locations = environment.require("tools/wiki/monster_locations")
 
     function suite:test_standard_table_preserves_access_details_and_ignores_extra_columns()
         local rows, reason = locations.parse(markup)

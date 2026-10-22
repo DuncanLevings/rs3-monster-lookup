@@ -28,7 +28,7 @@ return function(root)
                 end,
                 stop = noop,
             },
-            ["src/data/lookup_service"] = {
+            ["src/data/lookup/service"] = {
                 start = noop,
                 stop = noop,
                 cancel = noop,

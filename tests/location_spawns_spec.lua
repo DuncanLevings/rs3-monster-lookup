@@ -2,8 +2,8 @@ local lu = require("luaunit")
 return function(root)
     local suite = {}
     local context = require("tests/support/window_fixture").new(root)
-    local parser = context.load_module("tools/monster_locations")
-    local pins = context.load_module("tools/location_spawns")
+    local parser = context.load_module("tools/wiki/monster_locations")
+    local pins = context.load_module("tools/wiki/location_spawns")
     local maps = context.load_module("src/data/locations/resolve")
     local planner = context.load_module("src/data/locations/navigation").new(
         context.load_module("src/data/locations/routes"),

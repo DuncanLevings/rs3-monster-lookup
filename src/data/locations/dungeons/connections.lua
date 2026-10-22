@@ -1,5 +1,6 @@
--- Reviewed native transitions; provenance and exceptions are recorded in
--- resources/DUNGEON_ROUTE_SOURCES.json. Rebuild with tools/build_dungeon_connections.py.
+-- the ladders, doors and portals between dungeon floors, each one checked by hand. where
+-- each came from (and the odd exception) is in resources/DUNGEON_ROUTE_SOURCES.json.
+-- generated, rebuild with tools/build_dungeon_connections.py
 return {
     {
         ["from"] = 592,

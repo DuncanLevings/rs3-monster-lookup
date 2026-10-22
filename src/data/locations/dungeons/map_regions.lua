@@ -1,5 +1,6 @@
--- Native membership for dedicated views whose other floors appear in a shared
--- map. These bounds come from map 41; they do not change diagram conversions.
+-- areas that have their own map but whose other floors are drawn on a shared one. the
+-- bounds come from map 41, theyre only for working out which area youre in and dont change
+-- any coordinate conversion
 return {
     strict = { [41] = true },
     shared = { [0] = true, [13] = true, [31] = true, [41] = true, [136] = true },

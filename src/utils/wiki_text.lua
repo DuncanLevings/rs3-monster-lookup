@@ -59,6 +59,16 @@ function wiki_text.attribute(attributes, name)
     return wiki_text.decode(attributes:match(pattern) or "")
 end
 
+-- wiki titles are the same page whatever the case or with _ for spaces, so lookups by title
+-- go through this. "Lumbridge_Swamp_Caves " -> "lumbridge swamp caves"
+function wiki_text.page_key(title)
+    return (type(title) == "string" and title or "")
+        :gsub("_", " ")
+        :gsub("%s+", " ")
+        :match("^%s*(.-)%s*$")
+        :lower()
+end
+
 function wiki_text.price(text)
     text = wiki_text.plain(text):gsub(",", ""):gsub("–", "-")
     local minimum, maximum = text:match("^%s*(%d+)%s*%-%s*(%d+)%s*$")

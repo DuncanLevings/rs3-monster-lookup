@@ -1,7 +1,7 @@
 local lu = require("luaunit")
-local search_index = require("tools/search_index")
+local search_index = require("tools/bundle/search_index")
 
--- tools/search_index.lua builds drops.lua and stats.lua, src/data/search/drops.lua and
+-- tools/bundle/search_index.lua builds drops.lua and stats.lua, src/data/search/drops.lua and
 -- src/data/search/stats.lua read them back. these run both ends on a few made up pages
 return function(root)
     local suite = {}
@@ -139,10 +139,10 @@ return function(root)
         self.logs = {}
         local context = self
         local modules = {
-            ["src/data/bundle"] = self.bundle,
-            ["src/data/bundle/strings"] = STRINGS,
-            ["src/data/bundle/drops"] = drops_file,
-            ["src/data/bundle/stats"] = stats_file,
+            ["src/data/bundle/reader"] = self.bundle,
+            ["src/data/bundle/generated/strings"] = STRINGS,
+            ["src/data/bundle/generated/drops"] = drops_file,
+            ["src/data/bundle/generated/stats"] = stats_file,
         }
         local environment = setmetatable({
             log = function(message)

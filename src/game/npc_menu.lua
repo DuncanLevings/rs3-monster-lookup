@@ -80,7 +80,8 @@ local function collect_candidates(entries)
                     end
                 end
 
-                -- Cache rejected entities too: their other actions need no config reads.
+                -- remember npcs that were skipped too, so their other menu rows dont read
+                -- the npc config again
                 seen[npc.uid] = candidate or false
             end
 
@@ -96,8 +97,9 @@ local function collect_candidates(entries)
     return candidates
 end
 
--- Build the final order once, preserving every original action's relative order.
--- Apply its permutation with direct swaps rather than shifting each added row.
+-- puts each View drops row right after its monster's rows, keeping every other row in
+-- the order it was. works out the final order first, then gets there with swaps instead of
+-- moving rows one place at a time
 local function position_lookup_entries(menu, original_count, candidates)
     local after, fallback = {}, {}
     local count = original_count + #candidates
@@ -137,7 +139,7 @@ local function position_lookup_entries(menu, original_count, candidates)
     for destination, item in ipairs(wanted) do
         local source = positions[item]
         if source ~= destination then
-            -- The beta client's Swap indices count from the bottom of entries.
+            -- on the beta client Swap counts rows from the bottom
             menu:Swap(count - destination + 1, count - source + 1)
             local displaced = current[destination]
             current[destination], current[source] = item, displaced

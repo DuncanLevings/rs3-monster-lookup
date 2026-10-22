@@ -1,13 +1,10 @@
 -- Exact Wiki page matches only. Slayer categories can include creatures whose souls
 -- produce a different dungeon variant, so never infer eligibility from a shared name.
 local data = require("src/data/monsters/slayer_codex_data")
+local wiki_text = require("src/utils/wiki_text")
 
 local codex = {}
 local by_page
-
-local function page_key(title)
-    return title:gsub("_", " "):lower()
-end
 
 function codex.find(title)
     if not by_page then
@@ -15,9 +12,10 @@ function codex.find(title)
 
         for _, entry in ipairs(data.entries) do
             for _, page in ipairs(entry.pages) do
-                local key = page_key(page)
+                local key = wiki_text.page_key(page)
 
-                -- A page listed under several souls needs more precise identification.
+                -- a page listed under several souls cant be told apart by page alone, so
+                -- it gets no match
                 if by_page[key] ~= nil then
                     by_page[key] = false
                 else
@@ -27,7 +25,7 @@ function codex.find(title)
         end
     end
 
-    return by_page[page_key(title)] or nil
+    return by_page[wiki_text.page_key(title)] or nil
 end
 
 function codex.source_note()

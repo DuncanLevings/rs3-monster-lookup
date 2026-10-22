@@ -1,8 +1,9 @@
--- The refresh chooser belongs to its settings page, including its debounce subscription.
+-- the saved monster picker on the settings page, for refreshing one saved lookup. each
+-- page has its own, typing delay subscription included
 local search = require("src/data/search/monsters")
-local cache = require("src/data/monster_cache")
-local theme = require("src/ui/theme")
-local internals = require("src/ui/prettyui_internals")
+local cache = require("src/data/lookup/cache")
+local theme = require("src/ui/common/theme")
+local internals = require("src/ui/common/prettyui_internals")
 
 local picker = {}
 
@@ -76,7 +77,7 @@ function picker.new(page, on_refresh)
             buttons[#buttons + 1] = page:AddSimpleButton(label, function()
                 choose(result)
             end, {
-                -- SimpleButton takes a pixel width; it does not apply size anchors.
+                -- SimpleButton only takes a width in pixels, no anchors
                 width = math.max(1, page.content.width - 16),
                 height = 30,
             })

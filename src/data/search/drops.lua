@@ -1,5 +1,5 @@
--- which monsters drop an item, read from src/data/bundle/drops.lua (built by
--- tools/search_index.lua). droppers are already sorted best chance first, at most 50 per item
+-- which monsters drop an item, read from src/data/bundle/generated/drops.lua (built by
+-- tools/bundle/search_index.lua). droppers are already sorted best chance first, at most 50 per item
 --
 -- text in the file points into the bundles strings.lua, so this loads that too. its the same
 -- require the bundle uses for lookups so its only ever read once
@@ -7,11 +7,11 @@
 -- only bundled monsters are in here. anything newer than the bundle turns up after the next
 -- build, and missing files just mean no drop search, never an error
 
-local bundle = require("src/data/bundle")
+local bundle = require("src/data/bundle/reader")
 
 local drop_index = {}
 
--- must match tools/search_index.lua
+-- must match tools/bundle/search_index.lua
 local FORMAT = 1
 local FIELD, ROW = "%^", "`"
 
@@ -35,9 +35,9 @@ local function load()
     end
 
     local ok, problem = pcall(function()
-        local raw = require("src/data/bundle/drops")
+        local raw = require("src/data/bundle/generated/drops")
         assert(type(raw) == "table" and raw.format == FORMAT, "unexpected drop index format")
-        local strings = require("src/data/bundle/strings")
+        local strings = require("src/data/bundle/generated/strings")
         local items = {}
         local icons, counts = {}, {}
 

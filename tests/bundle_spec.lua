@@ -1,6 +1,6 @@
 local lu = require("luaunit")
 
--- runs against the real src/data/bundle/ files, so a broken build shows up here too
+-- runs against the real src/data/bundle/generated/ files, so a broken build shows up here too
 return function(root)
     local suite = {}
 
@@ -10,7 +10,7 @@ return function(root)
         self:load()
     end
 
-    -- fresh copy of src/data/bundle.lua; require goes through so shard loads can be counted
+    -- fresh copy of src/data/bundle/reader.lua; require goes through so shard loads can be counted
     function suite:load(fake_index)
         local context = self
         local environment = setmetatable({
@@ -19,13 +19,13 @@ return function(root)
             end,
             require = function(name)
                 context.required[#context.required + 1] = name
-                if fake_index and name == "src/data/bundle/index" then
+                if fake_index and name == "src/data/bundle/generated/index" then
                     return fake_index
                 end
                 return require(name)
             end,
         }, { __index = _G })
-        self.bundle = assert(loadfile(root .. "/src/data/bundle.lua", "t", environment))()
+        self.bundle = assert(loadfile(root .. "/src/data/bundle/reader.lua", "t", environment))()
     end
 
     function suite:test_wiki_titles_and_npc_ids_find_the_same_bundled_page()
@@ -69,7 +69,7 @@ return function(root)
 
         local shards = 0
         for _, name in ipairs(self.required) do
-            if name:match("^src/data/bundle/shard_") then
+            if name:match("^src/data/bundle/generated/shard_") then
                 shards = shards + 1
             end
         end
@@ -132,13 +132,13 @@ return function(root)
         lu.assertTrue(table.concat(ids, ","):find("6260", 1, true) ~= nil)
         lu.assertEquals(self.bundle.npc_ids("Nonexistent monster"), {})
         for _, name in ipairs(self.required) do
-            lu.assertNil(name:match("^src/data/bundle/shard_"))
+            lu.assertNil(name:match("^src/data/bundle/generated/shard_"))
         end
     end
 
     -- drop rows leave out what can be worked out, see shapes.DERIVED
     function suite:test_left_out_drop_fields_are_worked_out_like_the_wiki_writes_them()
-        local shapes = require("src/data/bundle_shapes")
+        local shapes = require("src/data/bundle/shapes")
         local derive = shapes.derive
         local item = { id = 4151, unit = 30 }
 
@@ -162,8 +162,18 @@ return function(root)
         lu.assertEquals(derive.quantity_high({ quantity = "8–9; 16–18" }), 18)
     end
 
+    -- plain lua require is happy with a file returning a string, the clients isnt, so every
+    -- generated file has to return a table (items.lua returning a string lost every icon
+    -- and price in game while these tests still passed)
+    function suite:test_every_generated_bundle_file_returns_a_table()
+        for _, name in ipairs({ "index", "strings", "shared", "items", "drops", "stats", "shard_01" }) do
+            local file = assert(loadfile(root .. "/src/data/bundle/generated/" .. name .. ".lua"))
+            lu.assertEquals(type(file()), "table", name .. ".lua")
+        end
+    end
+
     function suite:test_items_table_reads_ids_units_and_not_sold()
-        local shapes = require("src/data/bundle_shapes")
+        local shapes = require("src/data/bundle/shapes")
         local strings = { "Abyssal whip", "Bones", "Clue scroll" }
 
         -- unit x is 33 gp, - is Not sold

@@ -92,7 +92,7 @@ return function(root)
 
     function suite:test_click_marks_only_its_row_and_moving_the_marker_restores_the_old_row()
         local buttons = self:show_markable_locations()
-        local theme = self.context.load_module("src/ui/theme")
+        local theme = self.context.load_module("src/ui/common/theme")
         buttons[1].action()
         lu.assertEquals(buttons[1].content.content, "Marked")
         lu.assertEquals(background_in(self.context, buttons[1]).rgba, theme.ROW_MARKED)
@@ -130,7 +130,7 @@ return function(root)
         local buttons = self:show_markable_locations()
         buttons[1].action()
         local before = #self.context.simple_buttons
-        local view = self.context.load_module("src/ui/locations_view").render(
+        local view = self.context.load_module("src/ui/locations/view").render(
             self.context.tabs.pages[3],
             { title = "Guard", locations = self.result.locations }
         )
@@ -150,7 +150,7 @@ return function(root)
         local buttons = self:show_markable_locations()
         self.hints.region = true
         buttons[1].action()
-        local theme = self.context.load_module("src/ui/theme")
+        local theme = self.context.load_module("src/ui/common/theme")
         lu.assertEquals(buttons[1].content.content, "Mark")
         lu.assertEquals(background_in(self.context, buttons[1]).rgba, theme.row_colour(1))
         lu.assertFalse(self.marker.has_target())
@@ -191,7 +191,7 @@ return function(root)
         lu.assertEquals(feedback_subscriptions(self.context), 0)
         local normal = text_in(self.context, root, self.marker.status())
         lu.assertFalse(normal.hidden)
-        lu.assertEquals(normal.options.colour, self.context.load_module("src/ui/theme").TEXT_MUTED)
+        lu.assertEquals(normal.options.colour, self.context.load_module("src/ui/common/theme").TEXT_MUTED)
         lu.assertEquals(buttons[1].content.content, "Marked")
     end
 
@@ -407,7 +407,7 @@ return function(root)
     function suite:test_paused_guidance_is_larger_amber_and_returns_to_muted_after_resuming()
         local hints = require("tests/support/marker_fixture").enable(self.context)
         local marker = self.context.load_module("src/game/locations/marker")
-        local theme = self.context.load_module("src/ui/theme")
+        local theme = self.context.load_module("src/ui/common/theme")
         hints.player = { level = 0, x = 7000, z = 7000 }
         self.result.locations[1].map = { id = 28, plane = 0, x = 3225, z = 3439 }
         self.context.subject.show_result(self.result)

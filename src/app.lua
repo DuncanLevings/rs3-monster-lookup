@@ -2,7 +2,7 @@
 
 local npc_menu = require("src/game/npc_menu")
 local monster_window = require("src/ui/monster_window")
-local lookup_service = require("src/data/lookup_service")
+local lookup_service = require("src/data/lookup/service")
 local settings_panel = require("src/ui/settings/panel")
 local search_window = require("src/ui/search/window")
 local content_panel = require("src/ui/settings/content")
@@ -105,6 +105,10 @@ end
 ---@param event {pluginIdentifier: string, enabled: boolean}
 function app.dependency_changed(event)
     if started and event and event.pluginIdentifier == "gepl" then
+        log(
+            "Monster Lookup: GE Price Library turned "
+                .. (event.enabled and "on, using live prices" or "off, using saved prices")
+        )
         monster_window.refresh_settings()
     end
 end

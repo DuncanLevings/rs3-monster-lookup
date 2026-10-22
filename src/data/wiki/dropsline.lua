@@ -10,6 +10,7 @@ local json = require("src/utils/json")
 local text = require("src/utils/wiki_text")
 local wiki_notes = require("src/utils/wiki_notes")
 local drop_odds = require("src/data/drops/odds")
+local numbers = require("src/utils/numbers")
 
 ---@class Drop
 ---@field name string item name as shown on the page
@@ -53,10 +54,6 @@ local function clean(value)
     return text.plain(value)
 end
 
-local function whole(value)
-    return type(value) == "number" and value >= 0 and value % 1 == 0 and value < math.huge
-end
-
 -- "1/384" with "1/378" next to it is how the page shows a luck boosted rate, and the dash
 -- version is for rates that go up to something like "Varies"
 local function rate_text(data)
@@ -77,7 +74,7 @@ local function price(data, wiki_name)
     if wiki_name == "Coins" then
         local low, high = data["Quantity Low"], data["Quantity High"]
 
-        if whole(low) and whole(high) then
+        if numbers.is_whole(low) and numbers.is_whole(high) then
             return low == high and low or { minimum = low, maximum = high }
         end
     end
@@ -160,12 +157,12 @@ local function read_row(row)
     drop_odds.fill(drop, clean(data["Rarity"]))
     local rolls, low, high = data["Rolls"], data["Quantity Low"], data["Quantity High"]
 
-    if drop.chance and whole(rolls) and rolls > 1 then
+    if drop.chance and numbers.is_whole(rolls) and rolls > 1 then
         drop.rolls = rolls
     end
 
     -- the bucket has the bounds as numbers already, theyre better than the text
-    if whole(low) and whole(high) and low <= high and tostring(low) ~= drop.quantity then
+    if numbers.is_whole(low) and numbers.is_whole(high) and low <= high and tostring(low) ~= drop.quantity then
         drop.quantity_low = low
         drop.quantity_high = high ~= low and high or nil
     end

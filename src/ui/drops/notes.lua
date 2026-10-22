@@ -1,10 +1,10 @@
--- Collapsible Wiki text: numbered footnotes below tables and long explanations above them.
--- Both start hidden so the drops remain easy to scan.
+-- wiki text that can be shown or hidden: the numbered footnotes under a drop table and long
+-- explanations above it. both start hidden so the drops are easy to scan
 
-local text_layout = require("src/ui/text_layout")
-local theme = require("src/ui/theme")
-local widgets = require("src/ui/widgets")
-local internals = require("src/ui/prettyui_internals")
+local text_layout = require("src/ui/common/text_layout")
+local theme = require("src/ui/common/theme")
+local widgets = require("src/ui/common/widgets")
+local internals = require("src/ui/common/prettyui_internals")
 
 local drop_notes = {}
 

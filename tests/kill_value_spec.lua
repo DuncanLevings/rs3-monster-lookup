@@ -1,7 +1,7 @@
 local lu = require("luaunit")
 local drop_odds = require("src/data/drops/odds")
 local kill_value = require("src/data/drops/value")
-local parser = require("tools/wiki_page")
+local parser = require("tools/wiki/page")
 local dropsline = require("src/data/wiki/dropsline")
 local rows = require("tests/support/dropsline_rows")
 

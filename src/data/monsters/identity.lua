@@ -1,4 +1,6 @@
--- Keep page searches separate from clicked NPCs: one Wiki page can cover many NPC IDs.
+-- the key a monster is saved and looked up under. a search result is a wiki page
+-- ("page:Goblin"), a clicked npc is its id and name ("3264:Goblin"). theyre kept apart
+-- because one wiki page can cover lots of npc ids
 local identity = {}
 
 function identity.key(monster)
@@ -23,8 +25,8 @@ function identity.selection(key)
     end
 end
 
--- Wiki disambiguators identify variants of the same monster. Match the complete
--- base name, never a substring or fuzzy search query ("gob" must not erase Goblins).
+-- the base name variants of a monster share, "Goblin (level 5)#Armed" -> "goblin". the
+-- whole base name has to match, never part of it ("gob" mustnt clear every goblin)
 function identity.family(name)
     name = (name or ""):gsub("_", " "):gsub("#.*$", "")
     name = name:gsub("%s+", " "):match("^%s*(.-)%s*$")

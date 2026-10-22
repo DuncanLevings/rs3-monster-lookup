@@ -72,10 +72,10 @@ def extract(source, selected):
 
 def render(maps):
     text = (
-        "-- Extracted map transforms from RuneScape Wiki contributors (2026-10-21).\n"
-        "-- Each row: source floor, floor count, source x/z bounds, plane/x/z offsets.\n"
-        "-- Rebuild with tools/build_dungeon_maps.py from saved map configuration JSON.\n"
-        "-- Source revision and CC BY-NC-SA 3.0 attribution: THIRD_PARTY_NOTICES.txt.\n"
+        "-- how each wiki dungeon map is shifted from game coordinates, from the RuneScape Wiki\n"
+        "-- contributors map config (2026-10-21). each row: source floor, floor count, source x/z\n"
+        "-- bounds, then the plane/x/z offsets. generated, rebuild with tools/build_dungeon_maps.py.\n"
+        "-- source revision and the CC BY-NC-SA 3.0 attribution are in THIRD_PARTY_NOTICES.txt\n"
         "return {\n"
     )
     for map_id, rows in maps.items():

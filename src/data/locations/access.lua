@@ -1,34 +1,22 @@
--- Resolve exact location aliases and authored parent chains. This describes
--- access to a place; it never derives world coordinates from a similar name.
+-- how you get into a place: finds a location's entrance by its exact wiki page name, then
+-- follows its parent entries outwards (cave inside a dungeon inside an area) to one on the
+-- surface. only exact names, a similar looking name is never trusted for coordinates
+local numbers = require("src/utils/numbers")
+local wiki_text = require("src/utils/wiki_text")
+
 local access = {}
-
-local function key(value)
-    return (type(value) == "string" and value or "")
-        :gsub("_", " ")
-        :gsub("%s+", " ")
-        :match("^%s*(.-)%s*$")
-        :lower()
-end
-
-local function whole(value, maximum)
-    return type(value) == "number"
-        and value == value
-        and value % 1 == 0
-        and value >= 0
-        and value <= maximum
-end
 
 function access.new(entries)
     local index, lookup = {}, {}
 
     for _, entry in ipairs(entries) do
         for _, page in ipairs(entry.pages) do
-            index[key(page)] = entry
+            index[wiki_text.page_key(page)] = entry
         end
     end
 
     function lookup.resolve(page, display_name)
-        local entry = index[key(page)]
+        local entry = index[wiki_text.page_key(page)]
         if not entry then
             return nil
         end
@@ -40,14 +28,18 @@ function access.new(entries)
                 return nil, "The saved entrance path contains a cycle."
             end
             visited[root] = true
-            root = index[key(root.parent)]
+            root = index[wiki_text.page_key(root.parent)]
             if not root then
                 return nil, "No verified parent entrance is available."
             end
         end
 
         local level = root.level or 0
-        if not whole(root.x, 16383) or not whole(root.z, 16383) or not whole(level, 3) then
+        if
+            not numbers.is_whole(root.x, 0, 16383)
+            or not numbers.is_whole(root.z, 0, 16383)
+            or not numbers.is_whole(level, 0, 3)
+        then
             return nil, "The saved entrance coordinates are invalid."
         end
 

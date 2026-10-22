@@ -1,5 +1,6 @@
--- Resolve authored gate rules against the currently loaded scenery. Never scan
--- the entire world or treat a generic ladder/door as an exit to the surface.
+-- works out the next step towards a marked location for the marker, finding ladders and
+-- doors listed in routes.lua among the scenery loaded around the player. it never scans the
+-- whole world, and never treats just any ladder or door as the way out
 local coordinates = require("src/data/locations/coordinates")
 local planner =
     require("src/data/locations/navigation").new(require("src/data/locations/routes"), coordinates)
@@ -53,8 +54,8 @@ end
 
 local last_position, gate_cache
 local function find_exit(query, position, map_id)
-    -- The marker supplies one position snapshot per second. Replacement ticks
-    -- may revisit a waypoint, but should not repeat native scenery searches.
+    -- the marker passes the same position table for a whole second, so scenery searches
+    -- are only done once per position even when the marker asks again
     if last_position ~= position then
         last_position, gate_cache = position, {}
     end

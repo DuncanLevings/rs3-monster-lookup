@@ -1,5 +1,7 @@
--- Wiki dungeon diagrams can move floors sideways or relocate entire map squares.
--- Invert only authored transforms whose source bounds contain the resulting tile.
+-- the wikis dungeon maps dont always use game coordinates, a floor can be drawn shifted
+-- sideways or whole map squares moved somewhere else. this undoes those shifts using the
+-- hand checked list in dungeons/maps.lua, and only when the tile lands inside the area that
+-- shift is for
 local maps = require("src/data/locations/dungeons/maps")
 local regions = require("src/data/locations/dungeons/map_regions")
 local coordinates = {}
@@ -27,9 +29,9 @@ function coordinates.contains(map_id, point)
     return false
 end
 
--- A map may flatten physically separate chambers into one diagram. Cache native
--- connected regions so a waypoint across a teleport or staircase is not treated
--- as reachable just because both endpoints use the same map ID.
+-- one wiki map can show rooms that arent connected in game (a teleport or stairs apart).
+-- maps like that are listed, so two spots on the same map arent taken as walkable from one
+-- to the other just because they share the map id
 function coordinates.is_shared(map_id)
     return regions.shared[map_id] == true
 end

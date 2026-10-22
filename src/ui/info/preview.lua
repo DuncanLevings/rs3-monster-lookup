@@ -1,9 +1,12 @@
--- One unanimated native model, owned by the visible info tab. The bundle already
--- knows the NPC IDs, so previews need neither image files nor Wiki requests.
+-- the monster model on the Monster info tab, standing still. the bundle already knows each
+-- pages npc ids so the client draws it from its own model, no images or wiki requests
 --
 -- when the client has model groups the model sits in its own little scene with a camera
 -- that orbits it: drag to turn it round or tilt it, scroll to zoom. without them (or if the
 -- scene fails to set up) its the plain model from before, zoom only
+
+local numbers = require("src/utils/numbers")
+
 local preview = {}
 local saved_zoom = {}
 -- real sizes read off live NPCs, by npc id, so a monster seen once frames right later too
@@ -13,7 +16,8 @@ local saved_centre = {}
 local states = setmetatable({}, { __mode = "k" })
 local reported = {}
 
--- unsupported optional features recur for every monster; report each once per session.
+-- a missing optional feature would be missing for every monster, so each is logged once
+-- per session
 local function report_once(key, message)
     if not reported[key] then
         reported[key] = true
@@ -33,16 +37,12 @@ local SCENE_SCALE = 1 / 1.75
 -- a measured models real height takes up this much of the box
 local FILL = 0.8
 
-local function positive(value)
-    return type(value) == "number" and value > 0 and value < math.huge
-end
-
 -- how tall a monster is, from where the game draws its health bar: the npcs own overlay
 -- height, else its animation sets. both are -1 for most monsters (amascut, dragons, dharok,
 -- chickens), then the game works it out from the model at draw time and plugins cant see it,
 -- so the tile size guess is all there is for those
 local function overlay_height(npc)
-    if positive(npc.overlayHeight) then
+    if numbers.is_positive(npc.overlayHeight) then
         return npc.overlayHeight
     end
 
@@ -50,7 +50,7 @@ local function overlay_height(npc)
         return npc.bas and npc.bas.overlayHeight
     end)
 
-    if ok and positive(height) then
+    if ok and numbers.is_positive(height) then
         return height
     end
 end
@@ -59,9 +59,9 @@ local function framing(npc, size)
     local bounds = npc.hasCustomBounding and npc.customBounding
     if
         bounds
-        and positive(bounds.width)
-        and positive(bounds.height)
-        and positive(bounds.length)
+        and numbers.is_positive(bounds.width)
+        and numbers.is_positive(bounds.height)
+        and numbers.is_positive(bounds.length)
     then
         local centre = bounds.centre
         return {
@@ -74,9 +74,9 @@ local function framing(npc, size)
         }
     end
 
-    -- The standalone renderer has no mesh-bounds query. Height and footprint
-    -- are only estimates; scale the fallback with footprint, not its square root,
-    -- so large bosses receive proportionally more room rather than being cropped.
+    -- the plain renderer cant tell us how big the model is, so height and footprint are
+    -- guesses from the tile size. it grows with the tile size itself (not its square root)
+    -- so big bosses get more room instead of being cut off
     local known = overlay_height(npc)
     local height = known or (256 * size)
     return {
@@ -84,8 +84,8 @@ local function framing(npc, size)
         height = height,
         depth = 128 * size,
         x = 0,
-        -- Overlay height includes headroom; its midpoint sits too low for the
-        -- visible body. This shared estimate leaves room beneath the feet too.
+        -- the overlay height has room above the head in it, so its middle sits too low on
+        -- the body. a bit lower than half leaves some space under the feet as well
         y = height * 0.35,
         z = 0,
         -- no overlay height anywhere means the height is just a guess from the tile size
@@ -111,12 +111,11 @@ local LEGACY_FOCAL = 256
 -- view distance for the plain renderer. the orbit preview converts this same number into
 -- its camera distance, so both frame a monster the same way
 local function legacy_distance(state, width, height)
-    -- Use only the preview's own rectangle; selector bars and source notes live
-    -- outside it. The focal scale is an estimate for the legacy model renderer.
+    -- only the previews own box counts, the variant picker and notes sit outside it
     local aspect = math.max(0.5, width / math.max(1, height))
     local extent = math.max(state.height, state.width / aspect)
-    -- Calibrated against the standalone renderer (Goblin and Vorago). Using
-    -- 512 here made both occupy only half the intended preview height.
+    -- 0.72 was tuned by eye on Goblin and Vorago. with a focal of 512 instead both only
+    -- filled half the box
     return extent * LEGACY_FOCAL / (math.max(1, height) * 0.72) + state.depth / 2
 end
 
@@ -157,7 +156,7 @@ local function live_bounds(selection, npc_id)
 
         local box = entity and entity.aabb
 
-        if box and positive(box.width) and positive(box.height) and positive(box.length) then
+        if box and numbers.is_positive(box.width) and numbers.is_positive(box.height) and numbers.is_positive(box.length) then
             return { width = box.width, height = box.height, depth = box.length }
         end
     end)
@@ -177,14 +176,14 @@ function preview.create(parent, title, info, selection, on_zoom)
         candidates[1] = selection.npc_id
     end
 
-    local bundle = require("src/data/bundle")
+    local bundle = require("src/data/bundle/reader")
 
     for _, npc_id in ipairs(bundle.npc_ids(title)) do
         candidates[#candidates + 1] = npc_id
     end
 
-    -- Never scan game configs looking for a name. Only inspect IDs belonging to
-    -- this page, with a cap for pages containing unusually many cosmetic variants.
+    -- only this pages own npc ids are checked, never a search through every npc config
+    -- for the name. capped too, some pages have loads of cosmetic variants
     local chosen, size, chosen_npc
 
     for index = 1, math.min(#candidates, 64) do
@@ -224,15 +223,15 @@ function preview.create(parent, title, info, selection, on_zoom)
         state.zoom = math.max(1, math.min(2, saved_zoom[chosen] or 1))
         states[component] = state
         fit(component, 300, 210)
-        -- This client exposes integer vectors for model transforms despite the
-        -- API docs describing Vector3. Preserve the native property's type.
+        -- the docs say Vector3 but this client gives whole number vectors here, so its
+        -- changed in place to keep whatever type the client uses
         local offset = component.worldOffset
-        -- NPC bodies extend above their origin, so place that origin below the
-        -- viewport centre to leave room for the upper body.
+        -- npcs stand on their origin, moving it below the middle of the box leaves room
+        -- for the rest of the body
         offset.x, offset.y, offset.z = math.floor(state.x), math.floor(state.y), math.floor(state.z)
         component.worldOffset = offset
-        -- This is event-driven, not a camera update loop. Footprint gives a
-        -- useful initial distance, while zoom handles unusually short or tall NPCs.
+        -- only runs on a scroll, nothing updates per frame. the tile size gives a decent
+        -- starting distance and zoom sorts out monsters that are unusually short or tall
         component:Subscribe(ui.Hook.ONSCROLLWHEEL, "monster_lookup_preview_zoom", function(_, delta)
             if on_zoom then
                 on_zoom()

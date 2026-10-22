@@ -1,4 +1,5 @@
--- Scale a high-contrast X in map tiles so its screen size stays legible.
+-- the X drawn on the world map at a marked location. its drawn in map tiles, so it gets
+-- resized with the map zoom to stay about the same size on screen
 local map_symbol = {}
 local SYMBOL_PIXELS = 36
 
@@ -9,9 +10,9 @@ local function geometry(previous_zoom)
         zoom = previous_zoom or 100
     end
 
-    -- The client's 37% label represents 37.5% (1.5 pixels per tile).
+    -- the clients 37% zoom is really 37.5% (1.5 pixels per tile)
     local pixels_per_tile = zoom == 37 and 1.5 or zoom / 25
-    -- At wide zooms the X competes with dense map icons and place names.
+    -- zoomed out the X has lots of map icons and names around it, so it gets bigger
     local emphasis = math.max(0, math.min(1, (100 - zoom) / 50))
     local size = SYMBOL_PIXELS + 24 * emphasis
     local stroke = 4 + 4 * emphasis
@@ -55,7 +56,7 @@ local function remove_layers(layers)
     for _, layer in ipairs(layers or {}) do
         if layer.accepted then
             layer.accepted = false
-            -- Native bindings need a Lua caller between themselves and pcall.
+            -- wrapped in a function, passing the client call straight to pcall crashed
             pcall(function()
                 HintList.RemovePolygon(layer.args.name)
             end)
@@ -66,7 +67,7 @@ end
 function map_symbol.new(name, target, level)
     return {
         name = name,
-        -- Buildings use their surface pin; dungeon waypoints retain their floor.
+        -- buildings use their surface pin, dungeon waypoints keep their floor
         coord = CoordGrid.new(((level or 0) << 28) | (target.x << 14) | target.z),
         layers = {},
         revision = 0,
@@ -87,7 +88,7 @@ function map_symbol.refresh(symbol)
     end
 
     remove_layers(symbol.layers)
-    -- Keep the previous arguments alive through the next update interval.
+    -- hold on to the old layers until the next update, the client might still be using them
     symbol.previous_layers = symbol.layers
     symbol.layers = {}
     symbol.revision = symbol.revision + 1

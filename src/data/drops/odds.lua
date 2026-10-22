@@ -11,11 +11,9 @@
 --   quantity_low    lowest quantity, nil when the quantity is just a number
 --   quantity_high   highest quantity, nil when its the same as quantity_low
 
-local drop_odds = {}
+local numbers = require("src/utils/numbers")
 
-local function whole(value)
-    return value and value >= 0 and value % 1 == 0 and value < math.huge
-end
+local drop_odds = {}
 
 -- "3 × 0.0667" -> "0.0667", 3. the wiki puts the roll count in front of the rate
 local function split_rolls(value)
@@ -96,7 +94,7 @@ end
 ---@param drop Drop
 ---@return integer
 function drop_odds.rolls(drop)
-    return whole(drop.rolls) and drop.rolls > 0 and drop.rolls or 1
+    return numbers.is_whole(drop.rolls) and drop.rolls > 0 and drop.rolls or 1
 end
 
 ---@param drop Drop
@@ -105,8 +103,8 @@ end
 function drop_odds.quantity(drop)
     local low, high = drop.quantity_low, drop.quantity_high
 
-    if type(low) == "number" and whole(low) then
-        if type(high) ~= "number" or not whole(high) or high < low then
+    if type(low) == "number" and numbers.is_whole(low) then
+        if type(high) ~= "number" or not numbers.is_whole(high) or high < low then
             high = low
         end
 
@@ -114,7 +112,7 @@ function drop_odds.quantity(drop)
     end
 
     local plain = tonumber(drop.quantity)
-    if whole(plain) then
+    if numbers.is_whole(plain) then
         return plain, plain
     end
 end

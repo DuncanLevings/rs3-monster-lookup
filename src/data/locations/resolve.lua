@@ -1,4 +1,7 @@
--- Wiki map coordinates are not interchangeable with game-world coordinates.
+-- turns a wiki location (map id, floor, x, z) into a game tile the marker can point at.
+-- wiki map coordinates often arent game coordinates (see coordinates.lua), so this decides
+-- whether a location can be marked at all, and if so whether its the spawn itself or the
+-- dungeon entrance you need to go through first
 ---@class WikiLocationMap
 ---@field id integer Wiki map ID; dungeon maps may use a local diagram grid
 ---@field plane integer zero-based floor
@@ -13,30 +16,17 @@ local entrances =
 local shared_maps = require("src/data/locations/dungeons/map_regions").strict
 local portals = require("src/data/locations/dungeons/portals")
 local map_aliases = require("src/data/locations/dungeons/map_aliases")
-local function page_key(value)
-    return (type(value) == "string" and value or "")
-        :gsub("_", " ")
-        :gsub("%s+", " ")
-        :match("^%s*(.-)%s*$")
-        :lower()
-end
-
-local function whole(value, minimum, maximum)
-    return type(value) == "number"
-        and value == value
-        and value % 1 == 0
-        and value >= minimum
-        and value <= maximum
-end
+local numbers = require("src/utils/numbers")
+local wiki_text = require("src/utils/wiki_text")
 
 ---@param map any
 ---@return boolean
 function location_map.valid(map)
     return type(map) == "table"
-        and whole(map.id, -1, 65535)
-        and whole(map.plane, 0, 3)
-        and whole(map.x, 0, 32767)
-        and whole(map.z, 0, 32767)
+        and numbers.is_whole(map.id, -1, 65535)
+        and numbers.is_whole(map.plane, 0, 3)
+        and numbers.is_whole(map.x, 0, 32767)
+        and numbers.is_whole(map.z, 0, 32767)
 end
 
 local function interior_point(map, candidates)
@@ -46,8 +36,8 @@ local function interior_point(map, candidates)
 
     local interior = map and map.id ~= SURFACE_MAP and coordinates.world(map) or nil
     local interior_map = interior and map.id or nil
-    -- Wiki map -1 explicitly leaves coordinates in the native grid. Accept
-    -- those only inside an authored map for this exact named destination.
+    -- wiki map -1 means the coordinates are already game coordinates. only trusted inside
+    -- a known map for this exact location name
     if map and map.id == -1 then
         local point = { level = map.plane, x = map.x, z = map.z }
 
@@ -59,8 +49,8 @@ local function interior_point(map, candidates)
         end
     end
 
-    -- Shared diagrams can cover unrelated caves. Prefer the dedicated native
-    -- map containing this spawn when the location has an exact map alias.
+    -- a shared map can cover several unrelated caves, so when the location has an exact
+    -- alias prefer the areas own map that has this spawn on it
     if interior then
         local matched = false
 
@@ -79,8 +69,9 @@ local function interior_point(map, candidates)
     return interior, interior_map
 end
 
--- A resolution carries the player-facing action as well as its destination. An
--- entrance must never be presented as if it were the monster's interior spawn.
+-- what the Mark button does for a location: the tile to point at, its label and tooltip,
+-- and whether its the spawn itself or a dungeon entrance on the way. an entrance must never
+-- be shown as if it was where the monster is
 function location_map.resolve(location)
     if type(location) ~= "table" then
         return nil, "No map coordinates saved. A refresh in Customize may load them."
@@ -91,11 +82,10 @@ function location_map.resolve(location)
     end
 
     local display_name = type(location.name) == "string" and location.name or "Location"
-    local name = page_key(display_name)
-    local page = page_key(location.page)
-    -- Temporary quest copies cannot be reached using their storage coordinates.
-    -- Access requirements alone do not imply an instance: persistent quest dungeons
-    -- such as Tarn's Lair can still have a verified surface entrance.
+    local name = wiki_text.page_key(display_name)
+    local page = wiki_text.page_key(location.page)
+    -- quest copies of a place sit at coordinates you cant walk to. needing a quest doesnt
+    -- make it one of those though, Tarn's Lair needs a quest and still has a normal entrance
     for _, label in ipairs({ name, page }) do
         if
             label:find("instance", 1, true)
@@ -114,8 +104,8 @@ function location_map.resolve(location)
         return nil, "The Wiki map coordinates are invalid. No marker is available."
     end
 
-    -- Match the canonical location link where available, never a dungeon map ID
-    -- alone: different locations can share a diagram or use unrelated local grids.
+    -- match on the locations wiki page link when there is one, never on the map id alone,
+    -- different places can share a map or use their own unrelated grids
     local access_point, access_reason = entrances.resolve(page ~= "" and page or name, display_name)
     if access_reason then
         return nil, access_reason

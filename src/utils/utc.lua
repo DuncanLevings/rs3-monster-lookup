@@ -1,5 +1,5 @@
--- MediaWiki returns UTC timestamps; os.time is unavailable in some client sandboxes.
--- Convert explicitly rather than interpreting UTC fields in the player's local timezone.
+-- wiki timestamps are UTC and os.time isnt there in every client, so this converts them by
+-- hand. os.time would also read them as the players local time
 local utc = {}
 local MONTH_DAYS = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
 

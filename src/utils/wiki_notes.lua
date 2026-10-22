@@ -36,8 +36,9 @@ local function remap_drop(drop, numbers, notes)
     return copy
 end
 
--- Cached records can predate citation filtering. Keep the source untouched and
--- renumber visible notes and their tooltips together.
+-- takes the wikis source citations out of a section, saved lookups from older versions
+-- still have them. returns a copy, and renumbers the notes left and the markers pointing
+-- at them together
 function wiki_notes.without_sources(section)
     local notes, numbers = {}, {}
     local changed = false

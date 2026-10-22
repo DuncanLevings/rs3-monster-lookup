@@ -322,7 +322,7 @@ function fixture.new(root, saved)
         return true
     end
 
-    context.cache = load_module("src/data/monster_cache")
+    context.cache = load_module("src/data/lookup/cache")
     environment.config = {
         Font = {
             MUSEO_SANS_15PT_REGULAR = {
@@ -669,14 +669,14 @@ function fixture.new(root, saved)
     context.subject = load_module("src/ui/monster_window")
     -- UI cache fixtures represent downloaded monsters unless a test marks them bundled.
     context.bundled = {}
-    load_module("src/data/bundle").find = function(monster)
+    load_module("src/data/bundle/reader").find = function(monster)
         return context.bundled[monster.name]
     end
     context.settings_panel = load_module("src/ui/settings/panel")
     context.info_view = load_module("src/ui/info/view")
     context.sample =
         { title = "Goblin", info = {}, sections = load_module("tests/support/sample_drops") }
-    context.geometry = load_module("src/ui/window_state")
+    context.geometry = load_module("src/ui/common/window_state")
     return context
 end
 

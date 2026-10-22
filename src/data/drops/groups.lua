@@ -38,7 +38,7 @@ end
 local function selected_thresholds(sections, enrage)
     local selected = {}
 
-    -- Categories can use different thresholds, or start at 100% with no normal table.
+    -- categories can use different thresholds, or start at 100% with no normal table
     for _, section in ipairs(sections) do
         local switch, minimum = section.drop_switch, section.drop_threshold
 
