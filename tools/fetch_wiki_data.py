@@ -17,6 +17,7 @@ https://runescape.wiki/w/RuneScape:How_to_safely_use_wiki_data_in_RuneScape_plug
 so this stays polite: one request per second, maxlag, a contact in the User-Agent.
 
 Usage: python -I tools/fetch_wiki_data.py [--only "General Graardor" ...] [--limit 10]
+To pick up a few new monsters between full runs: --rescan-monsters --only-new
 Run with -I so nothing in the download folders can shadow a module.
 """
 import argparse
@@ -39,6 +40,13 @@ ITEMS_PER_QUERY = 40
 REVIDS_PER_QUERY = 50
 # location_restriction values for variants a player can meet again and again
 REPEATABLE = {None, "", "surface", "minigame"}
+# group boss pages: one drop table (and locations) for several monsters whose stats are on
+# their own pages. the wiki doesnt link them up, so the members are listed by hand. the group
+# page is bundled in their place, with every members variants, and clicking any member in
+# game opens it
+GROUP_PAGES = {
+    "The Ghrazi Blood Knights": ["Lady Karmina Ghrazi", "Lord Vasily Ghrazi"],
+}
 
 
 class Wiki:
@@ -185,6 +193,33 @@ def scan_monsters(wiki, rescan):
     return ids, variants
 
 
+def apply_groups(npc_ids, variants):
+    # members npc ids and variants move onto their group page, saved so the bundle build maps
+    # the ids to the group too. a member thats gone already (from an earlier run) is skipped
+    for group, members in GROUP_PAGES.items():
+        ids = list(npc_ids.get(group, []))
+        rows = list(variants.get(group, []))
+        for member in members:
+            ids.extend(number for number in npc_ids.pop(member, []) if number not in ids)
+            rows.extend(variants.pop(member, []))
+        npc_ids[group], variants[group] = ids, rows
+    save_json(WORK / "npc_ids.json", npc_ids)
+    save_json(WORK / "monster_variants.json", variants)
+
+
+def group_infobox(member_rows):
+    # each member keeps its own variants, named after it so the Monster info dropdown says
+    # whose stats they are, eg "Lady Karmina Ghrazi - Regular"
+    rows = []
+    for member, texts in member_rows:
+        for text in texts:
+            info = json.loads(text)
+            anchor = info.get("version_anchor")
+            info["version_anchor"] = f"{member} - {anchor}" if anchor else member
+            rows.append(json.dumps(info))
+    return rows
+
+
 def category_members(wiki, category, kind="page"):
     titles, cursor = [], None
     while True:
@@ -277,16 +312,26 @@ def fetch_infoboxes(wiki, titles):
     return rows
 
 
-def fetch_pages(wiki, titles, refresh):
+def fetch_pages(wiki, titles, refresh, only_new=False):
     folder = WORK / "pages"
-    revisions = latest_revisions(wiki, titles)
-    stale = []
-    for title in titles:
-        saved = load_json(folder / (slug(title) + ".json"), None)
-        if refresh or not saved or saved.get("revid") != revisions.get(title):
-            stale.append(title)
+    # only_new skips the revision check, so pages already saved stay as they are even if the
+    # wiki changed them since. for picking up a few new monsters between full runs
+    if only_new:
+        stale = [title for title in titles if not (folder / (slug(title) + ".json")).exists()]
+    else:
+        revisions = latest_revisions(wiki, titles)
+        stale = []
+        for title in titles:
+            saved = load_json(folder / (slug(title) + ".json"), None)
+            if refresh or not saved or saved.get("revid") != revisions.get(title):
+                stale.append(title)
     print(f"  {len(titles) - len(stale)} pages unchanged, fetching {len(stale)}", flush=True)
-    infoboxes = fetch_infoboxes(wiki, stale)
+    members = [member for title in stale for member in GROUP_PAGES.get(title, [])]
+    infoboxes = fetch_infoboxes(wiki, stale + members)
+    for title in stale:
+        if title in GROUP_PAGES:
+            infoboxes[title] = group_infobox(
+                [(member, infoboxes.get(member, [])) for member in GROUP_PAGES[title]])
     for number, title in enumerate(stale, 1):
         data = wiki.get({"action": "parse", "page": title, "prop": "text|wikitext|revid",
                          "formatversion": 2, "redirects": 1})
@@ -335,6 +380,10 @@ def main():
     parser.add_argument("--only", action="append", default=[], help="fetch just these titles")
     parser.add_argument("--limit", type=int, help="fetch only the first N kept monsters")
     parser.add_argument("--rescan", action="store_true", help="redo the bucket scans")
+    parser.add_argument("--rescan-monsters", action="store_true",
+                        help="redo just the infobox_monster scan, for new npc ids and variants")
+    parser.add_argument("--only-new", action="store_true",
+                        help="only download pages that arent saved yet, skip the revision check")
     parser.add_argument("--refresh", action="store_true", help="refetch pages even if unchanged")
     parser.add_argument("--delay", type=float, default=1.0, help="seconds between requests")
     parser.add_argument("--names-only", action="store_true",
@@ -348,7 +397,8 @@ def main():
     print("scanning drops", flush=True)
     drops = scan_drops(wiki, args.rescan)
     print("scanning monsters", flush=True)
-    npc_ids, variants = scan_monsters(wiki, args.rescan)
+    npc_ids, variants = scan_monsters(wiki, args.rescan or args.rescan_monsters)
+    apply_groups(npc_ids, variants)
     print("scanning categories", flush=True)
     lists = scan_lists(wiki, args.rescan)
     removal_dates = scan_removal_dates(wiki, args.rescan)
@@ -356,6 +406,11 @@ def main():
     candidates = args.only or candidate_titles()
     if not candidates:
         raise SystemExit("no candidates, run tools/build_monster_index.py first")
+    # group pages stand in for their members, which have no drop table of their own
+    grouped = {member for members in GROUP_PAGES.values() for member in members}
+    candidates = [title for title in candidates if title not in grouped]
+    if not args.only:
+        candidates += [group for group in GROUP_PAGES if group not in candidates]
 
     # removed content: every variant marked removed, or a "(historical)" copy of an old version.
     # a removal date alone isnt enough, eg Dark wizard has one for an old version but is
@@ -419,7 +474,7 @@ def main():
         return
 
     print("fetching pages", flush=True)
-    fetch_pages(wiki, kept, args.refresh)
+    fetch_pages(wiki, kept, args.refresh, args.only_new)
     print("fetching item ids", flush=True)
     names = {name for title in kept for name in drops.get(title, [])}
     items = fetch_items(wiki, names, args.refresh)

@@ -926,6 +926,7 @@ return {
     "Terror dog",
     "Terrorbird",
     "The Ambassador",
+    "The Ghrazi Blood Knights",
     "The Magister",
     "The Sanctum Guardian",
     "The Violet Lotus",
