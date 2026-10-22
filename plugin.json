@@ -6,7 +6,9 @@
   "requiredDependencies": {
     "prettyui": 6398181
   },
-  "optionalDependencies": {},
+  "optionalDependencies": {
+    "gepl": "gepl"
+  },
   "requiredPermissions": [],
   "optionalPermissions": [
     "httpAccess"

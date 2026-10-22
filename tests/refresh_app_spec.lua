@@ -20,6 +20,7 @@ return function(root)
                 destroy = noop,
             },
             ["src/ui/monster_search_window"] = { start = noop, destroy = noop },
+            ["src/data/prices"] = { stop = noop },
             ["src/ui/content_panel"] = { start = noop, stop = noop },
             ["src/ui/settings_panel"] = {
                 start = function(_, callback)

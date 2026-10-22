@@ -17,7 +17,7 @@ local widgets = require("src/ui/widgets")
 local internals = require("src/ui/prettyui_internals")
 
 local item_search = require("src/utils/item_search")
-local wiki_page = require("src/data/wiki_page")
+local drop_groups = require("src/data/drop_groups")
 local drop_search = require("src/ui/drop_search")
 local drop_notes = require("src/ui/drop_notes")
 local wiki_notes = require("src/utils/wiki_notes")
@@ -157,7 +157,11 @@ local function add_drop_row(parent, drop, y, index, controller)
     add_text(row, drop.name, ITEM_X, ITEM_WIDTH, false)
     add_quantity(row, drop, controller)
     add_rarity_cell(row, drop, controller)
-    add_text(row, price_format.format(drop.price), PRICE_X, PRICE_WIDTH, true, theme.TEXT_PRICE)
+
+    -- live price when the window has one, otherwise the one saved with the drop
+    local price_for = controller.options.price_for
+    local price = price_for and price_for(drop) or drop.price
+    add_text(row, price_format.format(price), PRICE_X, PRICE_WIDTH, true, theme.TEXT_PRICE)
 
     return row
 end
@@ -677,6 +681,7 @@ end
 
 ---@class DropTableOptions
 ---@field percentage_rarity boolean?
+---@field price_for (fun(drop: Drop): any)? live price for a row, nil keeps drop.price
 ---@field status string? cache status line under the buttons
 ---@field problem string? refresh error, makes the status line a warning
 ---@field search_query string? search text to carry over from the last render
@@ -698,7 +703,7 @@ function drop_table.render(page, sections, overlay_parent, options)
         options = options,
         section_state = section_state,
         overlay_parent = overlay_parent,
-        groups = wiki_page.mode_groups(sections),
+        groups = drop_groups.mode_groups(sections),
         sections = {},
         tooltips = {},
         building = true,

@@ -1,25 +1,27 @@
--- turns a clicked npc into a full drop table from the wiki
+-- turns a clicked npc into a full drop table from the wiki, for monsters that arent in the
+-- saved bundle yet. only bucket queries, never the full page
 --
--- three steps, each one waits for the last:
+-- four steps, each one waits for the last:
 --   1. find the monsters page in the infobox_monster bucket by npc id (or exact name if the
 --      id isnt on the wiki)
---   2. fetch that page as rendered html and pull the drop tables out of it
---   3. look up item ids for the drops in batches so the table can show item icons
+--   2. get that pages rows from the dropsline bucket and group them by mode
+--   3. get its map pins from the coordinates bucket for the locations tab
+--   4. look up item ids for the drops in batches so the table can show item icons
 --      (skipped when the page has no drops)
 
 local clock = require("src/utils/cache_clock")
 local http = require("src/data/wiki_http")
 local queries = require("src/data/wiki_queries")
-local parser = require("src/data/wiki_page")
 local wiki_response = require("src/data/wiki_response")
-local monster_locations = require("src/data/monster_locations")
+local dropsline = require("src/data/dropsline")
+local spawn_locations = require("src/data/spawn_locations")
 
 ---@class MonsterResult
 ---@field title string wiki page title
 ---@field info table infobox values for the first variant
 ---@field variants table[] infobox values for every variant on the page
 ---@field sections DropSection[] empty when the page has no drops that can be showed
----@field no_drops "none"|"unreadable"|nil why sections is empty, nil when it isnt
+---@field no_drops "none"|"unreadable"|"not_covered"|nil why sections is empty, nil when it isnt
 ---@field locations MonsterLocation[]? nil only for saved lookups from older versions
 ---@field no_locations "none"|"unreadable"|nil why locations is empty
 
@@ -137,41 +139,59 @@ local function request_item_batch(result, names, offset, item_ids, on_complete)
     end)
 end
 
-local function request_page(result, on_complete)
-    http.get(queries.page(result.title), function(response, problem)
+-- a failed bucket request fails the whole lookup, so a half loaded monster never gets cached
+local function request_rows(query, on_complete)
+    http.get(query, function(response, problem)
         if not response then
             on_complete(nil, problem)
             return
         end
 
-        local html, page_problem = wiki_response.page_text(response)
+        on_complete(wiki_response.bucket(response))
+    end)
+end
 
-        if not html then
-            on_complete(nil, page_problem)
+local function request_spawns(result, on_complete)
+    request_rows(queries.spawns(result.title), function(rows, problem)
+        if not rows then
+            on_complete(nil, problem)
             return
         end
 
-        local sections, parse_problem = parser.parse(html)
+        result.locations, result.no_locations = spawn_locations.parse(rows)
 
-        if not sections then
-            on_complete(nil, parse_problem)
+        if not result.locations then
+            on_complete(nil, "The Wiki returned an invalid list of spawn locations.")
             return
         end
 
-        result.sections = sections
-        result.locations, result.no_locations = monster_locations.parse(html)
-        require("src/data/location_spawns").attach(result.locations, response.parse.wikitext)
-
-        -- plenty of monsters just dont drop anything. thats still a
-        -- good result, the Monster info tab has stats to show and the drops tab says why its
-        -- empty instead of showing an error
-        if #sections == 0 then
-            result.no_drops = parser.has_drop_markup(html) and "unreadable" or "none"
+        -- plenty of monsters just dont drop anything. thats still a good result, the Monster
+        -- info tab has stats to show and the drops tab says why its empty instead of an error
+        if #result.sections == 0 then
+            result.no_drops = "none"
             on_complete(result)
             return
         end
 
-        request_item_batch(result, collect_item_names(sections), 1, {}, on_complete)
+        request_item_batch(result, collect_item_names(result.sections), 1, {}, on_complete)
+    end)
+end
+
+local function request_drops(result, on_complete)
+    request_rows(queries.drops(result.title), function(rows, problem)
+        local sections
+
+        if rows then
+            sections, problem = dropsline.sections(rows)
+        end
+
+        if not sections then
+            on_complete(nil, problem)
+            return
+        end
+
+        result.sections = sections
+        request_spawns(result, on_complete)
     end)
 end
 
@@ -192,7 +212,7 @@ local function resolve_monster(monster, field, value, allow_fallback, on_complet
         local result, match_problem = choose_monster(rows)
 
         if result then
-            request_page(result, on_complete)
+            request_drops(result, on_complete)
         elseif match_problem then
             on_complete(nil, match_problem)
         elseif allow_fallback then

@@ -1,4 +1,5 @@
--- pulls drop tables out of a wiki page's rendered html
+-- pulls drop tables out of a wiki pages rendered html. only the bundle build uses this now,
+-- the plugin itself reads the saved bundle or the dropsline bucket instead
 --
 -- this isnt a general html parser, it only knows the markup the wiki uses for item-drops
 -- tables right now (headings, rows, footnotes and the paragraphs around each table). if the
@@ -6,29 +7,8 @@
 
 local text = require("src/utils/wiki_text")
 local json = require("src/utils/json")
-local wiki_switches = require("src/utils/wiki_switches")
+local wiki_switches = require("tools/wiki_switches")
 local wiki_notes = require("src/utils/wiki_notes")
-
----@class Drop
----@field name string item name as shown on the page
----@field wiki_name string item page name, used to look up the item id
----@field item_id integer? filled in later for the item icon
----@field quantity string
----@field rate string rarity text exactly as the wiki shows it eg "1/128" or "Rare"
----@field price number|{minimum: number, maximum: number}|"Not sold"|nil
----@field notes string footnote text for this row, "" if none
----@field note_marker string footnote numbers eg "1,3", "" if none
-
----@class DropSection
----@field title string headings above the table joined with " / "
----@field description string? paragraphs between the heading and the table
----@field afterword string? paragraphs after the table
----@field drops Drop[]
----@field notes string[] footnotes used in this table, numbered in order
----@field note_ids table<string, integer>
----@field drop_mode string? Wiki switch label for an enrage-dependent table
----@field drop_threshold number? minimum enrage, -1 for normal mode
----@field drop_switch integer? identifies tables from the same Wiki switcher
 
 local wiki_page = {}
 
@@ -293,123 +273,6 @@ local function scan_tables(html, state)
             break
         end
     end
-end
-
----@class DropGroup
----@field name string shown in the mode picker eg "Normal mode"
----@field sections DropSection[]
----@field titles string[] section titles without the group part eg "Unique"
-
--- "Drops (hard mode)" reads better as "Hard mode" in a dropdown
-local function group_name(heading)
-    local inside = heading:match("^Drops %((.+)%)$")
-
-    if inside then
-        return inside:sub(1, 1):upper() .. inside:sub(2)
-    end
-
-    return heading
-end
-
-local function enrage_choices(sections)
-    local choices, seen = {}, {}
-
-    for _, section in ipairs(sections) do
-        if section.drop_mode and section.drop_threshold and not seen[section.drop_threshold] then
-            seen[section.drop_threshold] = true
-            choices[#choices + 1] = { name = section.drop_mode, minimum = section.drop_threshold }
-        end
-    end
-
-    table.sort(choices, function(a, b)
-        return a.minimum < b.minimum
-    end)
-    return choices
-end
-
-local function selected_thresholds(sections, enrage)
-    local selected = {}
-
-    -- Categories can use different thresholds, or start at 100% with no normal table.
-    for _, section in ipairs(sections) do
-        local switch, minimum = section.drop_switch, section.drop_threshold
-
-        if
-            switch
-            and minimum <= enrage
-            and (not selected[switch] or minimum > selected[switch])
-        then
-            selected[switch] = minimum
-        end
-    end
-
-    return selected
-end
-
-local function enrage_groups(sections)
-    local choices = enrage_choices(sections)
-
-    if #choices < 2 then
-        return nil
-    end
-
-    local groups = {}
-
-    for _, choice in ipairs(choices) do
-        local selected = selected_thresholds(sections, choice.minimum)
-        local group = { name = choice.name, sections = {}, titles = {} }
-
-        for _, section in ipairs(sections) do
-            if
-                not section.drop_switch
-                or selected[section.drop_switch] == section.drop_threshold
-            then
-                group.sections[#group.sections + 1] = section
-                group.titles[#group.titles + 1] = section.title
-            end
-        end
-
-        groups[#groups + 1] = group
-    end
-
-    return groups
-end
-
--- splits sections into modes using the first part of their title, eg normal and hard mode
--- on bosses. only when every section has a group part and theres more than one group,
--- otherwise a page with just a "Tertiary / Charms" subsection would get a pointless picker
----@param sections DropSection[]
----@return DropGroup[]? groups nil when the page shouldnt be split
-function wiki_page.mode_groups(sections)
-    local enrages = enrage_groups(sections)
-
-    if enrages then
-        return enrages
-    end
-
-    local groups = {}
-    local by_heading = {}
-
-    for _, section in ipairs(sections) do
-        local heading, rest = section.title:match("^(.-) / (.+)$")
-
-        if not heading then
-            return nil
-        end
-
-        local group = by_heading[heading]
-
-        if not group then
-            group = { name = group_name(heading), sections = {}, titles = {} }
-            by_heading[heading] = group
-            groups[#groups + 1] = group
-        end
-
-        group.sections[#group.sections + 1] = section
-        group.titles[#group.titles + 1] = rest
-    end
-
-    return #groups > 1 and groups or nil
 end
 
 -- true if the page looks like it has drops (a Drops heading or an item-drops table) even

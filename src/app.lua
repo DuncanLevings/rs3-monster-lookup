@@ -8,6 +8,7 @@ local search_window = require("src/ui/monster_search_window")
 local content_panel = require("src/ui/content_panel")
 local settings = require("src/settings")
 local location_marker = require("src/game/location_marker")
+local prices = require("src/data/prices")
 
 local app = {}
 local started = false
@@ -88,9 +89,19 @@ function app.stop()
     content_panel.stop()
     search_window.destroy()
     Event.GameStateChanged.Unsubscribe(GAME_STATE_SUBSCRIPTION)
+    prices.stop()
     monster_window.destroy()
 
     log("Monster Lookup stopped.")
+end
+
+-- the GE Price Library is optional, so it can come and go while the plugin runs. redraw the
+-- open drop table so its prices switch between live and saved straight away
+---@param event {pluginIdentifier: string, enabled: boolean}
+function app.dependency_changed(event)
+    if started and event and event.pluginIdentifier == "gepl" then
+        monster_window.refresh_settings()
+    end
 end
 
 return app

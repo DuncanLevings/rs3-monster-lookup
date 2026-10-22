@@ -53,18 +53,6 @@ function response.monster_info(value)
     return info
 end
 
-function response.page_text(value)
-    if
-        type(value) ~= "table"
-        or type(value.parse) ~= "table"
-        or type(value.parse.text) ~= "string"
-    then
-        return nil, "The Wiki returned an invalid monster page. Please try again."
-    end
-
-    return value.parse.text
-end
-
 local function item_id(value)
     if type(value) ~= "number" and type(value) ~= "string" then
         return nil

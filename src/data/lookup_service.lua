@@ -1,8 +1,10 @@
 -- sits between the window and the wiki lookup, decides whether saved data is good enough
 -- or a new fetch is needed. saved data is shown straight away even when its due a refresh,
--- then swapped for the new result when it arrives (or kept if the refresh fails)
+-- then swapped for the new result when it arrives (or kept if the refresh fails).
+-- monsters in the bundled data are answered before any of that, with no request at all
 
 local identity = require("src/utils/monster_identity")
+local bundle = require("src/data/bundle")
 local wiki_lookup = require("src/data/wiki_lookup")
 local cache = require("src/data/monster_cache")
 local clock = require("src/utils/cache_clock")
@@ -123,6 +125,29 @@ end
 ---@param force_refresh boolean? skip fresh saved data, used by settings
 function service.fetch(monster, on_complete, force_refresh)
     force_refresh = force_refresh == true
+
+    -- bundled monsters never need the Wiki or the cache, even for a refresh: the bundle is
+    -- the newest data this plugin version has. only unknown (new) monsters go further
+    local match = bundle.find(monster)
+
+    if match then
+        local result, built
+
+        if match.kind == "bundled" then
+            result, built = bundle.load(match.page)
+        else
+            result = bundle.placeholder(monster, match.kind)
+        end
+
+        if result then
+            generation = generation + 1
+            abandon_active()
+            wiki_lookup.cancel()
+            on_complete(result, nil, { bundled = true, built = built, stale = false })
+            return
+        end
+    end
+
     local key = identity.key(monster)
 
     -- A repeated click follows the request already in flight instead of restarting it.

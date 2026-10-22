@@ -5,6 +5,7 @@ return function(root)
 
     function suite:setUp()
         self.storage = {}
+        self.bundle_match = nil
         self.max_value_bytes = nil
         self.now = 100000
         self.elapsed = 0
@@ -79,6 +80,20 @@ return function(root)
             stop = function() end,
             now = function()
                 return context.now
+            end,
+        }
+        -- these tests are about the live lookup and its cache, so the bundle knows nothing
+        -- unless a test sets context.bundle_match (tests/bundle_spec.lua covers the real one)
+        modules["src/data/bundle"] = {
+            find = function()
+                return context.bundle_match
+            end,
+            load = function(page)
+                return { title = "Bundled " .. page, info = {}, variants = {}, sections = {} },
+                    "2026-10-21"
+            end,
+            placeholder = function(monster, kind)
+                return { title = monster.name, sections = {}, no_drops = kind, placeholder = true }
             end,
         }
         modules["src/data/wiki_lookup"] = {
@@ -208,6 +223,37 @@ return function(root)
         lu.assertFalse(self.results[1].metadata.stale)
         lu.assertEquals(self.results[1].metadata.saved_at, self.now)
         lu.assertEquals(self.cache.get(self.monster, 60).sections[1].drops[1].price, 100)
+    end
+
+    -- monsters missing from the bundle come from bucket rows, opening one again has to use
+    -- the saved copy instead of asking the wiki every time
+    function suite:test_live_bucket_results_are_saved_and_reopened_without_another_request()
+        local rows = require("tests/support/dropsline_rows")
+        local sections = assert(require("src/data/dropsline").sections({
+            rows.drop("Coins", { ["Quantity Low"] = 5, ["Quantity High"] = 10 }),
+            rows.drop("Rune bar", { ["Rarity Notes"] = { { content = "Members only." } } }),
+            rows.drop("Uncut ruby", {}, { rare_drop_table = true }),
+        }))
+        local locations = assert(require("src/data/spawn_locations").parse({
+            rows.spawn(28, 0, { 3200, 3210 }, { 3200, 3205 }),
+            rows.spawn(15, 0, { 2872 }, { 5358 }),
+        }))
+        local live = { title = "Goblin", info = {}, sections = sections, locations = locations }
+
+        self.service.fetch(self.monster, self.complete)
+        self.requests[1].complete(live)
+        self.service.fetch(self.monster, self.complete)
+
+        lu.assertEquals(#self.requests, 1)
+        lu.assertEquals(self.results[2].result, live)
+        lu.assertFalse(self.results[2].metadata.stale)
+        lu.assertNil(self.results[2].metadata.bundled)
+
+        self:reload()
+        self.service.fetch(self.monster, self.complete)
+        lu.assertEquals(#self.requests, 1)
+        lu.assertEquals(self.results[3].result.locations[2].spawn_maps[1].x, 2872)
+        lu.assertNil(self.results[3].result.sections[1].drops[2].price)
     end
 
     function suite:test_cancelled_requests_cannot_replace_data_or_update_the_window()
@@ -385,6 +431,40 @@ return function(root)
         self.result.info.examine = string.rep("x", 250001)
         self.cache.put(self.monster, self.result)
         lu.assertNil(self.cache.get(self.monster, 60))
+    end
+
+    function suite:test_bundled_monsters_need_no_request_and_are_not_cached()
+        self.bundle_match = { kind = "bundled", page = 7 }
+
+        self.service.fetch(self.monster, self.complete)
+        self.service.fetch(self.monster, self.complete, true)
+
+        lu.assertEquals(#self.requests, 0)
+        lu.assertEquals(self.results[1].result.title, "Bundled 7")
+        lu.assertEquals(
+            self.results[1].metadata,
+            { bundled = true, built = "2026-10-21", stale = false }
+        )
+        lu.assertEquals(self.results[2].result.title, "Bundled 7")
+        lu.assertNil(self.cache.get(self.monster, 60))
+    end
+
+    function suite:test_known_no_drop_and_not_covered_monsters_get_a_placeholder()
+        self.bundle_match = { kind = "not_covered" }
+        self.service.fetch({ npc_id = 15824, name = "Bandit" }, self.complete)
+        self.bundle_match = { kind = "no_drops" }
+        self.service.fetch({ npc_id = 6112, name = "Duckling" }, self.complete)
+
+        lu.assertEquals(#self.requests, 0)
+        lu.assertEquals(self.results[1].result.no_drops, "not_covered")
+        lu.assertEquals(self.results[2].result.no_drops, "no_drops")
+        lu.assertTrue(self.results[2].result.placeholder)
+    end
+
+    function suite:test_monsters_the_bundle_doesnt_know_still_use_the_wiki()
+        self.service.fetch(self.monster, self.complete)
+
+        lu.assertEquals(#self.requests, 1)
     end
 
     function suite:test_uncached_failure_does_not_create_an_entry()

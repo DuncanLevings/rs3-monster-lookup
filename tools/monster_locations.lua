@@ -1,3 +1,4 @@
+-- build only, the plugin gets locations from the saved bundle or the coordinates bucket
 -- reads the Wiki's standard spawn tables from the Location/Locations section
 -- header names identify the columns so extra map or league columns cannot shift the data
 

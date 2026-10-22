@@ -245,6 +245,85 @@ return function(root)
         )
     end
 
+    function suite:test_left_out_monsters_explain_why_and_bundled_ones_show_the_bundle_date()
+        self.context.subject.open({ name = "Bandit" }, function() end)
+        self.context.subject.show_result({
+            title = "Bandit",
+            info = {},
+            variants = {},
+            sections = {},
+            no_drops = "not_covered",
+            locations = {},
+            no_locations = "none",
+            placeholder = true,
+        })
+        local before = #self.context.texts
+        local shown = visible_texts(self.context)
+
+        lu.assertTrue(shown["Not covered"])
+        local explained = false
+        for text in pairs(shown) do
+            explained = explained or text:find("find and fight again and again", 1, true) ~= nil
+        end
+        lu.assertTrue(explained)
+
+        self.context.subject.show_result(single_section({
+            { name = "Bones", quantity = "1", rate = "Always", price = 1, item_id = 526 },
+        }), nil, { bundled = true, built = "2026-10-21", stale = false })
+        -- no GE Price Library in the tests, so the prices are the bundled ones too
+        lu.assertTrue(visible_texts(self.context, before)["Wiki data and GE prices from 2026-10-21"])
+    end
+
+    function suite:test_monsters_from_live_wiki_data_say_so_in_the_title_and_status()
+        local drops = { { name = "Bones", quantity = "1", rate = "Always", price = 1 } }
+        self.context.subject.open(self.monster, function() end)
+        self.context.subject.show_result(single_section(drops), nil, {
+            age_seconds = 0,
+            stale = false,
+        })
+
+        local window = self.context.windows[#self.context.windows]
+        lu.assertEquals(window.title, "Goblin - Live Wiki data")
+        local status
+        for text in pairs(visible_texts(self.context)) do
+            if text:find("^Live Wiki data | ") then
+                status = text
+            end
+        end
+        lu.assertNotNil(status)
+
+        self.context.subject.show_result(single_section(drops), nil, {
+            bundled = true,
+            built = "2026-10-21",
+            stale = false,
+        })
+        lu.assertEquals(window.title, "Goblin")
+    end
+
+    function suite:test_live_ge_prices_replace_the_saved_ones_when_the_library_is_there()
+        self.context.environment.gepl = {
+            isReady = function()
+                return true
+            end,
+            getOneHourAverage = function()
+                error("gepl 0.2.5 averages throw")
+            end,
+            getLatest = function(id)
+                return assert(({ [526] = { high = 120, low = 80 } })[id], "Price not found")
+            end,
+        }
+        self.context.subject.open(self.monster, function() end)
+        self.context.subject.show_result(single_section({
+            { name = "Bones", quantity = "2", rate = "Always", price = 1, item_id = 526 },
+            { name = "Coins", quantity = "50", rate = "1/2", price = 50, item_id = 995 },
+        }), nil, { bundled = true, built = "2026-10-21", stale = false })
+
+        local shown = visible_texts(self.context)
+        lu.assertTrue(shown["200 gp"]) -- live: 100 each x 2
+        lu.assertTrue(shown["50 gp"]) -- no live price for coins, saved one stays
+        lu.assertTrue(shown["Wiki data from 2026-10-21 | Live GE prices"])
+    end
+
     function suite:test_drops_without_an_item_id_get_a_placeholder_icon()
         self.context.subject.open(self.monster, function() end)
         self.context.subject.show_result(single_section({

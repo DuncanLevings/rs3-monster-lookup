@@ -8,6 +8,8 @@
   "diagnostics.globals": [
     "log",
     "PluginShutdown",
+    "PluginDependencyUpdate",
+    "gepl",
     "Event",
     "MiniMenuActionVerbType",
     "prettyui",
@@ -25,6 +27,7 @@
     "World",
     "Player",
     "LocList",
+    "Vector3",
     "var"
   ],
   "workspace.checkThirdParty": false,
@@ -32,6 +35,7 @@
     ".git",
     "dist",
     "work",
-    "src/vendor"
+    "src/vendor",
+    "src/data/bundle"
   ]
 }

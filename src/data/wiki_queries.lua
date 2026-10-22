@@ -1,5 +1,6 @@
--- api query paths for the wiki. bucket is the wikis structured data store, it use its
--- infobox_monster and infobox_item tables. parse gives us a pages rendered html
+-- api query paths for the wiki. everything comes from bucket, the wikis structured data store:
+-- infobox_monster for stats, dropsline for drops, coordinates for spawns and infobox_item for
+-- item ids
 
 local url = require("src/utils/url")
 
@@ -31,14 +32,24 @@ function queries.monster(field, value)
     return queries.bucket(query)
 end
 
-function queries.page(title)
-    return build_query({
-        action = "parse",
-        format = "json",
-        formatversion = 2,
-        page = title,
-        prop = "text|wikitext",
-    })
+-- every drop row for one page, the biggest bosses have around 200 so this leaves plenty of room
+function queries.drops(title)
+    local query = "bucket('dropsline').select('item_name','drop_json','rare_drop_table').where("
+        .. "'page_name',"
+        .. url.literal(title)
+        .. ").limit(1000).run()"
+
+    return queries.bucket(query)
+end
+
+-- map pins for one page, used for the locations tab
+function queries.spawns(title)
+    local query = "bucket('coordinates').select('mapid','plane','x','y').where("
+        .. "'page_name',"
+        .. url.literal(title)
+        .. ").limit(500).run()"
+
+    return queries.bucket(query)
 end
 
 function queries.items(names)

@@ -10,6 +10,9 @@
 - Refresh saved lookups after two weeks, with searchable manual refresh in Customize that clears matching variants and shares a one-hour cooldown.
 - Improve variant selection, search results and saved-data availability when the Wiki is unreachable.
 - Mark world locations, dungeon entrances and supported interior waypoints, including resource-dungeon return routes and known floor transitions. Use actual spawn pins and prefer your current floor when available. Clear entrance markers after entering a known dungeon when interior guidance is unavailable; unknown areas pause guidance.
+- Bundle Wiki data for monsters you can meet repeatedly, so most lookups need no Wiki request.
+- Show live GE prices when the optional GE Price Library plugin is installed.
+- Look up monsters added after the bundle date through Wiki Bucket data only, never full pages.
 
 ## 0.0.1
 

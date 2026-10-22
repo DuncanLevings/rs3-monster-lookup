@@ -9,7 +9,7 @@ local search = {}
 local next_subscription = 0
 local DEBOUNCE_TICKS = math.ceil(0.15 * clock.TICKS_PER_SECOND)
 local ROWS_PER_TICK = 250
-local MAX_RESULTS = 10
+local MAX_RESULTS = 50
 local LEGACY_READS_PER_TICK = 3
 
 local function normalize(text)

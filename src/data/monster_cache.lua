@@ -21,6 +21,8 @@ local location_map = require("src/data/location_map")
 ---@field age_seconds number? nil when the age cant be worked out
 ---@field stale boolean true once the refresh interval has passed (or age is unknown)
 ---@field refreshing boolean? set while a refresh request is in flight
+---@field bundled boolean? came from the bundled data (src/data/bundle.lua), not the cache
+---@field built string? date the bundle was built, eg "2026-10-21"
 
 local cache = {}
 local INDEX_KEY = "monster_lookup_cache_index"

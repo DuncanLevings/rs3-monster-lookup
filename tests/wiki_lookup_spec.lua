@@ -1,8 +1,8 @@
 local lu = require("luaunit")
 local fixture = require("tests/support/wiki_fixture")
-local markup = require("tests/support/wiki_markup")
-local location_markup = require("tests/support/location_markup")
+local rows = require("tests/support/dropsline_rows")
 
+-- request order for a lookup: 1 infobox_monster, 2 dropsline, 3 coordinates, 4+ item ids
 return function(root)
     local suite = {}
 
@@ -21,6 +21,10 @@ return function(root)
 
     local function respond_with_monster(context, info)
         context:respond(1, { bucket = { { page_name = "Goblin", json = info } } })
+    end
+
+    local function two_drops()
+        return { bucket = { rows.drop("Coins", { ["Drop Quantity"] = "5" }), rows.drop("Bones") } }
     end
 
     function suite:test_malformed_monster_lists_fail_once_without_name_fallback()
@@ -48,45 +52,70 @@ return function(root)
         lu.assertStrContains(self.results[1].problem, "invalid monster record")
     end
 
-    function suite:test_unexpected_page_type_completes_with_an_error()
+    function suite:test_unexpected_drop_list_type_completes_with_an_error()
         respond_with_monster(self.context, "{}")
-        self.context:respond(2, { parse = 123 })
+        self.context:respond(2, { bucket = 123 })
         self.context:tick(1100)
 
         lu.assertEquals(#self.results, 1)
         lu.assertNil(self.results[1].result)
-        lu.assertStrContains(self.results[1].problem, "invalid monster page")
+        lu.assertStrContains(self.results[1].problem, "invalid list")
+        lu.assertEquals(#self.context.requests, 2)
     end
 
-    function suite:test_locations_share_the_drop_page_request()
+    function suite:test_unreadable_drop_record_completes_with_an_error()
         respond_with_monster(self.context, "{}")
-        self.context:respond(2, { parse = { text = location_markup } })
-        self.context:respond(3, { bucket = {} })
+        self.context:respond(2, { bucket = { { item_name = "Bones", drop_json = "not json" } } })
+
+        lu.assertEquals(#self.results, 1)
+        lu.assertNil(self.results[1].result)
+        lu.assertStrContains(self.results[1].problem, "could not be read")
+    end
+
+    function suite:test_locations_come_from_the_coordinates_bucket()
+        respond_with_monster(self.context, "{}")
+        self.context:respond(2, two_drops())
+        lu.assertStrContains(self.context.requests[3].path, "coordinates")
+        self.context:respond(3, {
+            bucket = {
+                rows.spawn(28, 0, { 3200, 3210 }, { 3200, 3205 }),
+                rows.spawn(15, 0, { 2872 }, { 5358 }),
+                rows.spawn(-1, 1, { 1010 }, { 5401 }),
+            },
+        })
+        self.context:respond(4, { bucket = {} })
 
         local result = self.results[1].result
-        lu.assertEquals(#result.locations, 3)
-        lu.assertEquals(result.locations[1].name, "Lumbridge")
-        lu.assertEquals(result.sections[1].drops[1].name, "Bones")
-        lu.assertEquals(#self.context.requests, 3)
+        lu.assertEquals(#result.locations, 2)
+        lu.assertEquals(result.locations[1].name, "RuneScape Surface")
+        lu.assertEquals(result.locations[1].spawns, "2")
+        lu.assertEquals(result.locations[2].name, "God Wars Dungeon")
+        lu.assertEquals(result.locations[2].map, { id = 15, plane = 0, x = 2872, z = 5358 })
         lu.assertNil(result.no_locations)
+        lu.assertEquals(result.sections[1].drops[2].name, "Bones")
+        lu.assertEquals(#self.context.requests, 4)
     end
 
     function suite:test_locations_are_available_when_the_monster_has_no_drops()
         respond_with_monster(self.context, "{}")
-        local html = location_markup:match("(.-)<h2>Drops</h2>")
-        self.context:respond(2, { parse = { text = html } })
+        self.context:respond(2, { bucket = {} })
+        self.context:respond(3, { bucket = { rows.spawn(28, 0, { 3200 }, { 3200 }) } })
 
         lu.assertEquals(self.results[1].result.no_drops, "none")
-        lu.assertEquals(#self.results[1].result.locations, 3)
-        lu.assertEquals(#self.context.requests, 2)
+        lu.assertEquals(#self.results[1].result.locations, 1)
+        lu.assertEquals(#self.context.requests, 3)
     end
 
-    function suite:test_unexpected_page_text_type_completes_with_an_error()
+    function suite:test_a_failed_spawn_request_fails_the_lookup_instead_of_saving_half_of_it()
         respond_with_monster(self.context, "{}")
-        self.context:respond(2, { parse = { text = false } })
+        self.context:respond(2, two_drops())
+        self.context:respond(3, "", { successful = false, responseCode = 503 })
+        self.context:tick(1100)
 
         lu.assertEquals(#self.results, 1)
-        lu.assertStrContains(self.results[1].problem, "invalid monster page")
+        lu.assertNil(self.results[1].result)
+        lu.assertNotNil(self.results[1].problem)
+        lu.assertEquals(#self.context.requests, 3)
     end
 
     function suite:test_broken_infobox_json_is_not_successful_empty_stats()
@@ -121,14 +150,15 @@ return function(root)
 
     function suite:test_failed_icon_request_keeps_parsed_drops_and_stats()
         respond_with_monster(self.context, '{"life_points":100}')
-        self.context:respond(2, { parse = { text = markup } })
-        self.context:respond(3, "", { successful = false, responseCode = 503 })
+        self.context:respond(2, two_drops())
+        self.context:respond(3, { bucket = {} })
+        self.context:respond(4, "", { successful = false, responseCode = 503 })
 
         lu.assertEquals(#self.results, 1)
         local result = self.results[1].result
         lu.assertNotNil(result)
         lu.assertEquals(result.info.life_points, 100)
-        lu.assertEquals(#result.sections, 2)
+        lu.assertEquals(#result.sections[1].drops, 2)
         lu.assertNil(self.results[1].problem)
         lu.assertNil(result.sections[1].drops[1].item_id)
         lu.assertStrContains(table.concat(self.context.logs, "\n"), "some item icons")
@@ -136,18 +166,20 @@ return function(root)
 
     function suite:test_unexpected_item_bucket_type_keeps_usable_result()
         respond_with_monster(self.context, "{}")
-        self.context:respond(2, { parse = { text = markup } })
-        self.context:respond(3, { bucket = 123 })
+        self.context:respond(2, two_drops())
+        self.context:respond(3, { bucket = {} })
+        self.context:respond(4, { bucket = 123 })
 
         lu.assertEquals(#self.results, 1)
-        lu.assertEquals(#self.results[1].result.sections, 2)
+        lu.assertEquals(#self.results[1].result.sections[1].drops, 2)
         lu.assertNil(self.results[1].problem)
     end
 
     function suite:test_invalid_item_record_uses_placeholder_instead_of_raising()
         respond_with_monster(self.context, "{}")
-        self.context:respond(2, { parse = { text = markup } })
-        self.context:respond(3, { bucket = { false } })
+        self.context:respond(2, two_drops())
+        self.context:respond(3, { bucket = {} })
+        self.context:respond(4, { bucket = { false } })
 
         lu.assertEquals(#self.results, 1)
         lu.assertNotNil(self.results[1].result)
@@ -156,8 +188,9 @@ return function(root)
 
     function suite:test_non_numeric_item_ids_do_not_reach_the_sprite_api()
         respond_with_monster(self.context, "{}")
-        self.context:respond(2, { parse = { text = markup } })
-        self.context:respond(3, { bucket = { { page_name = "Bones", item_id = { {} } } } })
+        self.context:respond(2, two_drops())
+        self.context:respond(3, { bucket = {} })
+        self.context:respond(4, { bucket = { { page_name = "Bones", item_id = { {} } } } })
 
         lu.assertEquals(#self.results, 1)
         lu.assertNotNil(self.results[1].result)
@@ -165,34 +198,24 @@ return function(root)
     end
 
     function suite:test_later_icon_batch_failure_keeps_ids_from_earlier_batches()
-        local rows = {}
+        local drops = {}
 
         for index = 1, 45 do
-            local name = "Item " .. index
-            rows[#rows + 1] = '<tr><td data-sort-value="'
-                .. name
-                .. '"></td>'
-                .. '<td class="item-col">'
-                .. name
-                .. "</td>"
-                .. "<td>1</td><td>1/2</td><td>100</td></tr>"
+            drops[#drops + 1] = rows.drop("Item " .. index, { ["Rarity"] = "1/2" })
         end
 
         respond_with_monster(self.context, "{}")
-        self.context:respond(2, {
-            parse = {
-                text = '<table class="item-drops">' .. table.concat(rows) .. "</table>",
-            },
-        })
-        self.context:respond(3, { bucket = { { page_name = "Item 1", item_id = { 526 } } } })
-        self.context:respond(4, "", { successful = false, responseCode = 429 })
+        self.context:respond(2, { bucket = drops })
+        self.context:respond(3, { bucket = {} })
+        self.context:respond(4, { bucket = { { page_name = "Item 1", item_id = { 526 } } } })
+        self.context:respond(5, "", { successful = false, responseCode = 429 })
         self.context:tick(1100)
 
         lu.assertEquals(#self.results, 1)
         lu.assertEquals(#self.results[1].result.sections[1].drops, 45)
         lu.assertEquals(self.results[1].result.sections[1].drops[1].item_id, 526)
         lu.assertNil(self.results[1].result.sections[1].drops[41].item_id)
-        lu.assertEquals(#self.context.requests, 4)
+        lu.assertEquals(#self.context.requests, 5)
     end
 
     function suite:test_clock_sync_uses_a_small_query_without_fetching_monster_pages()
@@ -227,25 +250,20 @@ return function(root)
         lu.assertStrContains(self.results[1].problem, "No matching monster")
     end
 
-    function suite:test_spawn_pins_share_the_existing_page_request_without_saving_raw_source()
+    -- the wikis plugin guidance asks for bucket or the api, not whole rendered pages
+    function suite:test_every_lookup_request_is_a_bucket_query_for_the_chosen_page()
         respond_with_monster(self.context, "{}")
-        local function read(name)
-            local file = assert(io.open(root .. "/tests/support/" .. name, "rb"))
-            local content = file:read("*a")
-            file:close()
-            return content
+        self.context:respond(2, two_drops())
+        self.context:respond(3, { bucket = {} })
+
+        for _, request in ipairs(self.context.requests) do
+            lu.assertStrContains(request.path, "action=bucket")
+            lu.assertNotStrContains(request.path, "action=parse")
         end
-        self.context:respond(2, {
-            parse = {
-                text = read("infested_axe_locations.html"),
-                wikitext = read("infested_axe_locations.wiki"),
-            },
-        })
-        local result = self.results[1].result
-        lu.assertEquals(#result.locations[1].spawn_maps, 44)
-        lu.assertEquals(#self.context.requests, 2)
-        lu.assertNil(result.wikitext)
-        lu.assertNil(result.locations[1].wikitext)
+
+        lu.assertStrContains(self.context.requests[2].path, "dropsline")
+        lu.assertStrContains(self.context.requests[2].path, "%22Goblin%22")
+        lu.assertStrContains(self.context.requests[4].path, "infobox_item")
     end
 
     return suite

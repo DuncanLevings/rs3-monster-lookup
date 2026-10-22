@@ -1,7 +1,9 @@
 local lu = require("luaunit")
 local fixture = require("tests/support/wiki_fixture")
 local markup = require("tests/support/wiki_markup")
-local parser = require("src/data/wiki_page")
+local rows = require("tests/support/dropsline_rows")
+local parser = require("tools/wiki_page")
+local drop_groups = require("src/data/drop_groups")
 local text = require("src/utils/wiki_text")
 local queries = require("src/data/wiki_queries")
 local url = require("src/utils/url")
@@ -99,7 +101,7 @@ return function(root)
         end
 
         local groups = assert(
-            parser.mode_groups(
+            drop_groups.mode_groups(
                 sections(
                     "Drops (normal mode) / 100%",
                     "Drops (hard mode) / 100%",
@@ -111,9 +113,9 @@ return function(root)
         lu.assertEquals(#groups, 2)
         lu.assertEquals(groups[1].name, "Normal mode")
         lu.assertEquals(groups[2].titles, { "100%", "Seeds" })
-        lu.assertNil(parser.mode_groups(sections("100%", "Tertiary / Charms")))
-        lu.assertNil(parser.mode_groups(sections("Tertiary / Charms", "Tertiary / Clues")))
-        lu.assertNil(parser.mode_groups({}))
+        lu.assertNil(drop_groups.mode_groups(sections("100%", "Tertiary / Charms")))
+        lu.assertNil(drop_groups.mode_groups(sections("Tertiary / Charms", "Tertiary / Clues")))
+        lu.assertNil(drop_groups.mode_groups({}))
     end
 
     local function enrage_switch(labels, quantities)
@@ -151,7 +153,7 @@ return function(root)
             .. "<h4>Supplies table</h4>"
             .. enrage_switch({ "Normal mode", "100%", "500%", "2000%+" }, { "4", "5", "6", "12" })
         local sections = assert(parser.parse(html))
-        local groups = assert(parser.mode_groups(sections))
+        local groups = assert(drop_groups.mode_groups(sections))
         lu.assertEquals(#groups, 4)
         lu.assertEquals(groups[1].name, "Normal mode")
         lu.assertEquals(groups[4].name, "2000%+")
@@ -170,7 +172,7 @@ return function(root)
             .. enrage_switch({ "100%", "750%" }, { "10", "20" })
             .. '<h3>Tertiary</h3><table class="item-drops"><tr><td data-sort-value="Pet"></td>'
             .. '<td class="item-col">Pet</td><td>1</td><td>Rare</td><td>Not sold</td></tr></table>'
-        local groups = assert(parser.mode_groups(assert(parser.parse(html))))
+        local groups = assert(drop_groups.mode_groups(assert(parser.parse(html))))
         lu.assertEquals(#groups, 4)
         lu.assertEquals(groups[1].titles, { "Potions", "Tertiary" })
         lu.assertEquals(groups[3].name, "500%")
@@ -186,7 +188,7 @@ return function(root)
         local sections = assert(parser.parse(html))
         lu.assertEquals(#sections, 2)
         lu.assertNil(sections[1].drop_mode)
-        lu.assertNil(parser.mode_groups(sections))
+        lu.assertNil(drop_groups.mode_groups(sections))
     end
 
     function suite:test_a_mode_intro_shows_once_not_above_every_category()
@@ -242,8 +244,13 @@ return function(root)
             1,
             { bucket = { { page_name = "Goblin", json = '{"life_points":100}' } } }
         )
-        self.context:respond(2, { parse = { text = markup } })
-        self.context:respond(3, { bucket = { { page_name = "Bones", item_id = { 526 } } } })
+        self.context:respond(2, {
+            bucket = { rows.drop("Chaos relic (rare)"), rows.drop("Bones") },
+        })
+        self.context:respond(3, { bucket = {} })
+        lu.assertStrContains(self.context.requests[4].path, "Chaos%20relic")
+        lu.assertStrContains(self.context.requests[4].path, "Bones")
+        self.context:respond(4, { bucket = { { page_name = "Bones", item_id = { 526 } } } })
 
         lu.assertEquals(#self.results, 1)
 
@@ -253,7 +260,7 @@ return function(root)
         lu.assertEquals(result.info.life_points, 100)
         lu.assertEquals(result.sections[1].drops[2].item_id, 526)
         lu.assertNil(result.sections[1].drops[1].item_id)
-        lu.assertEquals(#self.context.requests, 3)
+        lu.assertEquals(#self.context.requests, 4)
     end
 
     function suite:test_tries_an_exact_name_when_the_npc_id_is_unknown()
@@ -283,8 +290,9 @@ return function(root)
                 },
             },
         })
-        self.context:respond(2, { parse = { text = markup } })
+        self.context:respond(2, { bucket = { rows.drop("Bones") } })
         self.context:respond(3, { bucket = {} })
+        self.context:respond(4, { bucket = {} })
 
         lu.assertEquals(#self.results[1].result.variants, 2)
         lu.assertEquals(self.results[1].result.variants[2].life_points, 200000)
@@ -453,38 +461,39 @@ return function(root)
             1,
             { bucket = { { page_name = "Duckling", json = '{"life_points":50}' } } }
         )
-        self.context:respond(2, { parse = { text = '<h2 id="Locations">Locations</h2><p>x</p>' } })
+        self.context:respond(2, { bucket = {} })
+        self.context:respond(3, { bucket = {} })
 
         local result = self.results[1].result
         lu.assertEquals(result.sections, {})
         lu.assertEquals(result.no_drops, "none")
+        lu.assertEquals(result.no_locations, "none")
         lu.assertEquals(result.info.life_points, 50)
-        lu.assertEquals(#self.context.requests, 2)
+        lu.assertEquals(#self.context.requests, 3)
     end
 
-    function suite:test_drop_sections_we_cant_read_are_reported_separately()
+    function suite:test_broken_drop_records_are_an_error_not_an_empty_drop_table()
         self.context.lookup.fetch({ npc_id = 1, name = "Goblin" }, self.complete)
         self.context:tick()
         self.context:respond(1, { bucket = { { page_name = "Goblin" } } })
-        self.context:respond(
-            2,
-            { parse = { text = '<h2 id="Drops">Drops</h2><ul><li>Bones</li></ul>' } }
-        )
+        self.context:respond(2, { bucket = { rows.drop("Bones"), false } })
 
-        lu.assertEquals(self.results[1].result.no_drops, "unreadable")
-        lu.assertNil(self.results[1].problem)
+        lu.assertNil(self.results[1].result)
+        lu.assertStrContains(self.results[1].problem, "invalid drop record")
+        lu.assertEquals(#self.context.requests, 2)
     end
 
     function suite:test_cancelling_during_item_resolution_ignores_the_icon_response()
         self.context.lookup.fetch({ npc_id = 1, name = "Goblin" }, self.complete)
         self.context:tick()
         self.context:respond(1, { bucket = { { page_name = "Goblin" } } })
-        self.context:respond(2, { parse = { text = markup } })
-
-        self.context.lookup.cancel()
+        self.context:respond(2, { bucket = { rows.drop("Bones") } })
         self.context:respond(3, { bucket = {} })
 
-        lu.assertTrue(self.context.requests[3].cancelled)
+        self.context.lookup.cancel()
+        self.context:respond(4, { bucket = {} })
+
+        lu.assertTrue(self.context.requests[4].cancelled)
         lu.assertEquals(self.results, {})
     end
 

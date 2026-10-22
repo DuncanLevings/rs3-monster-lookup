@@ -1,3 +1,4 @@
+-- build only, the plugin gets locations from the saved bundle or the coordinates bucket
 -- The HTML map link stores a viewport centre. Spawn pins live in LocLine's
 -- source parameters; keep only those numeric points, never the page source.
 local coordinates = require("src/data/map_coordinates")

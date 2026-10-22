@@ -168,7 +168,7 @@ return function(root)
         self:tick(8)
         lu.assertEquals(self.results, {})
         self:tick(4)
-        lu.assertTrue(#self.results <= 10)
+        lu.assertTrue(#self.results <= 50)
         lu.assertEquals(self.results[1].monster.name, "Monster 1199")
     end
 
@@ -210,15 +210,18 @@ return function(root)
     function suite:test_bundled_index_has_unique_titles_and_known_monsters()
         local titles = assert(loadfile(root .. "/src/data/monster_names.lua"))()
         local seen = {}
-        lu.assertTrue(#titles > 2000)
+        -- only monsters with drops are listed, see tools/fetch_wiki_data.py
+        lu.assertTrue(#titles > 1000)
         local present = {}
         for _, title in ipairs(titles) do
             present[title] = true
         end
         lu.assertNil(present["Avatar of Amascut (2015 Halloween event)"])
         lu.assertNil(present["Soulless unarmoured zombie"])
-        lu.assertTrue(present["Agoroth"])
-        lu.assertTrue(present["Black Knight (The Death of Chivalry)"])
+        lu.assertNil(present["Duckling"])
+        lu.assertNil(present["Agoroth"])
+        lu.assertTrue(present["Goblin"])
+        lu.assertTrue(present["Spiritual mage"])
 
         for _, title in ipairs(titles) do
             lu.assertFalse(seen[title] == true)
@@ -349,6 +352,21 @@ return function(root)
         lu.assertNil(self.search.choose(old))
         self:tick(30)
         lu.assertEquals(self.results, {})
+    end
+
+    function suite:test_first_fifty_ranked_results_are_available_without_network_requests()
+        self.search.stop()
+        self.names, self.cached = {}, {}
+        for index = 120, 1, -1 do
+            self.names[#self.names + 1] = ("Monster %03d"):format(index)
+        end
+        self:load()
+        self.search.set_query("Monster")
+        self:tick(15)
+        lu.assertEquals(#self.results, 50)
+        lu.assertEquals(self.results[1].monster.name, "Monster 001")
+        lu.assertEquals(self.results[50].monster.name, "Monster 050")
+        lu.assertEquals(self.http_calls, 0)
     end
 
     return suite
