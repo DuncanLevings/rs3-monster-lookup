@@ -106,11 +106,11 @@ function fixture.new(root, paced)
 
     if not paced then
         -- Most parser/response tests use immediate follow-ups; pacing has its own timed test.
-        load_module("src/data/wiki_request_policy").REQUEST_INTERVAL_TICKS = 0
+        load_module("src/data/wiki/request_policy").REQUEST_INTERVAL_TICKS = 0
     end
 
-    context.lookup = load_module("src/data/wiki_lookup")
-    context.http = load_module("src/data/wiki_http")
+    context.lookup = load_module("src/data/wiki/lookup")
+    context.http = load_module("src/data/wiki/http")
     context.text = load_module("src/utils/wiki_text")
     context.unicode = load_module("src/utils/unicode")
     context.lookup.start()

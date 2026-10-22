@@ -29,7 +29,10 @@ local function pack_fields(value, fields, label, skip)
         known[field] = true
     end
     for key in pairs(value) do
-        assert(known[key] or (skip and skip[key]), "bundle: " .. label .. " has unlisted field " .. tostring(key))
+        assert(
+            known[key] or (skip and skip[key]),
+            "bundle: " .. label .. " has unlisted field " .. tostring(key)
+        )
     end
 
     local list = {}

@@ -3,11 +3,11 @@ local fixture = require("tests/support/wiki_fixture")
 local markup = require("tests/support/wiki_markup")
 local rows = require("tests/support/dropsline_rows")
 local parser = require("tools/wiki_page")
-local drop_groups = require("src/data/drop_groups")
+local drop_groups = require("src/data/drops/groups")
 local text = require("src/utils/wiki_text")
-local queries = require("src/data/wiki_queries")
+local queries = require("src/data/wiki/queries")
 local url = require("src/utils/url")
-local policy = require("src/data/wiki_request_policy")
+local policy = require("src/data/wiki/request_policy")
 
 local TEST_PATH = "/api.php?action=query&format=json"
 

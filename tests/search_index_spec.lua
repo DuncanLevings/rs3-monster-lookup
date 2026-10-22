@@ -1,8 +1,8 @@
 local lu = require("luaunit")
 local search_index = require("tools/search_index")
 
--- tools/search_index.lua builds drops.lua and stats.lua, src/data/drop_index.lua and
--- src/data/stat_rankings.lua read them back. these run both ends on a few made up pages
+-- tools/search_index.lua builds drops.lua and stats.lua, src/data/search/drops.lua and
+-- src/data/search/stats.lua read them back. these run both ends on a few made up pages
 return function(root)
     local suite = {}
 
@@ -24,10 +24,21 @@ return function(root)
                 },
             },
             variants = {
-                { version_anchor = "Normal mode", combat_level = 624, life_points = 255000,
-                  combat_experience = 2125.5, slayer_level = 1, melee_max_hit = 3000 },
-                { version_anchor = "Hard mode", combat_level = 0, life_points = 500000,
-                  combat_experience = 4000, special_max_hit = 9000 },
+                {
+                    version_anchor = "Normal mode",
+                    combat_level = 624,
+                    life_points = 255000,
+                    combat_experience = 2125.5,
+                    slayer_level = 1,
+                    melee_max_hit = 3000,
+                },
+                {
+                    version_anchor = "Hard mode",
+                    combat_level = 0,
+                    life_points = 500000,
+                    combat_experience = 4000,
+                    special_max_hit = 9000,
+                },
             },
         },
         {
@@ -44,8 +55,14 @@ return function(root)
                 },
             },
             variants = {
-                { combat_level = 96, life_points = 9000, combat_experience = 600,
-                  slayer_category = { "goblins" }, slayer_level = 50, slayer_experience = 700 },
+                {
+                    combat_level = 96,
+                    life_points = 9000,
+                    combat_experience = 600,
+                    slayer_category = { "goblins" },
+                    slayer_level = 50,
+                    slayer_experience = 700,
+                },
             },
         },
         {
@@ -62,17 +79,35 @@ return function(root)
                 },
             },
             variants = {
-                { combat_level = 2, life_points = 50, combat_experience = 5,
-                  slayer_category = { "goblins" } },
+                {
+                    combat_level = 2,
+                    life_points = 50,
+                    combat_experience = 5,
+                    slayer_category = { "goblins" },
+                },
             },
         },
     }
 
     -- "Bronze spear" on its own isnt in here, so its name has to be written out in full
     local STRINGS = {
-        "1/384; 1/378", "1/256", "1/49,152", "Always", "1/2", "1/8", "5–10", "4/128",
-        "3/128", "28/128", "5", "Bandos chestplate", "Bones", "Coins", "Normal mode",
-        "Hard mode", "goblins",
+        "1/384; 1/378",
+        "1/256",
+        "1/49,152",
+        "Always",
+        "1/2",
+        "1/8",
+        "5–10",
+        "4/128",
+        "3/128",
+        "28/128",
+        "5",
+        "Bandos chestplate",
+        "Bones",
+        "Coins",
+        "Normal mode",
+        "Hard mode",
+        "goblins",
     }
 
     function suite:setUp()
@@ -120,8 +155,8 @@ return function(root)
             end
             return modules[path]
         end
-        self.drops = environment.require("src/data/drop_index")
-        self.stats = environment.require("src/data/stat_rankings")
+        self.drops = environment.require("src/data/search/drops")
+        self.stats = environment.require("src/data/search/stats")
     end
 
     local function item(drops, name)
@@ -170,7 +205,10 @@ return function(root)
 
         local coins = self.drops.droppers((item(self.drops, "Coins")))
         lu.assertEquals(coins[1], { title = "Goblin", rate = "28/128", quantity = "5" })
-        lu.assertEquals(coins[2], { title = "Sergeant Steelwill", rate = "1/8", quantity = "5–10" })
+        lu.assertEquals(
+            coins[2],
+            { title = "Sergeant Steelwill", rate = "1/8", quantity = "5–10" }
+        )
         lu.assertEquals(#coins, 2)
     end
 
@@ -238,7 +276,10 @@ return function(root)
         lu.assertEquals(results[1].label, "Goblin - 0.1 XP per LP | combat 2 | 50 LP")
 
         results = self.stats.rank(6)
-        lu.assertEquals(results[1].label, "General Graardor (Hard mode) - 9,000 max hit | 500,000 LP")
+        lu.assertEquals(
+            results[1].label,
+            "General Graardor (Hard mode) - 9,000 max hit | 500,000 LP"
+        )
 
         local slayer, total = self.stats.rank(3)
         lu.assertEquals(total, 1)

@@ -15,7 +15,7 @@ package.path = ROOT .. "/?.lua;" .. package.path
 local json = require("src/vendor/json")
 local parser = require("tools/wiki_page")
 local monster_locations = require("tools/monster_locations")
-local wiki_response = require("src/data/wiki_response")
+local wiki_response = require("src/data/wiki/response")
 local codec = require("src/data/bundle_codec")
 local shapes = require("src/data/bundle_shapes")
 local encoder_module = require("tools/bundle_encoder")
@@ -468,7 +468,9 @@ print(
         .. kb(sizes.drops)
         .. string.format("  (%d items, %d dropper rows)", drop_counts.items, drop_counts.rows)
 )
-print("    stats.lua              " .. kb(sizes.stats) .. string.format("  (%d variants)", stat_rows))
+print(
+    "    stats.lua              " .. kb(sizes.stats) .. string.format("  (%d variants)", stat_rows)
+)
 -- what takes the space inside pages (shared tables count as their reference only)
 local parts = {}
 local function add_part(name, value)

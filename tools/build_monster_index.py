@@ -71,7 +71,7 @@ def main():
     if len(titles) < 1000:
         raise ValueError("Index appears incomplete")
     # every candidate monster, drops or not. tools/fetch_wiki_data.py narrows this down to
-    # the ones with drops and writes the plugin's own src/data/monster_names.lua from it
+    # the ones with drops and writes the plugin's own src/data/monsters/names.lua from it
     target = Path(__file__).resolve().parent / "monster_candidates.json"
     target.write_text(json.dumps(sorted(titles), ensure_ascii=False, indent=0) + "\n",
                       encoding="utf-8", newline="\n")

@@ -2,10 +2,10 @@ local lu = require("luaunit")
 
 return function(root)
     local suite = {}
-    local entries = require("src/data/dungeon_entrances")
-    local access = require("src/data/dungeon_access")
-    local coordinates = require("src/data/map_coordinates")
-    local maps = require("src/data/location_map")
+    local entries = require("src/data/locations/dungeons/entrances")
+    local access = require("src/data/locations/access")
+    local coordinates = require("src/data/locations/coordinates")
+    local maps = require("src/data/locations/resolve")
 
     function suite:test_all_audited_missing_locations_resolve_without_guessing_an_interior()
         local file = assert(io.open(root .. "/tests/support/dungeon_coverage.json", "rb"))

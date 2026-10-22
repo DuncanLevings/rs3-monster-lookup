@@ -4,7 +4,7 @@ local text_layout = require("src/ui/text_layout")
 local wiki_text = require("src/utils/wiki_text")
 local widgets = require("src/ui/widgets")
 local theme = require("src/ui/theme")
-local marker = require("src/game/location_marker")
+local marker = require("src/game/locations/marker")
 local internals = require("src/ui/prettyui_internals")
 local clock = require("src/utils/cache_clock")
 
@@ -20,7 +20,7 @@ local COLUMNS = {
 }
 
 local function create_text(parent, value, small, notice)
-    local label = prettyui.Text.new(parent, {
+    local label = widgets.text(parent, {
         text = text_layout.display(value),
         height = 24,
         maxLines = 0,
@@ -28,8 +28,6 @@ local function create_text(parent, value, small, notice)
         colour = notice and theme.TEXT_WARNING or small and theme.TEXT_MUTED or theme.TEXT,
         shadowed = not small,
     })
-    label.clickthrough = true
-    label.enabled = false
     return label
 end
 
@@ -37,6 +35,7 @@ local function stop_feedback(controller)
     if controller.feedback_row then
         Event.Logic.Unsubscribe(controller.feedback_id)
     end
+
     controller.feedback_row, controller.feedback_text, controller.feedback_ticks = nil, nil, nil
 end
 
@@ -52,6 +51,7 @@ local function show_feedback(controller, row)
         if controller.destroyed then
             return
         end
+
         controller.feedback_ticks = controller.feedback_ticks - 1
         if controller.feedback_ticks == 0 then
             stop_feedback(controller)
@@ -78,6 +78,7 @@ local function create_row(controller, location, index)
                 value = tostring(value or ""):match("^%s*(%d+)%s*$") or ""
             end
         end
+
         row.cells[#row.cells + 1] = {
             label = create_text(row.root, value),
             value = value,
@@ -103,6 +104,7 @@ local function create_row(controller, location, index)
             if ok then
                 show_feedback(controller, row)
             end
+
             controller.update_status()
         end, { height = 24, disabled = reason ~= nil, tooltip = tooltip })
         internals.set_button_text(row.button, action)
@@ -189,11 +191,13 @@ local function layout(controller)
         -- Reserve the fitted action width across every row so "Entrance" stays
         -- readable on smaller screens and the table columns remain aligned.
         local map_width = math.max(96, math.floor(width * COLUMNS[5].width))
+
         for _, row in ipairs(controller.rows) do
             if row.button then
                 map_width = math.max(map_width, row.button.root.width + 16)
             end
         end
+
         for _, row in ipairs(controller.rows) do
             y = y + layout_row(row, width, y, map_width)
         end
@@ -220,7 +224,9 @@ function locations_view.render(page, result)
         if controller.destroyed or not controller.marker_status then
             return
         end
+
         local matched = false
+
         for _, row in ipairs(controller.rows) do
             if row.button then
                 local marked = not matched
@@ -233,6 +239,7 @@ function locations_view.render(page, result)
                 end
             end
         end
+
         local status_text, attention = marker.status()
         status_text = controller.problem or controller.feedback_text or status_text
         attention = controller.problem ~= nil or controller.feedback_row ~= nil or attention == true
@@ -240,6 +247,7 @@ function locations_view.render(page, result)
         if controller.status_text == status_text and controller.status_attention == attention then
             return
         end
+
         controller.status_text, controller.status_attention = status_text, attention
         controller.status_normal.hidden = controller.status_attention
         controller.status_notice.hidden = not controller.status_attention
@@ -262,6 +270,7 @@ function locations_view.render(page, result)
                 if controller.destroyed then
                     return
                 end
+
                 controller.problem = nil
                 marker.clear()
             end,
@@ -286,6 +295,7 @@ function locations_view.render(page, result)
                     stop_feedback(controller)
                 end
             end
+
             if not controller.marking then
                 controller.update_status()
             end
@@ -317,19 +327,23 @@ function locations_view.render(page, result)
             if controller.destroyed then
                 return
             end
+
             controller.destroyed = true
             stop_feedback(controller)
             if controller.unsubscribe then
                 controller.unsubscribe()
             end
+
             if controller.clear_button then
                 controller.clear_button:Destroy()
             end
+
             for _, row in ipairs(controller.rows) do
                 if row.button then
                     row.button:Destroy()
                 end
             end
+
             controller.root:Destroy()
         end,
     }

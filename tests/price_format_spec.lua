@@ -1,5 +1,5 @@
 local lu = require("luaunit")
-local price_format = require("src/ui/price_format")
+local price_format = require("src/ui/drops/price_format")
 
 return function()
     local suite = {}

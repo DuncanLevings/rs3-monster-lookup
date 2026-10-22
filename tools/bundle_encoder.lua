@@ -9,9 +9,11 @@ local encoder = {}
 encoder.__index = encoder
 
 -- put this in a list for "nothing here" so fixed-order lists can have gaps without holes
-encoder.NIL = setmetatable({}, { __tostring = function()
-    return "NIL"
-end })
+encoder.NIL = setmetatable({}, {
+    __tostring = function()
+        return "NIL"
+    end,
+})
 
 -- a shared table costs a reference plus its own entry, not worth it for tiny ones
 local MIN_SHARED_LENGTH = 16
@@ -134,7 +136,8 @@ function encoder:emit(value)
     elseif kind == "boolean" then
         return value and "T" or "F"
     elseif kind == "number" then
-        return is_whole(value) and base36(math.tointeger(value)) or "#" .. string.format("%.17g", value)
+        return is_whole(value) and base36(math.tointeger(value))
+            or "#" .. string.format("%.17g", value)
     end
 
     local canon = assert(self.canon[value], "bundle: table not collected")

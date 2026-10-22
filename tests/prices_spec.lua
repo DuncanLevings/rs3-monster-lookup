@@ -1,6 +1,6 @@
 local lu = require("luaunit")
 
--- src/data/prices.lua against a fake GE Price Library, shaped like gepl 0.2.5
+-- src/data/drops/prices.lua against a fake GE Price Library, shaped like gepl 0.2.5
 return function(root)
     local suite = {}
 
@@ -43,7 +43,7 @@ return function(root)
                 },
             },
         }, { __index = _G })
-        self.prices = assert(loadfile(root .. "/src/data/prices.lua", "t", environment))()
+        self.prices = assert(loadfile(root .. "/src/data/drops/prices.lua", "t", environment))()
     end
 
     local function drop(fields)
@@ -79,7 +79,11 @@ return function(root)
 
         lu.assertEquals(self.prices.unit(47292, 29882), 29800)
         lu.assertEquals(
-            self.prices.for_drop(drop({ item_id = 47292, quantity = "1–2", price = { minimum = 29882, maximum = 59764 } })),
+            self.prices.for_drop(drop({
+                item_id = 47292,
+                quantity = "1–2",
+                price = { minimum = 29882, maximum = 59764 },
+            })),
             { minimum = 29800, maximum = 59600 }
         )
     end
@@ -106,10 +110,13 @@ return function(root)
     function suite:test_drop_prices_scale_with_the_quantity()
         self.latest[1513] = { high = 600, low = 400 }
 
-        lu.assertEquals(self.prices.for_drop(drop({ item_id = 1513, quantity = "30–40 (noted)" })), {
-            minimum = 15000,
-            maximum = 20000,
-        })
+        lu.assertEquals(
+            self.prices.for_drop(drop({ item_id = 1513, quantity = "30–40 (noted)" })),
+            {
+                minimum = 15000,
+                maximum = 20000,
+            }
+        )
         lu.assertEquals(self.prices.for_drop(drop({ item_id = 1513, quantity = "1,000" })), 500000)
         lu.assertEquals(self.prices.for_drop(drop({ item_id = 1513, quantity = "3" })), 1500)
     end
@@ -121,7 +128,9 @@ return function(root)
         lu.assertNil(self.prices.for_drop(drop({ item_id = 995, quantity = "100" })))
         lu.assertNil(self.prices.for_drop(drop({ item_id = 1513, quantity = "Varies" })))
         lu.assertNil(self.prices.for_drop(drop({ quantity = "1" })))
-        lu.assertNil(self.prices.for_drop(drop({ item_id = 1513, quantity = "1", price = "Not sold" })))
+        lu.assertNil(
+            self.prices.for_drop(drop({ item_id = 1513, quantity = "1", price = "Not sold" }))
+        )
     end
 
     function suite:test_without_the_library_nothing_is_live()

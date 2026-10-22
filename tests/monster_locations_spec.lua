@@ -147,7 +147,7 @@ return function(root)
         local rows = locations.parse(html)
         lu.assertEquals(rows[1].map, { id = 28, plane = 1, x = 3225, z = 3439 })
         lu.assertEquals(rows[2].map, { id = 30, plane = 0, x = 109, z = 39 })
-        local target = environment.require("src/data/location_map")
+        local target = environment.require("src/data/locations/resolve")
         lu.assertEquals(target.target(rows[1]), { level = 1, x = 3225, z = 3439 })
         lu.assertNil(target.target(rows[2]))
         local invalid = locations.parse(html:gsub('data%-plane="1"', 'data-plane="9"'))
@@ -163,11 +163,11 @@ return function(root)
         local missing = locations.parse(html:format(""))[1]
         lu.assertEquals(missing.page, "Kuradal's Dungeon")
         lu.assertNil(missing.map_issue)
-        lu.assertNotNil(environment.require("src/data/location_map").target(missing))
+        lu.assertNotNil(environment.require("src/data/locations/resolve").target(missing))
         local invalid =
             locations.parse(html:format(pin:gsub('data%-plane="0"', 'data-plane="9"')))[1]
         lu.assertEquals(invalid.map_issue, "invalid")
-        lu.assertNil(environment.require("src/data/location_map").target(invalid))
+        lu.assertNil(environment.require("src/data/locations/resolve").target(invalid))
         local ambiguous =
             locations.parse(html:format(pin .. pin:gsub('data%-lon="100"', 'data-lon="101"')))[1]
         lu.assertEquals(ambiguous.map_issue, "ambiguous")

@@ -1,12 +1,12 @@
 local lu = require("luaunit")
-local drop_odds = require("src/data/drop_odds")
-local kill_value = require("src/data/kill_value")
+local drop_odds = require("src/data/drops/odds")
+local kill_value = require("src/data/drops/value")
 local parser = require("tools/wiki_page")
-local dropsline = require("src/data/dropsline")
+local dropsline = require("src/data/wiki/dropsline")
 local rows = require("tests/support/dropsline_rows")
 
--- the average kill value: the numbers kept on each drop (src/data/drop_odds.lua) and the sum
--- over the tables being shown (src/data/kill_value.lua)
+-- the average kill value: the numbers kept on each drop (src/data/drops/odds.lua) and the sum
+-- over the tables being shown (src/data/drops/value.lua)
 return function()
     local suite = {}
 
@@ -21,7 +21,10 @@ return function()
     end
 
     local function value(drops, live)
-        return kill_value.calculate({ { title = "Drops", drops = drops, notes = {}, note_ids = {} } }, live)
+        return kill_value.calculate(
+            { { title = "Drops", drops = drops, notes = {}, note_ids = {} } },
+            live
+        )
     end
 
     function suite:test_quantity_bounds_cover_ranges_lists_noted_and_thousands()
@@ -34,7 +37,8 @@ return function()
     end
 
     function suite:test_the_chance_rolls_and_bounds_are_kept_as_numbers_on_the_drop()
-        local row = drop({ quantity = "2–3 (noted)", rate = "3 × 1/1,500", odds = "3 × 0.0667" })
+        local row =
+            drop({ quantity = "2–3 (noted)", rate = "3 × 1/1,500", odds = "3 × 0.0667" })
         drop_odds.fill(row, "3 × 0.0667", true)
 
         lu.assertEquals(row.chance, "0.0667")
@@ -72,8 +76,18 @@ return function()
 
     function suite:test_ranges_use_the_middle_of_the_bounds_and_coins_are_one_gp()
         local result = value({
-            drop({ name = "Coins", quantity = "250–500", rate = "1/2", price = { minimum = 1, maximum = 2 } }),
-            drop({ name = "Magic logs", quantity = "30–40 (noted)", rate = "1/10", price = { minimum = 30000, maximum = 40000 } }),
+            drop({
+                name = "Coins",
+                quantity = "250–500",
+                rate = "1/2",
+                price = { minimum = 1, maximum = 2 },
+            }),
+            drop({
+                name = "Magic logs",
+                quantity = "30–40 (noted)",
+                rate = "1/10",
+                price = { minimum = 30000, maximum = 40000 },
+            }),
         })
 
         -- coins: 375 x 1/2, logs: 1000 each x 35 x 1/10
@@ -91,7 +105,13 @@ return function()
 
     function suite:test_live_unit_prices_win_and_saved_ones_fill_in()
         local rows_ = {
-            drop({ name = "Rune bar", quantity = "2", rate = "Always", price = 8000, item_id = 2363 }),
+            drop({
+                name = "Rune bar",
+                quantity = "2",
+                rate = "Always",
+                price = 8000,
+                item_id = 2363,
+            }),
             drop({ name = "Bones", quantity = "1", rate = "Always", price = 100, item_id = 526 }),
         }
         local result = value(rows_, function(item_id)
@@ -146,7 +166,10 @@ return function()
         local text = "Two rolls per kill. The average Goblin kill is worth 2,142 coins.\n\n"
             .. "Excluding unique drops, the average kill is worth 21,879.\n\nCharms need members."
 
-        lu.assertEquals(kill_value.without_wiki_averages(text), "Two rolls per kill.\n\nCharms need members.")
+        lu.assertEquals(
+            kill_value.without_wiki_averages(text),
+            "Two rolls per kill.\n\nCharms need members."
+        )
         -- untouched when theres nothing to take out, spacing and all
         local plain = "Line one.  Line two.\n\nMore 2.5k text"
         lu.assertEquals(kill_value.without_wiki_averages(plain), plain)
@@ -165,7 +188,10 @@ return function()
         local whip, coins = sections[1].drops[1], sections[1].drops[2]
 
         lu.assertEquals({ whip.chance, whip.rolls, whip.quantity_low }, { "0.0667", 3, nil })
-        lu.assertEquals({ coins.chance, coins.quantity_low, coins.quantity_high }, { "100", 2500, 3500 })
+        lu.assertEquals(
+            { coins.chance, coins.quantity_low, coins.quantity_high },
+            { "100", 2500, 3500 }
+        )
     end
 
     function suite:test_live_bucket_rows_keep_rarity_rolls_and_bounds_too()

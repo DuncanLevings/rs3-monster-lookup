@@ -3,16 +3,16 @@
 -- logout and plugin shutdown destroy it properly
 
 local window_state = require("src/ui/window_state")
-local drop_table = require("src/ui/drop_table")
-local monster_info_view = require("src/ui/monster_info_view")
+local drop_table = require("src/ui/drops/table")
+local monster_info_view = require("src/ui/info/view")
 local locations_view = require("src/ui/locations_view")
 local lookup_notice = require("src/ui/lookup_notice")
 local theme = require("src/ui/theme")
 
 local settings = require("src/settings")
 local clock = require("src/utils/cache_clock")
-local prices = require("src/data/prices")
-local drop_groups = require("src/data/drop_groups")
+local prices = require("src/data/drops/prices")
+local drop_groups = require("src/data/drops/groups")
 
 local monster_window = {}
 local window
@@ -60,6 +60,7 @@ local function on_window_closed(closed_window)
     if info_controller then
         info_controller.set_active(false)
     end
+
     window_state.save(closed_window)
 
     if close_action then
@@ -139,6 +140,7 @@ local function show_drops_tab()
     if info_controller then
         info_controller.set_active(false)
     end
+
     tabs:SetActive(1, false)
     drops_page:SetScrollPosition(0)
 end
@@ -182,6 +184,7 @@ local function cache_status(metadata, problem)
         if not metadata.built then
             return live and "Live GE prices" or ""
         end
+
         return live and ("Wiki data from " .. metadata.built .. price_note)
             or ("Wiki data and GE prices from " .. metadata.built)
     end
@@ -370,6 +373,7 @@ function monster_window.show_result(result, problem, metadata)
         local suffix = is_live(metadata) and " - " .. LIVE_LABEL or ""
         window:SetTitle(current_selection.name .. suffix)
     end
+
     lookup_notice.hide(error_notice)
     loading_label.hidden = true
 
@@ -433,9 +437,11 @@ function monster_window.destroy()
     if info_controller then
         info_controller.destroy()
     end
+
     if locations_controller then
         locations_controller.destroy()
     end
+
     if drop_table_controller then
         drop_table_controller.destroy()
     end

@@ -6,7 +6,7 @@ Steps:
      monsters, ones you cant meet repeatedly, and removed content (see main for the rules)
      the rest become "known, no drops" or "not covered" (only their NPC IDs are kept).
      a full run also rewrites
-     src/data/monster_names.lua, the plugins search list, with just the kept monsters
+     src/data/monsters/names.lua, the plugins search list, with just the kept monsters
   3. scan infobox_monster for every page's NPC IDs
   4. for kept monsters: infobox_monster rows (stats/variants) and the page HTML, re-fetched
      only when the page revision changed since the last run
@@ -134,7 +134,7 @@ def write_monster_names(kept):
               "return {"]
     output.extend("    " + json.dumps(title, ensure_ascii=False) + "," for title in sorted(kept))
     output.extend(["}", ""])
-    target = ROOT / "src/data/monster_names.lua"
+    target = ROOT / "src/data/monsters/names.lua"
     target.write_text("\n".join(output), encoding="utf-8", newline="\n")
     print(f"wrote {len(kept)} names to {target.relative_to(ROOT)}", flush=True)
 
@@ -387,7 +387,7 @@ def main():
     parser.add_argument("--refresh", action="store_true", help="refetch pages even if unchanged")
     parser.add_argument("--delay", type=float, default=1.0, help="seconds between requests")
     parser.add_argument("--names-only", action="store_true",
-                        help="just rewrite src/data/monster_names.lua from the scans")
+                        help="just rewrite src/data/monsters/names.lua from the scans")
     args = parser.parse_args()
 
     contact = json.loads((ROOT / "plugin.json").read_text(encoding="utf-8"))["contactEmailAddress"]

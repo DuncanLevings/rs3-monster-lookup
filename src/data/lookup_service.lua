@@ -3,9 +3,9 @@
 -- then swapped for the new result when it arrives (or kept if the refresh fails).
 -- monsters in the bundled data are answered before any of that, with no request at all
 
-local identity = require("src/utils/monster_identity")
+local identity = require("src/data/monsters/identity")
 local bundle = require("src/data/bundle")
-local wiki_lookup = require("src/data/wiki_lookup")
+local wiki_lookup = require("src/data/wiki/lookup")
 local cache = require("src/data/monster_cache")
 local clock = require("src/utils/cache_clock")
 
@@ -165,9 +165,11 @@ function service.fetch(monster, on_complete, force_refresh)
                     )
                     return
                 end
+
                 cache.invalidate_family(monster)
                 active.saved, active.metadata = nil, { stale = true }
             end
+
             active.force_refresh = true
             active.on_complete = on_complete
         elseif active.force_refresh and not force_refresh then
@@ -177,6 +179,7 @@ function service.fetch(monster, on_complete, force_refresh)
         else
             active.on_complete = on_complete
         end
+
         if active.saved then
             on_complete(active.saved, nil, active.metadata)
         end
@@ -234,10 +237,12 @@ function service.fetch(monster, on_complete, force_refresh)
                 )
                 return
             end
+
             cache.invalidate_family(monster)
             request.saved = nil
             request.metadata = { stale = true }
         end
+
         -- fetch cancels the previous lookup itself
         wiki_lookup.fetch(monster, function(result, problem)
             finish_lookup(request, result, problem)

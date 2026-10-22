@@ -3,7 +3,7 @@ local lu = require("luaunit")
 return function(root)
     local suite = {}
     local fixture = require("tests/support/window_fixture").new(root)
-    local maps = fixture.load_module("src/data/location_map")
+    local maps = fixture.load_module("src/data/locations/resolve")
 
     function suite:test_dungeon_diagrams_resolve_to_verified_surface_entrances()
         for _, entry in ipairs({

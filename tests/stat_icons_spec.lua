@@ -11,7 +11,7 @@ return function(root)
                 messages[#messages + 1] = message
             end,
         }, { __index = _G })
-        local icons = assert(loadfile(root .. "/src/ui/stat_icons.lua", "t", environment))()
+        local icons = assert(loadfile(root .. "/src/ui/info/icons.lua", "t", environment))()
         return icons, messages
     end
 

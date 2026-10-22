@@ -1,3 +1,5 @@
+-- remove citation-only footnotes and keep visible note numbers/tooltips in sync.
+
 local wiki_notes = {}
 
 function wiki_notes.clean(value)

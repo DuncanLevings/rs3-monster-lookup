@@ -1,8 +1,8 @@
 local lu = require("luaunit")
 local rows = require("tests/support/dropsline_rows")
-local dropsline = require("src/data/dropsline")
-local spawn_locations = require("src/data/spawn_locations")
-local drop_groups = require("src/data/drop_groups")
+local dropsline = require("src/data/wiki/dropsline")
+local spawn_locations = require("src/data/wiki/spawn_locations")
+local drop_groups = require("src/data/drops/groups")
 
 -- the readers for monsters that arent in the saved bundle, dropsline and coordinates rows
 return function()
@@ -55,7 +55,11 @@ return function()
 
     function suite:test_a_single_mode_reads_like_a_plain_page_without_a_picker()
         local sections = assert(dropsline.sections({
-            rows.drop("Uncut ruby", { ["Dropped from"] = "Goblin#Level 2" }, { rare_drop_table = true }),
+            rows.drop(
+                "Uncut ruby",
+                { ["Dropped from"] = "Goblin#Level 2" },
+                { rare_drop_table = true }
+            ),
             rows.drop("Bones", { ["Dropped from"] = "Goblin#Level 2" }),
         }))
 
@@ -107,7 +111,10 @@ return function()
             }),
         }))[1]
 
-        lu.assertEquals(section.notes, { "Only during the Rag and Bone Man quest.", "Members only." })
+        lu.assertEquals(
+            section.notes,
+            { "Only during the Rag and Bone Man quest.", "Members only." }
+        )
         lu.assertEquals(section.drops[1].note_marker, "1")
         lu.assertEquals(section.drops[2].note_marker, "")
         lu.assertEquals(section.drops[2].notes, "")
@@ -116,8 +123,14 @@ return function()
 
     function suite:test_prices_are_left_for_the_ge_library_except_coins_and_unsold_items()
         local section = assert(dropsline.sections({
-            rows.drop("Coins", { ["Drop Quantity"] = "250–500", ["Quantity Low"] = 250, ["Quantity High"] = 500 }),
-            rows.drop("Coins", { ["Drop Quantity"] = "50", ["Quantity Low"] = 50, ["Quantity High"] = 50 }),
+            rows.drop(
+                "Coins",
+                { ["Drop Quantity"] = "250–500", ["Quantity Low"] = 250, ["Quantity High"] = 500 }
+            ),
+            rows.drop(
+                "Coins",
+                { ["Drop Quantity"] = "50", ["Quantity Low"] = 50, ["Quantity High"] = 50 }
+            ),
             rows.drop("Goblin book", { ["Drop GEMW"] = false }),
             rows.drop("Bandos chestplate", { ["Drop Value"] = 159000 }),
         }))[1]

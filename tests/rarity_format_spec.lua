@@ -1,5 +1,5 @@
 local lu = require("luaunit")
-local rarity_format = require("src/ui/rarity_format")
+local rarity_format = require("src/ui/drops/rarity_format")
 
 return function()
     local suite = {}

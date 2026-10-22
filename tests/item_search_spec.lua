@@ -1,5 +1,5 @@
 local lu = require("luaunit")
-local search = require("src/utils/item_search")
+local search = require("src/data/search/matcher")
 
 return function()
     local suite = {}

@@ -2,14 +2,14 @@ local lu = require("luaunit")
 return function(root)
     local suite = {}
     local context = require("tests/support/window_fixture").new(root)
-    local c = context.load_module("src/data/map_coordinates")
-    local graph = context.load_module("src/data/dungeon_routes")
-    local planner = context.load_module("src/data/location_navigation").new(graph, c)
-    local maps = context.load_module("src/data/location_map")
+    local c = context.load_module("src/data/locations/coordinates")
+    local graph = context.load_module("src/data/locations/routes")
+    local planner = context.load_module("src/data/locations/navigation").new(graph, c)
+    local maps = context.load_module("src/data/locations/resolve")
 
     function suite:test_authored_connections_have_bounded_departures_and_valid_arrival_floors()
         local count = 0
-        for _, edge in ipairs(context.load_module("src/data/dungeon_connections")) do
+        for _, edge in ipairs(context.load_module("src/data/locations/dungeons/connections")) do
             count = count + 1
             lu.assertNotNil(graph.nodes[edge.from])
             lu.assertNotNil(graph.nodes[edge.to])

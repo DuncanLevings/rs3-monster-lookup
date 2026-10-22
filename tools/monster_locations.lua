@@ -3,7 +3,7 @@
 -- header names identify the columns so extra map or league columns cannot shift the data
 
 local text = require("src/utils/wiki_text")
-local location_map = require("src/data/location_map")
+local location_map = require("src/data/locations/resolve")
 
 ---@class MonsterLocation
 ---@field name string

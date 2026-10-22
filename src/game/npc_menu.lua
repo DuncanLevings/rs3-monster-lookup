@@ -79,6 +79,7 @@ local function collect_candidates(entries)
                         candidates[#candidates + 1] = candidate
                     end
                 end
+
                 -- Cache rejected entities too: their other actions need no config reads.
                 seen[npc.uid] = candidate or false
             end
@@ -100,6 +101,7 @@ end
 local function position_lookup_entries(menu, original_count, candidates)
     local after, fallback = {}, {}
     local count = original_count + #candidates
+
     for index, candidate in ipairs(candidates) do
         local added_index = original_count + index
         if candidate.examine_index then
@@ -108,23 +110,30 @@ local function position_lookup_entries(menu, original_count, candidates)
             fallback[#fallback + 1] = added_index
         end
     end
+
     if next(after) == nil then
         return
     end
+
     local wanted = {}
+
     for index = 1, original_count do
         wanted[#wanted + 1] = index
         if after[index] then
             wanted[#wanted + 1] = after[index]
         end
     end
+
     for _, index in ipairs(fallback) do
         wanted[#wanted + 1] = index
     end
+
     local current, positions = {}, {}
+
     for index = 1, count do
         current[index], positions[index] = index, index
     end
+
     for destination, item in ipairs(wanted) do
         local source = positions[item]
         if source ~= destination then
@@ -173,6 +182,7 @@ local function create_menu_handler(session, on_select, get_colour)
         if #candidates == 0 then
             return
         end
+
         -- read every time the menu opens so a settings change shows up straight away
         local label = view_drops_label(get_colour and get_colour())
 

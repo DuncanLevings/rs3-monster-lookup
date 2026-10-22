@@ -10,7 +10,7 @@ return function(root)
         end
         local modules = {
             ["src/game/npc_menu"] = { start = noop, stop = noop },
-            ["src/game/location_marker"] = { start = noop, stop = noop },
+            ["src/game/locations/marker"] = { start = noop, stop = noop },
             ["src/settings"] = { menu_colour_hex = noop },
             ["src/ui/monster_window"] = {
                 open = unexpected,
@@ -19,10 +19,10 @@ return function(root)
                 refresh_settings = noop,
                 destroy = noop,
             },
-            ["src/ui/monster_search_window"] = { start = noop, destroy = noop },
-            ["src/data/prices"] = { stop = noop },
-            ["src/ui/content_panel"] = { start = noop, stop = noop },
-            ["src/ui/settings_panel"] = {
+            ["src/ui/search/window"] = { start = noop, destroy = noop },
+            ["src/data/drops/prices"] = { stop = noop },
+            ["src/ui/settings/content"] = { start = noop, stop = noop },
+            ["src/ui/settings/panel"] = {
                 start = function(_, callback)
                     refresh = callback
                 end,

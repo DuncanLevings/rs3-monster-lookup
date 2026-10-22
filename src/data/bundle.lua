@@ -188,6 +188,7 @@ function bundle.npc_ids(title)
     if not loaded then
         return {}
     end
+
     local page = loaded.by_title[title]
     return page and loaded.page_npcs[page] or {}
 end

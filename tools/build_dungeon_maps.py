@@ -2,7 +2,7 @@
 
 Input: the content of Module:Map coordinates/transform-data.json. No network calls
 or Lua execution are needed. Dungeon connections are maintained separately in
-src/data/dungeon_routes.lua.
+src/data/locations/routes.lua.
 """
 import argparse
 import json

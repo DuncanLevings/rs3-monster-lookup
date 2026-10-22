@@ -10,7 +10,7 @@ local INSET = 14
 local TITLE_HEIGHT = 28
 
 local function create_label(parent, y, colour)
-    local label = prettyui.Text.new(parent, {
+    local label = widgets.text(parent, {
         text = "",
         x = INSET,
         y = y,
@@ -19,8 +19,6 @@ local function create_label(parent, y, colour)
         height = TITLE_HEIGHT,
         colour = colour,
     })
-    label.clickthrough = true
-    label.enabled = false
 
     return label
 end

@@ -3,12 +3,12 @@
 local npc_menu = require("src/game/npc_menu")
 local monster_window = require("src/ui/monster_window")
 local lookup_service = require("src/data/lookup_service")
-local settings_panel = require("src/ui/settings_panel")
-local search_window = require("src/ui/monster_search_window")
-local content_panel = require("src/ui/content_panel")
+local settings_panel = require("src/ui/settings/panel")
+local search_window = require("src/ui/search/window")
+local content_panel = require("src/ui/settings/content")
 local settings = require("src/settings")
-local location_marker = require("src/game/location_marker")
-local prices = require("src/data/prices")
+local location_marker = require("src/game/locations/marker")
+local prices = require("src/data/drops/prices")
 
 local app = {}
 local started = false
@@ -52,6 +52,7 @@ local function refresh_monster(monster, on_complete)
         if metadata and metadata.refreshing then
             return
         end
+
         if on_complete then
             on_complete(result ~= nil and problem == nil, problem)
         end

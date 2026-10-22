@@ -9,7 +9,7 @@ local text = require("src/utils/wiki_text")
 local json = require("src/utils/json")
 local wiki_switches = require("tools/wiki_switches")
 local wiki_notes = require("src/utils/wiki_notes")
-local drop_odds = require("src/data/drop_odds")
+local drop_odds = require("src/data/drops/odds")
 
 local wiki_page = {}
 

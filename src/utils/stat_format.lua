@@ -2,6 +2,7 @@
 -- or lists of either. anything that cant be read comes out as Unknown
 
 local wiki_text = require("src/utils/wiki_text")
+local number_format = require("src/utils/number_format")
 
 local stat_format = {}
 local UNKNOWN = "Unknown"
@@ -12,9 +13,7 @@ function stat_format.number(value)
     end
 
     local text = string.format("%.2f", math.abs(value)):gsub("0+$", ""):gsub("%.$", "")
-    local whole, fraction = text:match("^(%d+)(.*)$")
-    whole = whole:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
-    return (value < 0 and "-" or "") .. whole .. fraction
+    return (value < 0 and "-" or "") .. number_format.group(text)
 end
 
 function stat_format.text(value)

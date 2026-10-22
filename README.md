@@ -24,11 +24,11 @@ The dropdown beside the search box switches what you search:
 
 - **Monsters** finds monsters by name or location.
 - **Drops** finds a dropped item and lists the monsters that drop it, best chance first (up to 50). Selecting one opens its drops already filtered to that item, in the right boss mode.
-- **Top stats** ranks monsters by combat XP, combat XP per life point, Slayer XP, life points, combat level or max hit. Bosses, their minions, elite dungeon and Sanctum fights and elite Slayer spawns are hidden unless you include them or choose bosses only. Optional maximum combat and Slayer levels and a name or Slayer category filter narrow the list. Selecting one opens its Monster info.
+- **Stats** ranks monsters by combat XP, combat XP per life point, Slayer XP, life points, combat level or max hit. Bosses, their minions, elite dungeon and Sanctum fights and elite Slayer spawns are hidden unless you include them or choose bosses only. Optional maximum combat and Slayer levels and a name or Slayer category filter narrow the list. Selecting one opens its Monster info.
 
-Drops and Top stats cover the bundled monsters only.
+Drops and Stats cover the bundled monsters only.
 
-Choose **Customize** to change the View drops menu colour, display numeric drop rates as percentages, or refresh a saved monster. Saved data refreshes when opened after two weeks; manual refresh clears matching variants and fetches the selected monster, with a shared one-hour cooldown. Saved results remain available when the Wiki cannot be reached. With the optional [GE Price Library](https://github.com/CerenMD/ge-prices-library) plugin installed, GE prices are live traded prices; without it they are the Wiki's GE prices from when the bundled data was built.
+Choose **Customize** to change the View drops menu colour, display numeric drop rates as percentages, or refresh saved Wiki data for monsters missing from local data. Those saved lookups refresh when opened after two weeks; manual refresh clears matching variants and fetches the selected monster, with a shared one-hour cooldown. Local data updates with the plugin. Saved results remain available when the Wiki cannot be reached. With the optional [GE Price Library](https://github.com/CerenMD/ge-prices-library) plugin installed, GE prices are live traded prices; without it they are the Wiki's GE prices from when the bundled data was built.
 
 ## Requirements and data
 

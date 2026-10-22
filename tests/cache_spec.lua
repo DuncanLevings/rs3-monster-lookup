@@ -96,7 +96,7 @@ return function(root)
                 return { title = monster.name, sections = {}, no_drops = kind, placeholder = true }
             end,
         }
-        modules["src/data/wiki_lookup"] = {
+        modules["src/data/wiki/lookup"] = {
             synchronize_clock = function(complete)
                 context.time_checks = (context.time_checks or 0) + 1
                 context.now = 100000
@@ -229,12 +229,12 @@ return function(root)
     -- the saved copy instead of asking the wiki every time
     function suite:test_live_bucket_results_are_saved_and_reopened_without_another_request()
         local rows = require("tests/support/dropsline_rows")
-        local sections = assert(require("src/data/dropsline").sections({
+        local sections = assert(require("src/data/wiki/dropsline").sections({
             rows.drop("Coins", { ["Quantity Low"] = 5, ["Quantity High"] = 10 }),
             rows.drop("Rune bar", { ["Rarity Notes"] = { { content = "Members only." } } }),
             rows.drop("Uncut ruby", {}, { rare_drop_table = true }),
         }))
-        local locations = assert(require("src/data/spawn_locations").parse({
+        local locations = assert(require("src/data/wiki/spawn_locations").parse({
             rows.spawn(28, 0, { 3200, 3210 }, { 3200, 3205 }),
             rows.spawn(15, 0, { 2872 }, { 5358 }),
         }))
@@ -640,7 +640,7 @@ return function(root)
         self:reload()
         self.now = nil
         local pending
-        self.modules["src/data/wiki_lookup"].synchronize_clock = function(complete)
+        self.modules["src/data/wiki/lookup"].synchronize_clock = function(complete)
             self.time_checks = self.time_checks + 1
             pending = complete
         end

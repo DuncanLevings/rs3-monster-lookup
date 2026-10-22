@@ -1,5 +1,5 @@
 local lu = require("luaunit")
-local model = require("src/data/monster_info")
+local model = require("src/data/monsters/info")
 local format = require("src/utils/stat_format")
 
 return function()

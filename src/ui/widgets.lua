@@ -4,6 +4,14 @@ local theme = require("src/ui/theme")
 
 local widgets = {}
 
+-- decorative labels should never swallow clicks or compete with their row's tooltip.
+function widgets.text(parent, options)
+    local label = prettyui.Text.new(parent, options)
+    label.clickthrough = true
+    label.enabled = false
+    return label
+end
+
 function widgets.layer(parent, height)
     local layer = ui.Layer.new(parent)
     layer:SetSize(0, height, 1, 0)

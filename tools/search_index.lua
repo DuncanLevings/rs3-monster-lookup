@@ -7,9 +7,9 @@
 --
 -- both are lists of short strings. numbers are base36, and text points into the bundles
 -- strings.lua (its 0 based position) instead of being copied, the plugin loads that file for
--- the first lookup anyway. the readers are src/data/drop_index.lua and src/data/stat_rankings.lua
+-- the first lookup anyway. the readers are src/data/search/drops.lua and src/data/search/stats.lua
 
-local drop_groups = require("src/data/drop_groups")
+local drop_groups = require("src/data/drops/groups")
 
 local search_index = {}
 
@@ -209,9 +209,10 @@ function search_index.drops(pages, header, string_index)
             local fields = {
                 base36(row.page),
                 assert(string_ref(string_index, row.rate), "rate not in strings"),
-                row.quantity ~= "1"
-                        and assert(string_ref(string_index, row.quantity), "quantity not in strings")
-                    or "",
+                row.quantity ~= "1" and assert(
+                    string_ref(string_index, row.quantity),
+                    "quantity not in strings"
+                ) or "",
             }
 
             if row.mode then
@@ -300,7 +301,9 @@ function search_index.stats(pages, header, string_index, bosses)
         for position, info in ipairs(page.variants) do
             local categories = {}
 
-            for _, category in ipairs(type(info.slayer_category) == "table" and info.slayer_category or {}) do
+            for _, category in
+                ipairs(type(info.slayer_category) == "table" and info.slayer_category or {})
+            do
                 categories[#categories + 1] = string_ref(string_index, tostring(category))
             end
 

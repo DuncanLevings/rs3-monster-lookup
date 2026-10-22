@@ -3,7 +3,7 @@
 -- each monster is saved on its own as a json string, split over a few keys
 -- (monster_lookup_cache_<slot>_<n>), and a small index key lists whats saved. the client
 -- refuses values over roughly 128 KiB (not documented, but saves started failing right as
--- one big cache value reached that size), so nothing writen is allowed near that
+-- one big cache value reached that size), so nothing written is allowed near that
 --
 -- payloads are only read and decoded when that monster is opened, decoding everything in
 -- one go can hit the clients lua time limit. saved data might be from an older version or
@@ -11,10 +11,10 @@
 --
 -- if a save fails anyway the result is still kept in memory for this session
 
-local identity = require("src/utils/monster_identity")
+local identity = require("src/data/monsters/identity")
 local json = require("src/utils/json")
 local clock = require("src/utils/cache_clock")
-local location_map = require("src/data/location_map")
+local location_map = require("src/data/locations/resolve")
 
 ---@class CacheMetadata
 ---@field saved_at number? UTC seconds when saved, nil for older clockless entries
@@ -139,20 +139,25 @@ local function valid_locations(result)
         then
             return false
         end
+
         if location.map ~= nil and not location_map.valid(location.map) then
             return false
         end
+
         if location.spawn_maps ~= nil then
             if type(location.spawn_maps) ~= "table" or #location.spawn_maps > 128 then
                 return false
             end
+
             local pins = 0
+
             for pin_index, pin in pairs(location.spawn_maps) do
                 if not is_whole(pin_index, 1) or not location_map.valid(pin) then
                     return false
                 end
                 pins = pins + 1
             end
+
             if pins ~= #location.spawn_maps then
                 return false
             end
@@ -561,11 +566,13 @@ end
 
 local function selected_family(monster)
     local key = identity.key(monster)
+
     for _, entry in ipairs(entries) do
         if entry.key == key then
             return entry_family(entry)
         end
     end
+
     return identity.family(monster.wiki_title or monster.name)
 end
 
@@ -577,12 +584,14 @@ function cache.manual_refresh_remaining(monster)
     local attempt = manual_attempts[family]
     local remaining = attempt and MANUAL_REFRESH_SECONDS - (clock.elapsed() - attempt.elapsed) or 0
     local now = clock.now()
+
     for _, entry in ipairs(entries) do
         if entry_family(entry) == family and entry.manual_refresh_at and now then
             remaining =
                 math.max(remaining, MANUAL_REFRESH_SECONDS - (now - entry.manual_refresh_at))
         end
     end
+
     return math.max(0, math.min(MANUAL_REFRESH_SECONDS, math.ceil(remaining)))
 end
 
@@ -591,8 +600,10 @@ function cache.begin_manual_refresh(monster)
     if remaining > 0 then
         return remaining
     end
+
     local family = selected_family(monster)
     manual_attempts[family] = { elapsed = clock.elapsed(), utc = clock.now() }
+
     for _, entry in ipairs(entries) do
         if entry_family(entry) == family then
             entry.manual_refresh_at = clock.now()
@@ -606,11 +617,13 @@ function cache.invalidate_family(monster)
     load()
     local family = selected_family(monster)
     local count = 0
+
     for _, entry in ipairs(entries) do
         if entry_family(entry) == family and not entry.invalidated then
             if entry.slot then
                 pending_deletes[#pending_deletes + 1] = { slot = entry.slot, chunks = entry.chunks }
             end
+
             -- Retain only indexed identity/summary/cooldown metadata. Commit that
             -- invalidation before deleting chunks, just as for normal replacements.
             entry.invalidated, entry.bytes, entry.payload = true, 0, nil
@@ -618,9 +631,11 @@ function cache.invalidate_family(monster)
             count = count + 1
         end
     end
+
     if count > 0 then
         save_index()
     end
+
     return count
 end
 
@@ -693,6 +708,7 @@ function cache.put(monster, result)
         if entry_family(previous) == family and previous.manual_refresh_at then
             manual_refresh_at = math.max(manual_refresh_at or 0, previous.manual_refresh_at)
         end
+
         if entries[position].key == key then
             manual_refresh_at = math.max(manual_refresh_at or 0, previous.manual_refresh_at or 0)
             if manual_refresh_at == 0 then

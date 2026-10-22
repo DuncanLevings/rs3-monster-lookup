@@ -120,7 +120,11 @@ return function(root)
     end
 
     function suite:test_a_drop_search_pick_opens_on_its_mode_with_the_item_filled_in()
-        self.context.subject.open(self.monster, function() end, { item = "Dragon", mode = "Hard mode" })
+        self.context.subject.open(
+            self.monster,
+            function() end,
+            { item = "Dragon", mode = "Hard mode" }
+        )
         self.context.subject.show_result(grouped_result())
 
         local picker = self.context.dropdowns[#self.context.dropdowns]
@@ -289,11 +293,17 @@ return function(root)
         end
         lu.assertTrue(explained)
 
-        self.context.subject.show_result(single_section({
-            { name = "Bones", quantity = "1", rate = "Always", price = 1, item_id = 526 },
-        }), nil, { bundled = true, built = "2026-10-21", stale = false })
+        self.context.subject.show_result(
+            single_section({
+                { name = "Bones", quantity = "1", rate = "Always", price = 1, item_id = 526 },
+            }),
+            nil,
+            { bundled = true, built = "2026-10-21", stale = false }
+        )
         -- no GE Price Library in the tests, so the prices are the bundled ones too
-        lu.assertTrue(visible_texts(self.context, before)["Wiki data and GE prices from 2026-10-21"])
+        lu.assertTrue(
+            visible_texts(self.context, before)["Wiki data and GE prices from 2026-10-21"]
+        )
     end
 
     function suite:test_monsters_from_live_wiki_data_say_so_in_the_title_and_status()
@@ -322,16 +332,20 @@ return function(root)
         lu.assertEquals(window.title, "Goblin")
     end
 
-    -- drops with the numbers the build keeps, see src/data/drop_odds.lua
+    -- drops with the numbers the build keeps, see src/data/drops/odds.lua
     local function odds(fields)
-        require("src/data/drop_odds").fill(fields, fields.rate)
+        require("src/data/drops/odds").fill(fields, fields.rate)
         return fields
     end
 
     local function shown_starting(context, prefix, from)
         for index = #context.texts, (from or 0) + 1, -1 do
             local text = context.texts[index]
-            if not text.destroyed and type(text.content) == "string" and text.content:find(prefix, 1, true) == 1 then
+            if
+                not text.destroyed
+                and type(text.content) == "string"
+                and text.content:find(prefix, 1, true) == 1
+            then
                 return text.content
             end
         end
@@ -355,7 +369,10 @@ return function(root)
         local before = #self.context.texts
         self.context.dropdowns[#self.context.dropdowns]:pick(1)
         -- 2000 each x 2 x 1/2
-        lu.assertEquals(shown_starting(self.context, "Average kill", before), "Average kill: 2,000 gp")
+        lu.assertEquals(
+            shown_starting(self.context, "Average kill", before),
+            "Average kill: 2,000 gp"
+        )
     end
 
     function suite:test_the_average_kill_uses_live_prices_and_hides_the_wikis_saved_one()
@@ -379,8 +396,19 @@ return function(root)
                     title = "Other",
                     description = "Two rolls per kill. The average Goblin kill is worth 2,142 coins.",
                     drops = {
-                        odds({ name = "Bones", quantity = "2", rate = "Always", price = 180, item_id = 526 }),
-                        odds({ name = "Coins", quantity = "5–15", rate = "1/2", price = { minimum = 5, maximum = 15 } }),
+                        odds({
+                            name = "Bones",
+                            quantity = "2",
+                            rate = "Always",
+                            price = 180,
+                            item_id = 526,
+                        }),
+                        odds({
+                            name = "Coins",
+                            quantity = "5–15",
+                            rate = "1/2",
+                            price = { minimum = 5, maximum = 15 },
+                        }),
                     },
                 },
             },
@@ -422,10 +450,14 @@ return function(root)
             end,
         }
         self.context.subject.open(self.monster, function() end)
-        self.context.subject.show_result(single_section({
-            { name = "Bones", quantity = "2", rate = "Always", price = 180, item_id = 526 },
-            { name = "Coins", quantity = "50", rate = "1/2", price = 50, item_id = 995 },
-        }), nil, { bundled = true, built = "2026-10-21", stale = false })
+        self.context.subject.show_result(
+            single_section({
+                { name = "Bones", quantity = "2", rate = "Always", price = 180, item_id = 526 },
+                { name = "Coins", quantity = "50", rate = "1/2", price = 50, item_id = 995 },
+            }),
+            nil,
+            { bundled = true, built = "2026-10-21", stale = false }
+        )
 
         local shown = visible_texts(self.context)
         lu.assertTrue(shown["200 gp"]) -- live: 100 each x 2

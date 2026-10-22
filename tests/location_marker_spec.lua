@@ -8,7 +8,7 @@ return function(root)
     function suite:setUp()
         self.context = window_fixture.new(root)
         self.hints = marker_fixture.enable(self.context)
-        self.marker = self.context.load_module("src/game/location_marker")
+        self.marker = self.context.load_module("src/game/locations/marker")
         self.location = { name = "Slayer Tower", map = { id = 28, plane = 2, x = 3407, z = 3546 } }
         self.marker.start()
     end
@@ -498,7 +498,7 @@ return function(root)
     end
 
     function suite:test_replacement_wait_skips_routing_and_terrain_reads_then_revalidates()
-        local route = self.context.load_module("src/game/location_route")
+        local route = self.context.load_module("src/game/locations/route")
         local next_step = route.next
         local route_calls = 0
         route.next = function(...)

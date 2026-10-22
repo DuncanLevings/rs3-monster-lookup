@@ -21,7 +21,7 @@ return function(root)
                     return context.bundled and context.bundled[monster.name]
                 end,
             },
-            ["src/data/monster_names"] = self.names,
+            ["src/data/monsters/names"] = self.names,
             ["src/data/monster_cache"] = {
                 list = function()
                     return context.cached
@@ -33,7 +33,7 @@ return function(root)
             },
             ["src/utils/cache_clock"] = { TICKS_PER_SECOND = 50 },
             -- stands in for the bundled drops.lua, see tests/search_index_spec.lua for that
-            ["src/data/drop_index"] = {
+            ["src/data/search/drops"] = {
                 items = function()
                     return {
                         { name = "Abyssal whip", count = 2 },
@@ -85,7 +85,7 @@ return function(root)
             end
             return modules[path]
         end
-        self.factory = environment.require("src/data/monster_search")
+        self.factory = environment.require("src/data/search/monsters")
         self.search = self.factory.new(function(results, message)
             context.results, context.message = results, message
             context.updates[#context.updates + 1] = { results = results, message = message }
@@ -278,7 +278,7 @@ return function(root)
     end
 
     function suite:test_bundled_names_find_uncached_location_variants_without_http()
-        self.names = assert(loadfile(root .. "/src/data/monster_names.lua"))()
+        self.names = assert(loadfile(root .. "/src/data/monsters/names.lua"))()
         self.cached = {}
         self:load()
         self.search.set_query("bloodveld god wars")
@@ -293,7 +293,7 @@ return function(root)
     end
 
     function suite:test_bundled_index_has_unique_titles_and_known_monsters()
-        local titles = assert(loadfile(root .. "/src/data/monster_names.lua"))()
+        local titles = assert(loadfile(root .. "/src/data/monsters/names.lua"))()
         local seen = {}
         -- only monsters with drops are listed, see tools/fetch_wiki_data.py
         lu.assertTrue(#titles > 1000)

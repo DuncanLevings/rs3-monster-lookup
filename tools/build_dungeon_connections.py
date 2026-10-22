@@ -54,7 +54,7 @@ def build(manifest, output):
         "return {\n" + "".join("    " + literal(e) + ",\n" for e in edges) + "}\n",
         encoding="utf-8", newline="\n")
     instructions = {int(k): v for k, v in data.get("manual_guidance", {}).items()}
-    output.with_name("dungeon_route_instructions.lua").write_text(
+    output.with_name("route_instructions.lua").write_text(
         "-- Manual guidance for transitions whose departure coordinates are unverified.\n"
         "return " + literal(instructions) + "\n", encoding="utf-8", newline="\n")
     print(f"Wrote {len(edges)} route connections and {len(instructions)} area instructions")
@@ -64,6 +64,6 @@ if __name__ == "__main__":
     root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=root / "resources/DUNGEON_ROUTE_SOURCES.json")
-    parser.add_argument("--output", type=Path, default=root / "src/data/dungeon_connections.lua")
+    parser.add_argument("--output", type=Path, default=root / "src/data/locations/dungeons/connections.lua")
     options = parser.parse_args()
     build(options.manifest, options.output)

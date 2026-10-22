@@ -130,7 +130,7 @@ def main():
                         [("variants", variants), ("slayer_level", level), ("altered_level", altered),
                          ("soul_xp", xp), ("size", size), ("notes", notes)]], "        },"])
     lines.extend(["    },", "}", ""])
-    target = Path(__file__).resolve().parent.parent / "src/data/slayer_codex_data.lua"
+    target = Path(__file__).resolve().parent.parent / "src/data/monsters/slayer_codex_data.lua"
     target.write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
 

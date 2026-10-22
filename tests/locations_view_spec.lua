@@ -82,7 +82,7 @@ return function(root)
 
     function suite:show_markable_locations()
         self.hints = require("tests/support/marker_fixture").enable(self.context)
-        self.marker = self.context.load_module("src/game/location_marker")
+        self.marker = self.context.load_module("src/game/locations/marker")
         self.result.locations[1].map = { id = 28, plane = 0, x = 3225, z = 3439 }
         self.result.locations[2].name = "Varrock"
         self.result.locations[2].map = { id = 28, plane = 0, x = 3250, z = 3439 }
@@ -326,7 +326,7 @@ return function(root)
     function suite:test_mark_clear_and_browsing_another_monster_use_one_global_destination()
         local context = self.context
         require("tests/support/marker_fixture").enable(context)
-        local marker = context.load_module("src/game/location_marker")
+        local marker = context.load_module("src/game/locations/marker")
         self.result.locations[1].map = { id = 28, plane = 0, x = 3225, z = 3439 }
         self.result.locations[2].map = { id = 30, plane = 0, x = 109, z = 39 }
         self.result.locations[2].name = "Unknown dungeon"
@@ -406,7 +406,7 @@ return function(root)
 
     function suite:test_paused_guidance_is_larger_amber_and_returns_to_muted_after_resuming()
         local hints = require("tests/support/marker_fixture").enable(self.context)
-        local marker = self.context.load_module("src/game/location_marker")
+        local marker = self.context.load_module("src/game/locations/marker")
         local theme = self.context.load_module("src/ui/theme")
         hints.player = { level = 0, x = 7000, z = 7000 }
         self.result.locations[1].map = { id = 28, plane = 0, x = 3225, z = 3439 }

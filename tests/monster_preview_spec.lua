@@ -354,11 +354,8 @@ return function(root)
         lu.assertAlmostEquals(drawn_scale(group), plain_scale(group.width, group.height), 1e-9)
     end
 
-    -- the transform only scales now, centring is the cameras job, so losing it costs the
-    -- size match and nothing else
-    function suite:test_a_rejected_transform_still_leaves_a_centred_turnable_scene()
-        install_model_groups(self.context, true)
-        local ui = self.context.environment.ui
+    local function reject_model_transforms(context)
+        local ui = context.environment.ui
         local make_model = ui.Model.new
         ui.Model.new = function(parent)
             local model = make_model(parent)
@@ -368,11 +365,21 @@ return function(root)
             end)
             return model
         end
+    end
+
+    -- the transform only scales now, centring is the cameras job, so losing it costs the
+    -- size match and nothing else
+    function suite:test_a_rejected_transform_still_leaves_a_centred_turnable_scene()
+        install_model_groups(self.context, true)
+        reject_model_transforms(self.context)
 
         local group = assert(open_info(self.context))
         lu.assertIs(self.context.models[1].parent, group)
         lu.assertEquals(active_camera(group).lookAt.y, 70)
-        lu.assertStrContains(table.concat(self.context.logs, "\n"), "preview skipped model transform")
+        lu.assertStrContains(
+            table.concat(self.context.logs, "\n"),
+            "preview skipped model transform"
+        )
 
         group.hooks[4](group, 100, 50)
         group.hooks[ONHOLD](group, 140, 50)
@@ -414,10 +421,10 @@ return function(root)
 
         lu.assertEquals(#self.context.groups, 0)
         lu.assertTrue(self.context.models[1].viewDistance > 0)
-        lu.assertStrContains(table.concat(self.context.logs, "\n"), "no model camera type")
+        lu.assertEquals(#self.context.logs, 0)
     end
 
-    function suite:test_shift_drag_slides_the_view_and_logs_where_it_was_left()
+    function suite:test_shift_drag_slides_the_view_and_keeps_the_new_centre_while_turning()
         install_model_groups(self.context, true)
         local shift = false
         self.context.environment.Keyboard = {
@@ -450,6 +457,27 @@ return function(root)
         lu.assertEquals(camera.lookAt.y, raised)
     end
 
+    function suite:test_repeated_optional_feature_failures_are_only_logged_once()
+        install_model_groups(self.context, true)
+        reject_model_transforms(self.context)
+        local preview = self.context.load_module("src/ui/info/preview")
+        local info = { combat_level = 2 }
+
+        local first = preview.create(self.context.parent, "Goblin", info)
+        preview.destroy(first)
+        local second = preview.create(self.context.parent, "Goblin", info)
+        preview.destroy(second)
+
+        local warnings = 0
+        for _, message in ipairs(self.context.logs) do
+            if message:find("preview skipped model transform", 1, true) then
+                warnings = warnings + 1
+            end
+        end
+
+        lu.assertEquals(warnings, 1)
+    end
+
     local function live_npcs(context, entities)
         context.environment.NPCList = {
             ByUID = function(uid)
@@ -472,7 +500,11 @@ return function(root)
             [77] = { configID = 1, aabb = { width = 100, height = 600, length = 100 } },
         })
         self.context.subject.open({ name = "Goblin", npc_id = 1, entity_uid = 77 })
-        self.context.subject.show_result({ title = "Goblin", sections = {}, info = { combat_level = 2 } })
+        self.context.subject.show_result({
+            title = "Goblin",
+            sections = {},
+            info = { combat_level = 2 },
+        })
         self.context.tabs:SetActive(2)
         local group = self.context.groups[1]
         local camera = active_camera(group)
@@ -483,7 +515,11 @@ return function(root)
         -- 600 tall filling 80% of the box: drawn height = 600 * focal / distance
         local focal = group.width / 2 / math.tan(math.rad(20))
         local across = math.sqrt(100 ^ 2 + 100 ^ 2)
-        lu.assertAlmostEquals(600 * focal / (distance(camera) - across / 2), 0.8 * group.height, 1e-6)
+        lu.assertAlmostEquals(
+            600 * focal / (distance(camera) - across / 2),
+            0.8 * group.height,
+            1e-6
+        )
 
         -- opened again later with nothing loaded nearby, it still knows the size
         self.context.environment.NPCList = nil
@@ -499,7 +535,11 @@ return function(root)
             [6] = { configID = 1, aabb = { width = 128, height = 200, length = 128 } },
         })
         self.context.subject.open({ name = "Goblin", npc_id = 1, entity_uid = 5 })
-        self.context.subject.show_result({ title = "Goblin", sections = {}, info = { combat_level = 2 } })
+        self.context.subject.show_result({
+            title = "Goblin",
+            sections = {},
+            info = { combat_level = 2 },
+        })
         self.context.tabs:SetActive(2)
 
         lu.assertEquals(active_camera(self.context.groups[1]).lookAt.y, 100)

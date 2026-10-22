@@ -9,7 +9,7 @@ return function(root)
     end
 
     function suite:test_ribbon_defaults_to_search_and_customize_reuses_the_settings_controls()
-        local panel = self.context.load_module("src/ui/content_panel")
+        local panel = self.context.load_module("src/ui/settings/content")
         local opened = 0
         panel.start(function()
             opened = opened + 1
@@ -36,7 +36,7 @@ return function(root)
     function suite:test_hub_defaults_to_search_and_opens_the_same_monster_search_window()
         local context = self.context
         local opened = 0
-        context.stub_module("src/ui/monster_search_window", {
+        context.stub_module("src/ui/search/window", {
             open = function()
                 opened = opened + 1
             end,
@@ -61,7 +61,7 @@ return function(root)
 
     function suite:test_hub_and_ribbon_keep_independent_page_state_and_cleanup()
         local context = self.context
-        local ribbon = context.load_module("src/ui/content_panel")
+        local ribbon = context.load_module("src/ui/settings/content")
         context.settings_panel.start(function() end)
         ribbon.start(function() end, function() end)
         context.on_content_ready({ component = context.parent })
@@ -84,10 +84,10 @@ return function(root)
         lu.assertTrue(ribbon_selector.destroyed)
     end
 
-    -- a stand in for src/data/monster_search that keeps every model it makes, by kind
+    -- a stand in for src/data/search/monsters that keeps every model it makes, by kind
     local function stub_search(context)
         local made = {}
-        context.stub_module("src/data/monster_search", {
+        context.stub_module("src/data/search/monsters", {
             new = function(callback, _, kind)
                 local model = { kind = kind or "monsters", update = callback, queries = {} }
                 function model.get_query()
@@ -128,7 +128,7 @@ return function(root)
     function suite:test_drops_mode_searches_items_and_a_picked_item_lists_its_droppers()
         local context = self.context
         local made = stub_search(context)
-        local view = context.load_module("src/ui/monster_search_window")
+        local view = context.load_module("src/ui/search/window")
         local selections = {}
         view.start(function(monster)
             selections[#selections + 1] = monster
@@ -173,7 +173,7 @@ return function(root)
         local context = self.context
         stub_search(context)
         local ranked = {}
-        context.stub_module("src/data/stat_rankings", {
+        context.stub_module("src/data/search/stats", {
             STATS = { { label = "Combat XP" }, { label = "Slayer XP" } },
             rank = function(stat, filters)
                 ranked[#ranked + 1] = { stat = stat, filters = filters }
@@ -184,7 +184,7 @@ return function(root)
                     120
             end,
         })
-        local view = context.load_module("src/ui/monster_search_window")
+        local view = context.load_module("src/ui/search/window")
         local selections = {}
         view.start(function(monster)
             selections[#selections + 1] = monster
@@ -237,7 +237,7 @@ return function(root)
 
     function suite:test_search_geometry_survives_window_recreation_without_changing_lookup_geometry()
         local context = self.context
-        context.stub_module("src/data/monster_search", {
+        context.stub_module("src/data/search/monsters", {
             new = function()
                 return {
                     get_query = function()
@@ -248,7 +248,7 @@ return function(root)
                 }
             end,
         })
-        local view = context.load_module("src/ui/monster_search_window")
+        local view = context.load_module("src/ui/search/window")
         view.start(function() end)
         view.open()
         local first = context.windows[1]
@@ -270,7 +270,7 @@ return function(root)
     function suite:test_first_search_window_fits_a_small_viewport()
         local context = self.context
         context.parent.width, context.parent.height = 300, 200
-        context.stub_module("src/data/monster_search", {
+        context.stub_module("src/data/search/monsters", {
             new = function()
                 return {
                     get_query = function()
@@ -281,7 +281,7 @@ return function(root)
                 }
             end,
         })
-        local view = context.load_module("src/ui/monster_search_window")
+        local view = context.load_module("src/ui/search/window")
         view.start(function() end)
         view.open()
         local window = context.windows[1]
@@ -297,7 +297,7 @@ return function(root)
         local started, stopped, active = 0, 0, false
         local query = ""
         local update
-        context.stub_module("src/data/monster_search", {
+        context.stub_module("src/data/search/monsters", {
             new = function(callback)
                 update = callback
                 return {
@@ -325,7 +325,7 @@ return function(root)
                 }
             end,
         })
-        local view = context.load_module("src/ui/monster_search_window")
+        local view = context.load_module("src/ui/search/window")
         local selections = {}
         view.start(function(monster)
             selections[#selections + 1] = monster
@@ -466,14 +466,14 @@ return function(root)
         local context = self.context
         stub_search(context)
         local ranked = 0
-        context.stub_module("src/data/stat_rankings", {
+        context.stub_module("src/data/search/stats", {
             STATS = { { label = "Combat XP" } },
             rank = function()
                 ranked = ranked + 1
                 return {}, 0
             end,
         })
-        local view = context.load_module("src/ui/monster_search_window")
+        local view = context.load_module("src/ui/search/window")
         view.start(function() end)
         view.open()
         context.dropdowns[1]:pick(2)

@@ -112,7 +112,7 @@ return function(root)
     end
 
     function suite:test_search_names_match_the_bundled_titles()
-        local names = assert(loadfile(root .. "/src/data/monster_names.lua"))()
+        local names = assert(loadfile(root .. "/src/data/monsters/names.lua"))()
         local titles = self.bundle.titles()
         local present = {}
         for _, title in ipairs(titles) do
@@ -138,7 +138,7 @@ return function(root)
 
     -- the drop search and top stats indexes that ship with the bundle
     function suite:test_shipped_search_indexes_read_back_with_real_monsters()
-        local drops = require("src/data/drop_index")
+        local drops = require("src/data/search/drops")
         local whip
 
         for position, item in ipairs(drops.items()) do
@@ -154,7 +154,7 @@ return function(root)
         lu.assertNotNil(titles["Abyssal demon"])
         lu.assertTrue(#drops.items() > 2000)
 
-        local stats = require("src/data/stat_rankings")
+        local stats = require("src/data/search/stats")
         local results, total = stats.rank(1, { bosses = "hide", max_combat = 100 })
         lu.assertTrue(total > 1000)
         lu.assertEquals(#results, 50)
