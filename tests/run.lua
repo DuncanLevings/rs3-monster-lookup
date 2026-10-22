@@ -40,6 +40,7 @@ local create_navigation_provider_suite = require("tests/navigation_provider_spec
 local runner = lu.LuaUnit.new()
 
 runner:runSuiteByInstances({
+    { "TestConsumerExample", require("tests/consumer_example_spec")(root) },
     { "TestCoreDependency", require("tests/core_dependency_spec")(root) },
     { "TestInfoComponents", create_info_components_suite(root) },
     { "TestTabComponents", create_tab_components_suite(root) },
