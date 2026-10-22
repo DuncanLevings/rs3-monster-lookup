@@ -108,7 +108,7 @@ return function(root)
         lu.assertNil(self.bundle.find({ name = "Goblin", wiki_title = "Goblin" }))
         lu.assertNil(self.bundle.find({ npc_id = 3264, name = "Goblin" }))
         lu.assertEquals(#self.logs, 1)
-        lu.assertStrContains(self.logs[1], "Expected format 2")
+        lu.assertStrContains(self.logs[1], "Expected format 3")
     end
 
     function suite:test_search_names_match_the_bundled_titles()

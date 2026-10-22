@@ -1,6 +1,6 @@
 -- adds "View drops" to the right click menu of anything attackable
--- familiars are skipped, and stacked npcs of the same type each get their own entry
--- (told apart by entity uid). selection hands back a plain snapshot, not the live npc
+-- familiars are skipped. identical stacked monsters share the first one's entry;
+-- distinct configurations and levels stay separate. selections are plain snapshots.
 
 local npc_menu = {}
 local SUBSCRIPTION_ID = "monster_lookup_npc_menu"
@@ -53,25 +53,41 @@ end
 
 local function collect_candidates(entries)
     local seen = {}
+    local groups = {}
     local candidates = {}
 
-    for _, entry in ipairs(entries) do
+    for index, entry in ipairs(entries) do
         local npc = get_valid_npc(entry)
 
         if npc then
             local candidate = seen[npc.uid]
 
-            if not candidate then
+            if candidate == nil then
                 candidate = create_candidate(npc)
-
                 if candidate then
-                    seen[npc.uid] = candidate
-                    candidates[#candidates + 1] = candidate
+                    local monster = candidate.monster
+                    local key = table.concat({
+                        tostring(monster.npc_id),
+                        tostring(monster.combat_level),
+                        tostring(monster.parent_npc_id),
+                        monster.name,
+                    }, "\0")
+                    if groups[key] then
+                        candidate = nil
+                    else
+                        groups[key] = candidate
+                        candidates[#candidates + 1] = candidate
+                    end
                 end
+                -- Cache rejected entities too: their other actions need no config reads.
+                seen[npc.uid] = candidate or false
             end
 
             if candidate then
                 capture_attack_subject(candidate, entry)
+                if entry.actionVerbType == MiniMenuActionVerbType.EXAMINE then
+                    candidate.examine_index = candidate.examine_index or index
+                end
             end
         end
     end
@@ -79,30 +95,45 @@ local function collect_candidates(entries)
     return candidates
 end
 
-local function find_examine_index(entries, entity_uid)
-    for index, entry in ipairs(entries) do
-        if entry.actionVerbType == MiniMenuActionVerbType.EXAMINE then
-            local npc = get_valid_npc(entry)
-
-            if npc and npc.uid == entity_uid then
-                return index
-            end
+-- Build the final order once, preserving every original action's relative order.
+-- Apply its permutation with direct swaps rather than shifting each added row.
+local function position_lookup_entries(menu, original_count, candidates)
+    local after, fallback = {}, {}
+    local count = original_count + #candidates
+    for index, candidate in ipairs(candidates) do
+        local added_index = original_count + index
+        if candidate.examine_index then
+            after[candidate.examine_index] = added_index
+        else
+            fallback[#fallback + 1] = added_index
         end
     end
-
-    return nil
-end
-
--- moves our new entry so it sits right under the npcs Examine option
-local function position_lookup_entry(menu, examine_index)
-    if not examine_index then
+    if next(after) == nil then
         return
     end
-
-    local target = menu.entryCount - examine_index
-
-    for position = 1, target - 1 do
-        menu:Swap(position, position + 1)
+    local wanted = {}
+    for index = 1, original_count do
+        wanted[#wanted + 1] = index
+        if after[index] then
+            wanted[#wanted + 1] = after[index]
+        end
+    end
+    for _, index in ipairs(fallback) do
+        wanted[#wanted + 1] = index
+    end
+    local current, positions = {}, {}
+    for index = 1, count do
+        current[index], positions[index] = index, index
+    end
+    for destination, item in ipairs(wanted) do
+        local source = positions[item]
+        if source ~= destination then
+            -- The beta client's Swap indices count from the bottom of entries.
+            menu:Swap(count - destination + 1, count - source + 1)
+            local displaced = current[destination]
+            current[destination], current[source] = item, displaced
+            positions[item], positions[displaced] = destination, source
+        end
     end
 end
 
@@ -116,10 +147,8 @@ local function view_drops_label(colour_hex)
 end
 
 local function add_lookup_entry(menu, candidate, label, on_select)
-    local examine_index = find_examine_index(menu.entries, candidate.monster.entity_uid)
     local subject = candidate.subject or candidate.monster.name
     menu:Add(label .. subject, on_select, candidate.monster)
-    position_lookup_entry(menu, examine_index)
 end
 
 local function create_selection_handler(session, on_select)
@@ -138,12 +167,19 @@ local function create_menu_handler(session, on_select, get_colour)
         end
 
         local menu = event.miniMenu
+        local entries = menu.entries
+        local original_count = #entries
+        local candidates = collect_candidates(entries)
+        if #candidates == 0 then
+            return
+        end
         -- read every time the menu opens so a settings change shows up straight away
         local label = view_drops_label(get_colour and get_colour())
 
-        for _, candidate in ipairs(collect_candidates(menu.entries)) do
+        for _, candidate in ipairs(candidates) do
             add_lookup_entry(menu, candidate, label, on_select)
         end
+        position_lookup_entries(menu, original_count, candidates)
     end
 end
 

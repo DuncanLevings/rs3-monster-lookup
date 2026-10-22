@@ -40,7 +40,7 @@ return function(root)
         lu.assertEquals(menu.added[1].label, VIEW_DROPS_LABEL .. "Goblin")
     end
 
-    function suite:test_keeps_stacked_npcs_with_the_same_config_separate()
+    function suite:test_identical_stacked_npcs_share_the_first_selection()
         local first = fixture.npc({ uid = 11 })
         local second = fixture.npc({ uid = 12 })
 
@@ -50,9 +50,8 @@ return function(root)
             item.callback(item.monster)
         end
 
-        lu.assertEquals(#menu.added, 2)
+        lu.assertEquals(#menu.added, 1)
         lu.assertEquals(self.context.selections[1].entity_uid, 11)
-        lu.assertEquals(self.context.selections[2].entity_uid, 12)
     end
 
     function suite:test_leaves_existing_entries_in_their_original_order()
@@ -194,7 +193,7 @@ return function(root)
         lu.assertEquals(menu.added[1].monster.name, "Goblin")
     end
 
-    function suite:test_keeps_each_stacked_monsters_attack_colour()
+    function suite:test_identical_stack_uses_the_first_monsters_attack_colour()
         local first = fixture.npc({ uid = 11 })
         local second = fixture.npc({ uid = 12 })
         local first_subject = "<col=ffff00>Goblin</col>"
@@ -206,7 +205,7 @@ return function(root)
         })
 
         lu.assertEquals(menu.added[1].label, VIEW_DROPS_LABEL .. first_subject)
-        lu.assertEquals(menu.added[2].label, VIEW_DROPS_LABEL .. second_subject)
+        lu.assertEquals(#menu.added, 1)
         lu.assertEquals(menu.swaps, 0)
     end
 
@@ -232,7 +231,7 @@ return function(root)
         lu.assertIs(menu.entries[5], cancel)
     end
 
-    function suite:test_places_each_lookup_after_its_own_examine_for_stacked_monsters()
+    function suite:test_places_shared_lookup_after_the_first_stacked_monsters_examine()
         local first = fixture.npc({ uid = 11 })
         local second = fixture.npc({ uid = 12 })
         local first_attack = fixture.entry(first)
@@ -254,8 +253,73 @@ return function(root)
         lu.assertIs(menu.entries[3], first_examine)
         lu.assertEquals(menu.entries[4].monster.entity_uid, 11)
         lu.assertIs(menu.entries[5], second_examine)
-        lu.assertEquals(menu.entries[6].monster.entity_uid, 12)
-        lu.assertIs(menu.entries[7], cancel)
+        lu.assertIs(menu.entries[6], cancel)
+        lu.assertEquals(#menu.added, 1)
+    end
+
+    function suite:test_keeps_different_levels_configs_names_and_parent_variants_separate()
+        local entries = {}
+        for _, options in ipairs({
+            { uid = 1 },
+            { uid = 2, combat_level = 5 },
+            { uid = 3, npc_id = 101 },
+            { uid = 4, parent_npc_id = 200 },
+            { uid = 5, parent_npc_id = 201 },
+            { uid = 6, name = "Other goblin" },
+        }) do
+            entries[#entries + 1] = fixture.entry(fixture.npc(options))
+        end
+        local menu = self.context:open_menu(entries)
+        lu.assertEquals(#menu.added, 6)
+    end
+
+    function suite:test_large_distinct_stack_preserves_actions_with_linear_swaps()
+        local entries, originals, examines = {}, {}, {}
+        for index = 1, 100 do
+            local npc = fixture.npc({ uid = index, npc_id = 100 + index })
+            for _, verb in ipairs({ 0, 2, 1 }) do
+                local entry = fixture.entry(npc, nil, verb)
+                entries[#entries + 1] = entry
+                originals[#originals + 1] = entry
+                if verb == 1 then
+                    examines[entry] = index
+                end
+            end
+        end
+        local cancel = { verbText = "Cancel" }
+        entries[#entries + 1], originals[#originals + 1] = cancel, cancel
+        local menu = self.context:open_menu(entries)
+        lu.assertEquals(#menu.added, 100)
+        lu.assertTrue(menu.swaps <= #menu.entries - 1)
+        local original_index = 1
+        for index, entry in ipairs(menu.entries) do
+            if not entry.monster then
+                lu.assertIs(entry, originals[original_index])
+                original_index = original_index + 1
+                if examines[entry] then
+                    lu.assertEquals(menu.entries[index + 1].monster.entity_uid, examines[entry])
+                end
+            end
+        end
+        lu.assertEquals(original_index, #originals + 1)
+    end
+
+    function suite:test_shared_stack_stays_with_first_monster_when_actions_are_interleaved()
+        local first = fixture.npc({ uid = 11 })
+        local second = fixture.npc({ uid = 12 })
+        local first_examine = fixture.entry(first, nil, 1)
+        local second_examine = fixture.entry(second, nil, 1)
+        local menu = self.context:open_menu({
+            fixture.entry(first),
+            fixture.entry(second),
+            second_examine,
+            first_examine,
+        })
+        lu.assertEquals(#menu.added, 1)
+        lu.assertIs(menu.entries[3], second_examine)
+        lu.assertIs(menu.entries[4], first_examine)
+        lu.assertIs(menu.entries[5], menu.added[1])
+        lu.assertEquals(menu.added[1].monster.entity_uid, 11)
     end
 
     return suite

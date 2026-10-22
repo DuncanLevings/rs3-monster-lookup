@@ -322,6 +322,93 @@ return function(root)
         lu.assertEquals(window.title, "Goblin")
     end
 
+    -- drops with the numbers the build keeps, see src/data/drop_odds.lua
+    local function odds(fields)
+        require("src/data/drop_odds").fill(fields, fields.rate)
+        return fields
+    end
+
+    local function shown_starting(context, prefix, from)
+        for index = #context.texts, (from or 0) + 1, -1 do
+            local text = context.texts[index]
+            if not text.destroyed and type(text.content) == "string" and text.content:find(prefix, 1, true) == 1 then
+                return text.content
+            end
+        end
+    end
+
+    function suite:test_the_average_kill_follows_the_mode_being_shown()
+        local normal = odds({ name = "Bones", quantity = "1", rate = "Always", price = 250 })
+        local hard = odds({ name = "Dragon bones", quantity = "2", rate = "1/2", price = 4000 })
+        self.context.subject.open(self.monster, function() end)
+        self.context.subject.show_result({
+            title = "General Graardor",
+            info = {},
+            sections = {
+                { title = "Drops (normal mode) / 100%", drops = { normal } },
+                { title = "Drops (hard mode) / Other", drops = { hard } },
+            },
+        })
+
+        -- normal mode only, never normal and hard added together
+        lu.assertEquals(shown_starting(self.context, "Average kill"), "Average kill: 250 gp")
+        local before = #self.context.texts
+        self.context.dropdowns[#self.context.dropdowns]:pick(1)
+        -- 2000 each x 2 x 1/2
+        lu.assertEquals(shown_starting(self.context, "Average kill", before), "Average kill: 2,000 gp")
+    end
+
+    function suite:test_the_average_kill_uses_live_prices_and_hides_the_wikis_saved_one()
+        self.context.environment.gepl = {
+            isReady = function()
+                return true
+            end,
+            getOneHourAverage = function()
+                error("gepl 0.2.5 averages throw")
+            end,
+            getLatest = function(id)
+                return assert(({ [526] = { high = 120, low = 80 } })[id], "Price not found")
+            end,
+        }
+        self.context.subject.open(self.monster, function() end)
+        self.context.subject.show_result({
+            title = "Goblin",
+            info = {},
+            sections = {
+                {
+                    title = "Other",
+                    description = "Two rolls per kill. The average Goblin kill is worth 2,142 coins.",
+                    drops = {
+                        odds({ name = "Bones", quantity = "2", rate = "Always", price = 180, item_id = 526 }),
+                        odds({ name = "Coins", quantity = "5–15", rate = "1/2", price = { minimum = 5, maximum = 15 } }),
+                    },
+                },
+            },
+        }, nil, { bundled = true, built = "2026-10-21", stale = false })
+
+        -- bones live at 100 each x 2, coins 10 x 1/2
+        lu.assertEquals(shown_starting(self.context, "Average kill"), "Average kill: 205 gp")
+        local shown = visible_texts(self.context)
+        lu.assertTrue(shown["Two rolls per kill."])
+        for text in pairs(shown) do
+            lu.assertNotStrContains(text, "2,142")
+        end
+    end
+
+    function suite:test_an_incomplete_average_is_labelled_an_estimate()
+        self.context.subject.open(self.monster, function() end)
+        self.context.subject.show_result(single_section({
+            odds({ name = "Bones", quantity = "1", rate = "Always", price = 100 }),
+            odds({ name = "Shiny", quantity = "1", rate = "Rare", price = 5000000 }),
+        }))
+
+        lu.assertEquals(
+            shown_starting(self.context, "Estimated"),
+            "Estimated average kill: about 100 gp"
+        )
+        lu.assertNil(shown_starting(self.context, "Leaves out"))
+    end
+
     function suite:test_live_ge_prices_replace_the_saved_ones_when_the_library_is_there()
         self.context.environment.gepl = {
             isReady = function()
@@ -336,7 +423,7 @@ return function(root)
         }
         self.context.subject.open(self.monster, function() end)
         self.context.subject.show_result(single_section({
-            { name = "Bones", quantity = "2", rate = "Always", price = 1, item_id = 526 },
+            { name = "Bones", quantity = "2", rate = "Always", price = 180, item_id = 526 },
             { name = "Coins", quantity = "50", rate = "1/2", price = 50, item_id = 995 },
         }), nil, { bundled = true, built = "2026-10-21", stale = false })
 

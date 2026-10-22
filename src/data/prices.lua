@@ -12,6 +12,10 @@ local prices = {}
 local SUBSCRIPTION = "monster_lookup_price_wait"
 local CHECK_TICKS = 50 -- about once a second
 local GIVE_UP_TICKS = 50 * 120 -- stop waiting for gepl after about two minutes
+-- how far a live price can be from the saved Wiki one before its treated as a one-off trade
+-- (someone instant buying a single salvage for 2m made it look worth 1m each). real prices
+-- rarely move this much in the few weeks between bundle builds
+local MAX_DRIFT = 3
 local waiting = {}
 local waited = 0
 
@@ -49,25 +53,61 @@ function prices.live()
     return call("isReady", "latest") == true
 end
 
----unit price for an item id, nil when gepl cant give one
+-- how many times apart two prices are, either way round
+local function drift(price, reference)
+    return math.max(price / reference, reference / price)
+end
+
+---unit price for an item id, nil when gepl cant give one or it doesnt look real
+---
+---the latest trades are one buy and one sell, so a single odd trade throws them right off,
+---and the steadier hourly averages throw in gepl 0.2.5. with a saved Wiki price for the item
+---(reference) the live price closest to it is used, unless even that is MAX_DRIFT times away.
+---without one, a buy more than twice the sell is taken as the odd trade and the sell is used,
+---its also the realistic price for a drop youd be selling
 ---@param item_id integer?
+---@param reference number? the saved Wiki unit price, to sanity check against
 ---@return integer?
-function prices.unit(item_id)
+function prices.unit(item_id, reference)
     if not item_id or not library() then
         return nil
     end
 
-    -- the hourly average is steadier, the latest trade is the fallback (and the only one that
-    -- works in gepl 0.2.5)
+    local candidates = {}
     local average = call("getOneHourAverage", item_id)
-    local price = type(average) == "table" and middle(average.avgHighPrice, average.avgLowPrice)
 
-    if price then
-        return price
+    if type(average) == "table" then
+        candidates[#candidates + 1] = middle(average.avgHighPrice, average.avgLowPrice)
     end
 
     local latest = call("getLatest", item_id)
-    return type(latest) == "table" and middle(latest.high, latest.low) or nil
+    local high = type(latest) == "table" and positive(latest.high) and latest.high or nil
+    local low = type(latest) == "table" and positive(latest.low) and latest.low or nil
+    candidates[#candidates + 1] = middle(high, low)
+    candidates[#candidates + 1] = high and math.floor(high + 0.5) or nil
+    candidates[#candidates + 1] = low and math.floor(low + 0.5) or nil
+
+    if positive(reference) then
+        local best
+
+        for _, price in pairs(candidates) do
+            if not best or drift(price, reference) < drift(best, reference) then
+                best = price
+            end
+        end
+
+        return best and drift(best, reference) <= MAX_DRIFT and best or nil
+    end
+
+    if candidates[1] and type(average) == "table" then
+        return candidates[1]
+    end
+
+    if high and low and high > low * 2 then
+        return math.floor(low + 0.5)
+    end
+
+    return middle(high, low)
 end
 
 -- "30-40 (noted)" -> 30, 40 and "1,000" -> 1000, 1000. nil when theres no number at all
@@ -97,10 +137,18 @@ function prices.for_drop(drop)
         return nil
     end
 
-    local unit = prices.unit(drop.item_id)
     local low, high = quantity_range(drop.quantity)
 
-    if not unit or not low then
+    if not low then
+        return nil
+    end
+
+    -- the saved price is for the whole quantity, the lowest of a range
+    local saved = type(drop.price) == "table" and drop.price.minimum or drop.price
+    local reference = type(saved) == "number" and low > 0 and saved / low or nil
+    local unit = prices.unit(drop.item_id, reference)
+
+    if not unit then
         return nil
     end
 

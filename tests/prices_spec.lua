@@ -73,6 +73,36 @@ return function(root)
         lu.assertNil(self.prices.unit(3))
     end
 
+    -- large spiky rune salvage: worth ~30k, one instant buy at 2m made the mid 1m
+    function suite:test_a_one_off_trade_is_ignored_when_theres_a_saved_price_to_compare()
+        self.latest[47292] = { high = 2000000, low = 29800 }
+
+        lu.assertEquals(self.prices.unit(47292, 29882), 29800)
+        lu.assertEquals(
+            self.prices.for_drop(drop({ item_id = 47292, quantity = "1–2", price = { minimum = 29882, maximum = 59764 } })),
+            { minimum = 29800, maximum = 59600 }
+        )
+    end
+
+    function suite:test_live_prices_too_far_from_the_saved_one_are_not_trusted()
+        self.latest[1] = { high = 900000, low = 800000 }
+        self.latest[2] = { high = 70000, low = 60000 }
+
+        -- every live price over 3x the saved 30k, the saved price stays
+        lu.assertNil(self.prices.unit(1, 30000))
+        lu.assertNil(self.prices.for_drop(drop({ item_id = 1, quantity = "1", price = 30000 })))
+        -- a real rise to about double still comes through
+        lu.assertEquals(self.prices.unit(2, 30000), 60000)
+    end
+
+    function suite:test_without_a_saved_price_a_lopsided_buy_falls_back_to_the_sell()
+        self.latest[3] = { high = 2000000, low = 29800 }
+        self.latest[4] = { high = 110, low = 90 }
+
+        lu.assertEquals(self.prices.unit(3), 29800)
+        lu.assertEquals(self.prices.unit(4), 100)
+    end
+
     function suite:test_drop_prices_scale_with_the_quantity()
         self.latest[1513] = { high = 600, low = 400 }
 

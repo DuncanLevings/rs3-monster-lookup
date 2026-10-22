@@ -6,6 +6,8 @@ View monster drops, stats and locations without leaving the game. Right-click a 
 
 Browse items, quantities, drop rates, GE guide prices and notes from the [RuneScape Wiki](https://runescape.wiki/). Search drops, collapse categories and choose a boss mode or enrage where available. The controls stay visible while you scroll. Expand **Notes** for drop conditions and hover over marked rarities for details.
 
+Above the tables is the average value of one kill for the selected mode or enrage, worked out the same way as the Wiki: each drop's price times its average quantity, chance and rolls, added up. It uses live GE prices when the GE Price Library is installed, coins count as 1 gp each and untradeable items as 0. Drops with a rarity like Common or Varies, no price, or an Always chance that only happens in some cases are left out, and the total is then marked as an estimate.
+
 ## Monster info and locations
 
 See weaknesses, behaviour and immunities at a glance. Expand **Slayer** for task and player-owned Slayer Dungeon details, or **Detailed stats** for combat information. Both sections remember your preference. Use the variant selector where available.

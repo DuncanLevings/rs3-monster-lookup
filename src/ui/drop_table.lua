@@ -21,6 +21,7 @@ local drop_groups = require("src/data/drop_groups")
 local drop_search = require("src/ui/drop_search")
 local drop_notes = require("src/ui/drop_notes")
 local wiki_notes = require("src/utils/wiki_notes")
+local kill_value = require("src/data/kill_value")
 
 local drop_table = {}
 local ROW_HEIGHT = 40
@@ -262,7 +263,7 @@ local function create_section_body(controller, data)
         rows = {},
         expanded = true,
     }
-    add_section_text(section, data.description, true)
+    add_section_text(section, kill_value.without_wiki_averages(data.description), true)
 
     local table_layer = widgets.layer(body, 1)
     section.table_height = HEADER_HEIGHT + #data.drops * ROW_HEIGHT
@@ -288,7 +289,7 @@ local function create_section_body(controller, data)
         add_section_text(section, "[" .. number .. "] " .. note, false, references[number])
     end
 
-    add_section_text(section, data.afterword, false)
+    add_section_text(section, kill_value.without_wiki_averages(data.afterword), false)
 
     return section
 end
@@ -313,12 +314,28 @@ local function layout_toolbar(controller)
     local bottom = controller.search.layout(right + 16, y)
     controller.toolbar:SetSize(controller.page.content.width, bottom + 8)
 
+    y = bottom + 8 + TOOLBAR_CONTENT_GAP
+
     if controller.status_label then
-        controller.status_label:SetPos(8, bottom + 8 + TOOLBAR_CONTENT_GAP)
-        return bottom + 8 + TOOLBAR_CONTENT_GAP + controller.status_label.height + 8
+        controller.status_label:SetPos(8, y)
+        y = y + controller.status_label.height + 4
     end
 
-    return bottom + 12 + TOOLBAR_CONTENT_GAP
+    -- the kill value and its note wrap with the page width, so theyre measured each time
+    local width = math.max(1, controller.page.content.width - 16)
+
+    for _, line in ipairs(controller.value_lines or {}) do
+        local height = text_layout.height(line.text, width, line.measure, line.line_height)
+        line.label:SetPos(8, y)
+        line.label:SetSize(-16, height, 1, 0)
+        y = y + height + 4
+    end
+
+    if y == bottom + 8 + TOOLBAR_CONTENT_GAP then
+        return bottom + 12 + TOOLBAR_CONTENT_GAP
+    end
+
+    return y + 4
 end
 
 local function position_sections(controller)
@@ -507,6 +524,47 @@ local function create_status(controller)
     controller.status_label.enabled = false
 end
 
+-- the text and its font are kept next to the label rather than on it, client components
+-- wont take fields of our own (putting one there stopped the whole toolbar laying out).
+-- big and gold like the prices so its easy to spot
+local function add_value_line(controller, text)
+    local label = prettyui.Text.new(controller.page.content, {
+        text = text,
+        x = 8,
+        width = -16,
+        widthAnchor = 1,
+        height = 24,
+        maxLines = 0,
+        font = id.Font.MUSEO_SANS_15PT_REGULAR,
+        colour = theme.TEXT_PRICE,
+        shadowed = true,
+    })
+    label.clickthrough = true
+    label.enabled = false
+    controller.value_lines[#controller.value_lines + 1] = {
+        label = label,
+        text = text,
+        -- config.Font is the same font as id.Font, for measuring
+        measure = config.Font.MUSEO_SANS_15PT_REGULAR,
+        line_height = 22,
+    }
+end
+
+-- the average kill value for the tables being shown, worked out again on every render, which
+-- happens when the mode changes or live prices turn up, never per frame
+local function create_kill_value(controller, sections)
+    local value = kill_value.calculate(sections, controller.options.unit_price)
+
+    if value.counted == 0 then
+        return
+    end
+
+    local amount = price_format.format(value.total)
+    local text = value.estimate and ("Estimated average kill: about " .. amount)
+        or ("Average kill: " .. amount)
+    add_value_line(controller, text)
+end
+
 local function create_section_button(controller, section, title)
     local button = prettyui.CollapseButton.new(controller.page.content, title, {
         expanded = section.expanded,
@@ -593,6 +651,11 @@ local function destroy_sections(controller)
     if controller.status_label then
         controller.status_label:Destroy()
     end
+
+    for _, line in ipairs(controller.value_lines or {}) do
+        line.label:Destroy()
+    end
+    controller.value_lines = {}
 
     if controller.mode_picker then
         controller.mode_picker:Destroy()
@@ -682,6 +745,7 @@ end
 ---@class DropTableOptions
 ---@field percentage_rarity boolean?
 ---@field price_for (fun(drop: Drop): any)? live price for a row, nil keeps drop.price
+---@field unit_price (fun(item_id: integer, reference: number?): number?)? live price for one item, for the kill value
 ---@field status string? cache status line under the buttons
 ---@field problem string? refresh error, makes the status line a warning
 ---@field search_query string? search text to carry over from the last render
@@ -706,13 +770,17 @@ function drop_table.render(page, sections, overlay_parent, options)
         groups = drop_groups.mode_groups(sections),
         sections = {},
         tooltips = {},
+        value_lines = {},
         building = true,
     }
+
+    local shown = sections
 
     if controller.groups then
         -- only the picked mode gets built, its titles drop the "Drops (hard mode) / " part
         controller.mode = math.min(math.max(options.mode or 1, 1), #controller.groups)
         local group = controller.groups[controller.mode]
+        shown = group.sections
 
         for index, section in ipairs(group.sections) do
             add_section(controller, section, group.titles[index])
@@ -725,6 +793,8 @@ function drop_table.render(page, sections, overlay_parent, options)
 
     if #controller.sections > 0 then
         create_toolbar(controller)
+        -- only the mode being shown, so normal and hard mode are never added together
+        create_kill_value(controller, shown)
     end
 
     controller.building = false

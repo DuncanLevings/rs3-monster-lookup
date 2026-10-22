@@ -135,6 +135,23 @@ function fixture.new(root, saved)
         local text = native_component(parent)
         text.content = options.text
         text.options = options
+
+        -- client text components only take their own fields, a plugin field on one is a script
+        -- error in game (the kill value once stored its font on its label and broke the toolbar)
+        local base = getmetatable(text)
+        local own = {
+            content = true, clickthrough = true, enabled = true, hidden = true, colour = true,
+            alpha = true, rgb = true, rgba = true, destroyed = true, hooks = true, x_anchor = true,
+            y_anchor = true, width_anchor = true, height_anchor = true, scroll_width = true,
+            scroll_height = true, maxLines = true,
+        }
+        setmetatable(text, {
+            __index = base.__index,
+            __newindex = function(component, key, value)
+                assert(own[key], "Text components have no field " .. tostring(key))
+                base.__newindex(component, key, value)
+            end,
+        })
         context.texts[#context.texts + 1] = text
         return text
     end

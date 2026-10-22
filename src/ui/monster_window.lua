@@ -211,6 +211,7 @@ local function replace_drop_tables(sections)
     drop_table_controller = drop_table.render(drops_page, sections, window.parent, {
         percentage_rarity = settings.get().percentage_rarity,
         price_for = prices.for_drop,
+        unit_price = prices.unit,
         status = cache_status(current_metadata, current_problem),
         problem = current_problem,
         search_query = search_query,

@@ -9,6 +9,7 @@ local text = require("src/utils/wiki_text")
 local json = require("src/utils/json")
 local wiki_switches = require("tools/wiki_switches")
 local wiki_notes = require("src/utils/wiki_notes")
+local drop_odds = require("src/data/drop_odds")
 
 local wiki_page = {}
 
@@ -97,7 +98,7 @@ local function parse_drop(row, notes, section)
     end
 
     local explanation, marker = row_notes(row, notes, section)
-    return {
+    local drop = {
         name = text.plain(cells[2].content),
         wiki_name = name,
         quantity = text.plain(cells[3].content),
@@ -106,6 +107,17 @@ local function parse_drop(row, notes, section)
         notes = explanation,
         note_marker = marker,
     }
+
+    -- the first percent is the base rate, any after a ";" are the luck boosted ones. rows
+    -- without one have a word like Always or Rare instead, which fill sorts out
+    local percent = cells[4].content:match('data%-drop%-percent="([^"]*)"')
+    if percent then
+        drop_odds.fill(drop, text.decode(percent), true)
+    else
+        drop_odds.fill(drop, drop.rate)
+    end
+
+    return drop
 end
 
 local function section_title(headings)

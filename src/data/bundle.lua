@@ -13,7 +13,7 @@ local shapes = require("src/data/bundle_shapes")
 
 local bundle = {}
 -- must match FORMAT_VERSION in tools/build_bundle.lua
-local FORMAT = 2
+local FORMAT = 3
 
 local index
 local strings, shared

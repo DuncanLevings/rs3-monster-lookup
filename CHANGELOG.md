@@ -16,6 +16,7 @@
 - Search by dropped item to see which monsters drop it, best chance first, and open a monster straight to that drop.
 - Rank monsters by combat XP, XP per life point, Slayer XP and other stats, with level caps and bosses hidden by default.
 - Show a 3D model of the monster on the Monster info tab that you can turn, tilt, move and zoom.
+- Show the average value of a kill for the selected mode, worked out from the drop tables with live GE prices, in place of the Wiki's saved figures.
 
 ## 0.0.1
 

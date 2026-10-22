@@ -22,10 +22,11 @@ local encoder_module = require("tools/bundle_encoder")
 local bundle_pack = require("tools/bundle_pack")
 local search_index = require("tools/search_index")
 
-local FORMAT_VERSION = 2
+local FORMAT_VERSION = 3
 local SHARD_TARGET = 64 * 1024
--- the drop and stat search indexes take it from about 1.4 MB to 1.7 MB, zipped its ~200 KB
-local install, budget = false, 1750000
+-- the drop and stat search indexes took it from about 1.4 MB to 1.7 MB, the numbers for the
+-- kill value (chance, rolls, quantity bounds per drop) to 1.8 MB. zipped its about 600 KB
+local install, budget = false, 1850000
 
 for index = 1, #(arg or {}) do
     if arg[index] == "--install" then

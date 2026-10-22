@@ -13,7 +13,12 @@ shapes.SECTION = {
     "title", "description", "afterword", "drops", "notes", "note_ids",
     "drop_mode", "drop_switch", "drop_threshold",
 }
-shapes.DROP = { "name", "quantity", "rate", "price", "notes", "note_marker", "item_id" }
+-- the last four are the numbers for the kill value, see src/data/drop_odds.lua. theyre at the
+-- end so rows that dont need them (Always, a plain quantity, one roll) store nothing extra
+shapes.DROP = {
+    "name", "quantity", "rate", "price", "notes", "note_marker", "item_id",
+    "chance", "rolls", "quantity_low", "quantity_high",
+}
 shapes.LOCATION = { "name", "levels", "requirements", "spawns", "page", "map", "map_issue" }
 shapes.MAP = { "id", "plane", "x", "z" }
 

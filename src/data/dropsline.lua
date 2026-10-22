@@ -9,6 +9,7 @@
 local json = require("src/utils/json")
 local text = require("src/utils/wiki_text")
 local wiki_notes = require("src/utils/wiki_notes")
+local drop_odds = require("src/data/drop_odds")
 
 ---@class Drop
 ---@field name string item name as shown on the page
@@ -19,6 +20,10 @@ local wiki_notes = require("src/utils/wiki_notes")
 ---@field price number|{minimum: number, maximum: number}|"Not sold"|nil
 ---@field notes string footnote text for this row, "" if none
 ---@field note_marker string footnote numbers eg "1,3", "" if none
+---@field chance string? percent per roll, see src/data/drop_odds.lua
+---@field rolls integer? rolls per kill, nil means 1
+---@field quantity_low integer? lowest quantity when its not just a number
+---@field quantity_high integer? highest quantity when its not the same as the lowest
 
 ---@class DropSection
 ---@field title string headings above the table joined with " / "
@@ -143,15 +148,30 @@ local function read_row(row)
 
     local name = clean(type(item) == "string" and item or wiki_name)
     local name_note = clean(data["Name Notes"])
+    local drop = {
+        name = name_note ~= "" and name .. " " .. name_note or name,
+        wiki_name = wiki_name,
+        quantity = clean(tostring(data["Drop Quantity"] or "")),
+        rate = rate_text(data),
+        price = price(data, wiki_name),
+    }
+
+    -- the base rarity, not the luck boosted one, same as the wikis own average value
+    drop_odds.fill(drop, clean(data["Rarity"]))
+    local rolls, low, high = data["Rolls"], data["Quantity Low"], data["Quantity High"]
+
+    if drop.chance and whole(rolls) and rolls > 1 then
+        drop.rolls = rolls
+    end
+
+    -- the bucket has the bounds as numbers already, theyre better than the text
+    if whole(low) and whole(high) and low <= high and tostring(low) ~= drop.quantity then
+        drop.quantity_low = low
+        drop.quantity_high = high ~= low and high or nil
+    end
 
     return {
-        drop = {
-            name = name_note ~= "" and name .. " " .. name_note or name,
-            wiki_name = wiki_name,
-            quantity = clean(tostring(data["Drop Quantity"] or "")),
-            rate = rate_text(data),
-            price = price(data, wiki_name),
-        },
+        drop = drop,
         notes = row_notes(data),
         modes = modes_of(data),
         rare = row.rare_drop_table == true or data["Dropped item from RDT"] ~= nil,
