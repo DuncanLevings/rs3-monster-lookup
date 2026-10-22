@@ -108,7 +108,7 @@ return function(root)
         lu.assertNil(self.bundle.find({ name = "Goblin", wiki_title = "Goblin" }))
         lu.assertNil(self.bundle.find({ npc_id = 3264, name = "Goblin" }))
         lu.assertEquals(#self.logs, 1)
-        lu.assertStrContains(self.logs[1], "Expected format 3")
+        lu.assertStrContains(self.logs[1], "Expected format 4")
     end
 
     function suite:test_search_names_match_the_bundled_titles()
@@ -134,6 +134,44 @@ return function(root)
         for _, name in ipairs(self.required) do
             lu.assertNil(name:match("^src/data/bundle/shard_"))
         end
+    end
+
+    -- drop rows leave out what can be worked out, see shapes.DERIVED
+    function suite:test_left_out_drop_fields_are_worked_out_like_the_wiki_writes_them()
+        local shapes = require("src/data/bundle_shapes")
+        local derive = shapes.derive
+        local item = { id = 4151, unit = 30 }
+
+        lu.assertEquals(derive.item_id({}, item), 4151)
+        lu.assertEquals(derive.price({ quantity = "3" }, item), 90)
+        lu.assertEquals(derive.price({ quantity = "2–4 (noted)" }, item), { minimum = 60, maximum = 120 })
+        lu.assertEquals(derive.price({ quantity = "1" }, { unit = "Not sold" }), "Not sold")
+        lu.assertNil(derive.price({ quantity = "Unknown" }, item))
+
+        -- 3 significant figures, halves round up like the wiki (3.125 -> 3.13)
+        lu.assertEquals(derive.chance({ rate = "4/128" }), "3.13")
+        lu.assertEquals(derive.chance({ rate = "1/66.7" }), "1.5")
+        lu.assertEquals(derive.chance({ rate = "3 × 1/1,500" }), "0.0667")
+        lu.assertEquals(derive.chance({ rate = "Always" }), "100")
+        lu.assertNil(derive.chance({ rate = "Common" }))
+        lu.assertEquals(derive.rolls({ rate = "3 × 1/1,500", chance = "0.0667" }), 3)
+        lu.assertNil(derive.rolls({ rate = "3 × Rare" }))
+
+        lu.assertNil(derive.quantity_low({ quantity = "5" }))
+        lu.assertEquals(derive.quantity_low({ quantity = "1,000" }), 1000)
+        lu.assertEquals(derive.quantity_high({ quantity = "8–9; 16–18" }), 18)
+    end
+
+    function suite:test_items_table_reads_ids_units_and_not_sold()
+        local shapes = require("src/data/bundle_shapes")
+        local strings = { "Abyssal whip", "Bones", "Clue scroll" }
+
+        -- unit x is 33 gp, - is Not sold
+        local items = shapes.read_items("0:37b:x,1::-,2:a:", strings)
+
+        lu.assertEquals(items["Abyssal whip"], { id = 4151, unit = 33 })
+        lu.assertEquals(items.Bones, { unit = "Not sold" })
+        lu.assertEquals(items["Clue scroll"], { id = 10 })
     end
 
     -- the drop search and top stats indexes that ship with the bundle

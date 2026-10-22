@@ -13,10 +13,10 @@ local shapes = require("src/data/bundle_shapes")
 
 local bundle = {}
 -- must match FORMAT_VERSION in tools/build_bundle.lua
-local FORMAT = 3
+local FORMAT = 4
 
 local index
-local strings, shared
+local strings, shared, items
 local unavailable = false
 
 local function report(problem)
@@ -144,8 +144,9 @@ function bundle.load(page)
         -- loaded once on the first lookup, then kept by require
         strings = strings or require("src/data/bundle/strings")
         shared = shared or require("src/data/bundle/shared")
+        items = items or shapes.read_items(require("src/data/bundle/items"), strings)
         local shard = require(string.format("src/data/bundle/shard_%02d", loaded.shards[page]))
-        return shapes.unpack_page(codec.decode(assert(shard[page]), strings, shared))
+        return shapes.unpack_page(codec.decode(assert(shard[page]), strings, shared), items)
     end)
 
     if not ok then

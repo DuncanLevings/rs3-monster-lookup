@@ -21,11 +21,13 @@ local shapes = require("src/data/bundle_shapes")
 local encoder_module = require("tools/bundle_encoder")
 local bundle_pack = require("tools/bundle_pack")
 local search_index = require("tools/search_index")
+local kill_value = require("src/data/drops/value")
 
-local FORMAT_VERSION = 3
+local FORMAT_VERSION = 4
 local SHARD_TARGET = 64 * 1024
 -- the drop and stat search indexes took it from about 1.4 MB to 1.7 MB, the numbers for the
--- kill value (chance, rolls, quantity bounds per drop) to 1.8 MB. zipped its about 600 KB
+-- kill value (chance, rolls, quantity bounds per drop) to 1.8 MB. zipped its about 600 KB.
+-- format 4 took it back to about 1.5 MB by working those out on load (shapes.DERIVED)
 local install, budget = false, 1850000
 
 for index = 1, #(arg or {}) do
@@ -135,6 +137,28 @@ local function deep_equal(a, b)
     return true
 end
 
+-- where two tables first differ, eg "sections.3.drops.2.chance (0.13 vs 0.130)"
+local function first_difference(a, b, path)
+    path = path or ""
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return a ~= b and path .. " (" .. tostring(a) .. " vs " .. tostring(b) .. ")" or nil
+    end
+    local keys = {}
+    for key in pairs(a) do
+        keys[key] = true
+    end
+    for key in pairs(b) do
+        keys[key] = true
+    end
+    for key in pairs(keys) do
+        local found = first_difference(a[key], b[key], path .. "." .. tostring(key))
+        if found then
+            return found
+        end
+    end
+    return nil
+end
+
 local started = os.clock()
 local selection = json.decode(read(ROOT .. "/work/wiki/selection.json"))
 local item_ids = json.decode(read(ROOT .. "/work/wiki/item_ids.json"))
@@ -197,6 +221,10 @@ for number, title in ipairs(selection.kept) do
             for _, drop in ipairs(section.drops) do
                 drop.wiki_name = nil
             end
+            -- the wikis "average kill is worth" sentences are hidden by the drop table anyway
+            -- (the kill value replaces them), no point shipping them
+            section.description = kill_value.without_wiki_averages(section.description)
+            section.afterword = kill_value.without_wiki_averages(section.afterword)
         end
         trimmed_bytes = trimmed_bytes + #json.encode(result)
         pages[#pages + 1] = result
@@ -213,9 +241,11 @@ for number, title in ipairs(selection.kept) do
 end
 
 -- pack: fixed-order lists first (src/data/bundle_shapes.lua), then strings and shared tables
+-- one item id and unit price per item name, so drop rows dont each repeat them
+local items = bundle_pack.items(pages)
 local shaped = {}
 for index, page in ipairs(pages) do
-    shaped[index] = bundle_pack.page(page)
+    shaped[index] = bundle_pack.page(page, items)
 end
 
 local encoder = encoder_module.new()
@@ -223,6 +253,9 @@ for _, page in ipairs(shaped) do
     encoder:collect(page)
 end
 encoder:finish()
+local items_text = bundle_pack.items_text(items, encoder.string_index)
+-- read back the same way the plugin does, for the round trip below
+local read_items = shapes.read_items(items_text, encoder.strings)
 
 local packed = {}
 for index, page in ipairs(shaped) do
@@ -235,13 +268,16 @@ local slowest, slowest_title = 0, nil
 for index, page in ipairs(pages) do
     local start = os.clock()
     local unpacked =
-        shapes.unpack_page(codec.decode(packed[index], encoder.strings, encoder.shared))
+        shapes.unpack_page(codec.decode(packed[index], encoder.strings, encoder.shared), read_items)
     local took = os.clock() - start
     if took > slowest then
         slowest, slowest_title = took, page.title
     end
     page.info = page.variants[1] or {}
-    assert(deep_equal(unpacked, page), "round trip changed " .. page.title)
+    assert(
+        deep_equal(unpacked, page),
+        "round trip changed " .. page.title .. " at " .. tostring(first_difference(unpacked, page))
+    )
     page.info = nil
 end
 
@@ -342,6 +378,7 @@ end
 
 sizes.strings = write(output .. "/strings.lua", header .. lua_list(encoder.strings, true))
 sizes.shared = write(output .. "/shared.lua", header .. lua_list(encoder.shared, false))
+sizes.items = write(output .. "/items.lua", header .. 'return "' .. items_text .. '"\n')
 
 -- clear shards from an earlier, bigger build, a stale one would be read with the wrong strings
 local stale = 1
@@ -423,7 +460,13 @@ local stats_source, stat_rows = search_index.stats(pages, header, encoder.string
 sizes.drops = write(output .. "/drops.lua", drops_source)
 sizes.stats = write(output .. "/stats.lua", stats_source)
 
-local total = sizes.strings + sizes.shared + sizes.shards + sizes.index + sizes.drops + sizes.stats
+local total = sizes.strings
+    + sizes.shared
+    + sizes.items
+    + sizes.shards
+    + sizes.index
+    + sizes.drops
+    + sizes.stats
 local missing = 0
 for _ in pairs(missing_ids) do
     missing = missing + 1
@@ -461,6 +504,7 @@ print("  trimmed stats/fields     " .. kb(trimmed_bytes))
 print("  packed bundle total      " .. kb(total))
 print("    strings.lua            " .. kb(sizes.strings))
 print("    shared.lua             " .. kb(sizes.shared))
+print("    items.lua              " .. kb(sizes.items))
 print("    shards                 " .. kb(sizes.shards))
 print("    index.lua              " .. kb(sizes.index))
 print(
