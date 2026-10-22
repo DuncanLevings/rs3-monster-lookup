@@ -23,9 +23,19 @@ local create_monster_search_suite = require("tests/monster_search_spec")
 local create_search_ui_suite = require("tests/search_ui_spec")
 local create_marker_suite = require("tests/location_marker_spec")
 local create_refresh_app_suite = require("tests/refresh_app_spec")
+local create_location_map_suite = require("tests/location_map_spec")
+local create_location_navigation_suite = require("tests/location_navigation_spec")
+local create_dungeon_access_suite = require("tests/dungeon_access_spec")
+local create_dungeon_routing_suite = require("tests/dungeon_routing_spec")
+local create_location_spawns_suite = require("tests/location_spawns_spec")
 local runner = lu.LuaUnit.new()
 
 runner:runSuiteByInstances({
+    { "TestLocationMap", create_location_map_suite(root) },
+    { "TestLocationNavigation", create_location_navigation_suite(root) },
+    { "TestDungeonAccess", create_dungeon_access_suite(root) },
+    { "TestDungeonRouting", create_dungeon_routing_suite(root) },
+    { "TestLocationSpawns", create_location_spawns_suite(root) },
     { "TestRefreshApp", create_refresh_app_suite(root) },
     { "TestLocationMarker", create_marker_suite(root) },
     { "TestMonsterSearch", create_monster_search_suite(root) },

@@ -1,0 +1,1074 @@
+{
+  "retrieved": "2026-10-21",
+  "license": "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+  "entrances": [
+    {
+      "pages": [
+        "Taverley Dungeon"
+      ],
+      "x": 2885,
+      "z": 3397
+    },
+    {
+      "pages": [
+        "Brimhaven Dungeon"
+      ],
+      "x": 2744,
+      "z": 3155
+    },
+    {
+      "pages": [
+        "Fremennik Slayer Dungeon"
+      ],
+      "x": 2798,
+      "z": 3615
+    },
+    {
+      "pages": [
+        "Pollnivneach Slayer Dungeon"
+      ],
+      "x": 3359,
+      "z": 2972
+    },
+    {
+      "pages": [
+        "Ancient Cavern",
+        "Kuradal's Dungeon"
+      ],
+      "via": "Ancient Cavern whirlpool",
+      "x": 2510,
+      "z": 3506
+    },
+    {
+      "pages": [
+        "Morytania Slayer Tower dungeon",
+        "Slayer Tower Resource Dungeon"
+      ],
+      "x": 3434,
+      "z": 3532
+    },
+    {
+      "pages": [
+        "God Wars Dungeon"
+      ],
+      "x": 2915,
+      "z": 3741
+    },
+    {
+      "pages": [
+        "Polypore Dungeon"
+      ],
+      "x": 3409,
+      "z": 3330
+    },
+    {
+      "pages": [
+        "Polypore Dungeon resource dungeon"
+      ],
+      "via": "Polypore Dungeon entrance (access to resource dungeon)",
+      "x": 3409,
+      "z": 3330
+    },
+    {
+      "pages": [
+        "Lumbridge Catacombs"
+      ],
+      "x": 3246,
+      "z": 3198
+    },
+    {
+      "pages": [
+        "Chaos Tunnels"
+      ],
+      "via": "Chaos Tunnels level 6 Wilderness entrance",
+      "x": 3058,
+      "z": 3550
+    },
+    {
+      "pages": [
+        "Heart of Gielinor",
+        "The Heart of Gielinor"
+      ],
+      "x": 3378,
+      "z": 2881
+    },
+    {
+      "pages": [
+        "Lair of Tarn Razorlor (dungeon)",
+        "Lair of Tarn Razorlor",
+        "Tarn's Lair"
+      ],
+      "via": "Abandoned Mine entrance",
+      "x": 3429,
+      "z": 3233
+    },
+    {
+      "pages": [
+        "Abandoned Mine"
+      ],
+      "x": 3429,
+      "z": 3233
+    },
+    {
+      "pages": [
+        "Al Kharid resource dungeon"
+      ],
+      "x": 3297,
+      "z": 3308
+    },
+    {
+      "pages": [
+        "Asgarnian Ice Dungeon",
+        "Asgarnian Ice Caves"
+      ],
+      "x": 3008,
+      "z": 3150
+    },
+    {
+      "pages": [
+        "Waterfall Dungeon"
+      ],
+      "x": 2511,
+      "z": 3464
+    },
+    {
+      "pages": [
+        "Clock Tower Dungeon"
+      ],
+      "x": 2566,
+      "z": 3242,
+      "via": "Clock Tower Dungeon zone 1 entrance"
+    },
+    {
+      "pages": [
+        "Daemonheim Peninsula Island"
+      ],
+      "x": 3514,
+      "z": 3668
+    },
+    {
+      "pages": [
+        "Dragontooth Island resource dungeon"
+      ],
+      "x": 3810,
+      "z": 3530
+    },
+    {
+      "pages": [
+        "Dwarven mines",
+        "Dwarven Mine"
+      ],
+      "x": 3060,
+      "z": 3378,
+      "via": "Dwarven mines entrance in Falador"
+    },
+    {
+      "pages": [
+        "Mining Guild"
+      ],
+      "x": 3020,
+      "z": 3339
+    },
+    {
+      "pages": [
+        "Edgeville Dungeon"
+      ],
+      "x": 3097,
+      "z": 3468
+    },
+    {
+      "pages": [
+        "Edimmu resource dungeon"
+      ],
+      "x": 4604,
+      "z": 2692,
+      "level": 1
+    },
+    {
+      "pages": [
+        "Elder God Wars Dungeon",
+        "Senntisten"
+      ],
+      "x": 3332,
+      "z": 3452,
+      "via": "Senntisten ancient door"
+    },
+    {
+      "pages": [
+        "Flesh-hatcher Mhekarnahz resource dungeon"
+      ],
+      "x": 3354,
+      "z": 3757
+    },
+    {
+      "pages": [
+        "Forinthry Dungeon"
+      ],
+      "x": 3071,
+      "z": 3649,
+      "via": "Forinthry Dungeon south entrance"
+    },
+    {
+      "pages": [
+        "Glacor Cave",
+        "Saradomin's hidden cave"
+      ],
+      "x": 2909,
+      "z": 3839
+    },
+    {
+      "pages": [
+        "Goblin Cave"
+      ],
+      "x": 2626,
+      "z": 3392
+    },
+    {
+      "pages": [
+        "Gorajo Hoardstalker Dungeon",
+        "Gorajo resource dungeon"
+      ],
+      "x": 4604,
+      "z": 2719,
+      "level": 1
+    },
+    {
+      "pages": [
+        "Heroes' Guild Dungeon"
+      ],
+      "x": 2905,
+      "z": 3516,
+      "via": "Heroes' Guild access"
+    },
+    {
+      "pages": [
+        "Jhallan's resting place"
+      ],
+      "x": 2866,
+      "z": 3927
+    },
+    {
+      "pages": [
+        "Kal'gerion resource dungeon"
+      ],
+      "x": 3401,
+      "z": 3665
+    },
+    {
+      "pages": [
+        "Elvarg's lair",
+        "Crandor and Karamja Dungeon"
+      ],
+      "x": 2856,
+      "z": 3167,
+      "via": "Karamja Volcano entrance"
+    },
+    {
+      "pages": [
+        "Lava Maze Dungeon"
+      ],
+      "x": 3069,
+      "z": 3857,
+      "via": "Lava Maze Dungeon entrance inside the maze"
+    },
+    {
+      "pages": [
+        "Lumbridge Swamp Caves"
+      ],
+      "x": 3163,
+      "z": 3166
+    },
+    {
+      "pages": [
+        "Meiyerditch tunnels",
+        "Meiyerditch Dungeon"
+      ],
+      "x": 3508,
+      "z": 3444,
+      "via": "Meiyerditch tunnels entrance from Mort Myre Swamp"
+    },
+    {
+      "pages": [
+        "Mos Le'Harmless Caves",
+        "Cave of Horrors"
+      ],
+      "x": 3747,
+      "z": 2973
+    },
+    {
+      "pages": [
+        "Mourner tunnels"
+      ],
+      "x": 2543,
+      "z": 3327
+    },
+    {
+      "pages": [
+        "Observatory Dungeon"
+      ],
+      "x": 2459,
+      "z": 3184
+    },
+    {
+      "pages": [
+        "Ogre Enclave"
+      ],
+      "x": 2504,
+      "z": 3037
+    },
+    {
+      "pages": [
+        "Ripper Demon cave"
+      ],
+      "x": 3353,
+      "z": 3148,
+      "via": "Dark Tunnel to the Ripper Demon cave"
+    },
+    {
+      "pages": [
+        "Smoke Dungeon"
+      ],
+      "x": 3310,
+      "z": 2961
+    },
+    {
+      "pages": [
+        "Sophanem Slayer Dungeon"
+      ],
+      "x": 3291,
+      "z": 2709
+    },
+    {
+      "pages": [
+        "Underground Pass (dungeon)",
+        "Underground Pass"
+      ],
+      "x": 2438,
+      "z": 3315,
+      "via": "Underground Pass entrance in West Ardougne"
+    },
+    {
+      "pages": [
+        "Varrock Sewers"
+      ],
+      "x": 3237,
+      "z": 3458
+    },
+    {
+      "pages": [
+        "Waterbirth Island Dungeon"
+      ],
+      "x": 2522,
+      "z": 3740
+    },
+    {
+      "pages": [
+        "Witchaven Dungeon"
+      ],
+      "x": 2697,
+      "z": 3283
+    },
+    {
+      "pages": [
+        "Asgarnian Ice Dungeon resource dungeon"
+      ],
+      "parent": "Asgarnian Ice Dungeon"
+    },
+    {
+      "pages": [
+        "Baxtorian Falls resource dungeon"
+      ],
+      "parent": "Waterfall Dungeon"
+    },
+    {
+      "pages": [
+        "Brimhaven Dungeon resource dungeon"
+      ],
+      "parent": "Brimhaven Dungeon"
+    },
+    {
+      "pages": [
+        "Chaos Tunnels resource dungeon"
+      ],
+      "parent": "Chaos Tunnels"
+    },
+    {
+      "pages": [
+        "Dwarven Mine resource dungeon"
+      ],
+      "parent": "Dwarven mines"
+    },
+    {
+      "pages": [
+        "Edgeville Dungeon chaos druids dungeon"
+      ],
+      "parent": "Edgeville Dungeon"
+    },
+    {
+      "pages": [
+        "Edgeville Dungeon hill giant resource dungeon"
+      ],
+      "parent": "Edgeville Dungeon"
+    },
+    {
+      "pages": [
+        "Karamja Volcano resource dungeon"
+      ],
+      "parent": "Elvarg's lair"
+    },
+    {
+      "pages": [
+        "Mining Guild resource dungeon"
+      ],
+      "parent": "Mining Guild"
+    },
+    {
+      "pages": [
+        "Nodon Front"
+      ],
+      "parent": "Elder God Wars Dungeon"
+    },
+    {
+      "pages": [
+        "Senntisten Asylum"
+      ],
+      "parent": "Elder God Wars Dungeon"
+    },
+    {
+      "pages": [
+        "Taverley blue dragon resource dungeon"
+      ],
+      "parent": "Taverley Dungeon"
+    },
+    {
+      "pages": [
+        "Taverley hellhound resource dungeon"
+      ],
+      "parent": "Taverley Dungeon"
+    },
+    {
+      "pages": [
+        "Varrock Sewers resource dungeon"
+      ],
+      "parent": "Varrock Sewers"
+    },
+    {
+      "pages": [
+        "Fairy ring near Edgeville"
+      ],
+      "x": 3129,
+      "z": 3496,
+      "via": "Fairy ring near Edgeville",
+      "kind": "access"
+    },
+    {
+      "pages": [
+        "Abyssal Area"
+      ],
+      "parent": "Fairy ring near Edgeville",
+      "via": "Fairy ring near Edgeville: use ALR for the Abyssal Area",
+      "kind": "access"
+    },
+    {
+      "pages": [
+        "Dorgesh-Kaan South Dungeon"
+      ],
+      "parent": "Fairy ring near Edgeville",
+      "via": "Fairy ring near Edgeville: use AJQ for Dorgesh-Kaan South Dungeon",
+      "kind": "access"
+    },
+    {
+      "pages": [
+        "Mazcab"
+      ],
+      "x": 3086,
+      "z": 2869,
+      "via": "World window to Mazcab at the desert goebie camp",
+      "kind": "access"
+    },
+    {
+      "pages": [
+        "Braindeath Island 'Rum'-geon"
+      ],
+      "x": 3680,
+      "z": 3537,
+      "via": "Pirate Pete: travel to Braindeath Island for the 'Rum'-geon",
+      "kind": "access"
+    },
+    {
+      "pages": [
+        "Brine Rat Cavern"
+      ],
+      "x": 2748,
+      "z": 3733
+    },
+    {
+      "pages": [
+        "Burthorpe Slayer Cave"
+      ],
+      "x": 2919,
+      "z": 3466
+    },
+    {
+      "pages": [
+        "Burthorpe Troll Cave"
+      ],
+      "x": 2878,
+      "z": 3575
+    },
+    {
+      "pages": [
+        "Borehole"
+      ],
+      "x": 2973,
+      "z": 3434
+    },
+    {
+      "pages": [
+        "Deep Wilderness Dungeon"
+      ],
+      "x": 3045,
+      "z": 3924
+    },
+    {
+      "pages": [
+        "Camdozaal"
+      ],
+      "x": 3010,
+      "z": 3498
+    },
+    {
+      "pages": [
+        "Chaos Temple Dungeon"
+      ],
+      "x": 3240,
+      "z": 3606
+    },
+    {
+      "pages": [
+        "Dragonkin Laboratory"
+      ],
+      "x": 3368,
+      "z": 3890
+    },
+    {
+      "pages": [
+        "Corporeal Beast's Lair"
+      ],
+      "x": 3212,
+      "z": 3783
+    },
+    {
+      "pages": [
+        "Crypt (Wilderness)"
+      ],
+      "x": 3286,
+      "z": 3610
+    },
+    {
+      "pages": [
+        "Elemental Workshop"
+      ],
+      "x": 2710,
+      "z": 3497
+    },
+    {
+      "pages": [
+        "Falador Mole Lair"
+      ],
+      "x": 2985,
+      "z": 3384
+    },
+    {
+      "pages": [
+        "Fenkenstrain's Dungeon",
+        "Experiment Cave"
+      ],
+      "x": 3578,
+      "z": 3526
+    },
+    {
+      "pages": [
+        "Grotworm Lair"
+      ],
+      "x": 2993,
+      "z": 3238
+    },
+    {
+      "pages": [
+        "Exiled Kalphite Hive"
+      ],
+      "x": 3235,
+      "z": 2858
+    },
+    {
+      "pages": [
+        "Kalphite Hive"
+      ],
+      "x": 3226,
+      "z": 3109
+    },
+    {
+      "pages": [
+        "Jadinko Lair"
+      ],
+      "x": 2948,
+      "z": 2955
+    },
+    {
+      "pages": [
+        "Monastery of Ascension"
+      ],
+      "x": 2500,
+      "z": 2887
+    },
+    {
+      "pages": [
+        "Poison Waste Slayer Dungeon"
+      ],
+      "x": 2321,
+      "z": 3100
+    },
+    {
+      "pages": [
+        "Stronghold of Security"
+      ],
+      "x": 3082,
+      "z": 3421
+    },
+    {
+      "pages": [
+        "Morvran's Dungeon"
+      ],
+      "x": 4563,
+      "z": 2622
+    },
+    {
+      "pages": [
+        "Sophanem Dungeon"
+      ],
+      "x": 3315,
+      "z": 2797
+    },
+    {
+      "pages": [
+        "Temple of Ikov (dungeon)"
+      ],
+      "x": 2677,
+      "z": 3405
+    },
+    {
+      "pages": [
+        "Snake pit",
+        "Crash Island Dungeon"
+      ],
+      "x": 2922,
+      "z": 2722
+    },
+    {
+      "pages": [
+        "The Skullery"
+      ],
+      "x": 3091,
+      "z": 3277
+    },
+    {
+      "pages": [
+        "The Empty Throne Room"
+      ],
+      "x": 3374,
+      "z": 3402
+    },
+    {
+      "pages": [
+        "The Shadow Reef"
+      ],
+      "x": 3511,
+      "z": 3693
+    },
+    {
+      "pages": [
+        "Shilo Village underground mine"
+      ],
+      "x": 2824,
+      "z": 3000
+    },
+    {
+      "pages": [
+        "Living Rock Caverns"
+      ],
+      "parent": "Dwarven mines"
+    },
+    {
+      "pages": [
+        "Gemstone cavern"
+      ],
+      "parent": "Shilo Village underground mine"
+    }
+  ],
+  "article_revisions": {
+    "Brimhaven Agility Arena": 37159315,
+    "Brimhaven Dungeon": 37122210,
+    "Ape Atoll Dungeon": 37130808,
+    "Asgarnian Ice Dungeon": 37127295,
+    "Ardougne Sewers": 37130548,
+    "Brine Rat Cavern": 37123760,
+    "Ancient Cavern": 37125121,
+    "Armadyl's Eyrie": 37192269,
+    "Bandos's Stronghold": 37133256,
+    "Brimstail's home": 37130785,
+    "Black Knights' Catacombs": 37125208,
+    "Bandos's throne room": 37163279,
+    "Ah Za Rhoon": 37198193,
+    "Asgarnian Ice Dungeon resource dungeon": 37131858,
+    "Baxtorian Falls resource dungeon": 37133280,
+    "Al Kharid resource dungeon": 37180738,
+    "Brimhaven Dungeon resource dungeon": 37135620,
+    "Black Knight Workshop": 37163348,
+    "Banana plantation (Ape Atoll)": 37130882,
+    "Black Knights' Base": 37130811,
+    "Ancient Prison": 37130417,
+    "Barendir": 37130558,
+    "Braindeath Island 'Rum'-geon": 37133165,
+    "Barrows": 37122076,
+    "Burthorpe Troll Cave": 37130583,
+    "Burthorpe Slayer Cave": 37131280,
+    "Basement of Doom": 37163372,
+    "Borehole": 37129749,
+    "Ancient Keldagrim ruins": 37130581,
+    "Ashdale Caves": 37133024,
+    "Araxyte Hive": 37124430,
+    "Apmeken tomb": 37122191,
+    "Bolrie's lab": 37163307,
+    "Adamant dragon dungeon": 37125740,
+    "Alice's Treasure Chamber": 37198874,
+    "Abandoned Mine": 37177590,
+    "Betty's basement": 37127385,
+    "Bank vault": 37108407,
+    "Black Knights Fortress Basement": 37133253,
+    "Blighted Cave": 37176610,
+    "Dorgesh-Kaan": 37156701,
+    "Creature Creation": 36550841,
+    "Dorgesh-Kaan South Dungeon": 37130587,
+    "Diango's Workshop (Draynor Village)": 37130545,
+    "Chaos Druid Tower": 37130932,
+    "Clock Tower Dungeon": 37178777,
+    "Deep Wilderness Dungeon": 37130819,
+    "Chaos Tunnels": 37175720,
+    "Columbarium": 37125044,
+    "Camdozaal": 37162658,
+    "Chaos Temple Dungeon": 37161653,
+    "Dragon forge": 37133115,
+    "Chasm of Tears": 37124859,
+    "Chaos Dwarf Battlefield": 37184348,
+    "Corridor of Light": 37133040,
+    "Daemonheim": 37160994,
+    "Daemonheim Peninsula Island": 37133117,
+    "Chaos Tunnels resource dungeon": 37133286,
+    "Caverns under Arandar": 37186052,
+    "Dragonkin Lair": 37162637,
+    "Crystal tree roots cave": 37131028,
+    "Category:Location templates": 16082375,
+    "Crondis tomb": 37163383,
+    "Dagannoth guardian dungeon": 37133065,
+    "Cavern of Tainted Memories (location)": 37121896,
+    "Charos' tomb": 37130955,
+    "Dragonkin Laboratory": 37184890,
+    "Crafting Guild Mine": 37180753,
+    "Dorgesh-Kaan mine": 37180761,
+    "Dondakan's mine": 37178916,
+    "Burthorpe mine": 37180751,
+    "Desert Mining Camp cave": 37180757,
+    "Corporeal Beast's Lair": 37133093,
+    "Crypt (Wilderness)": 37162634,
+    "City of Um troll cave": 37124832,
+    "Doric's cave": 37133324,
+    "Cave (Mountain Daughter)": 37133247,
+    "Desert obelisk": 37121972,
+    "Chemist's laboratory": 37133330,
+    "Dragonkin tomb": 37133245,
+    "Draynor Manor": 37109852,
+    "Dungeons": 37184347,
+    "Elvarg's lair": 37122213,
+    "Edgeville Dungeon": 37124838,
+    "Elemental Workshop": 37122718,
+    "Draynor Sewers": 37110185,
+    "Evil Chicken's Lair": 37160042,
+    "Entrana Dungeon": 37164919,
+    "Falador Mole Lair": 37127243,
+    "Fenkenstrain's Dungeon": 37124314,
+    "Fremennik Slayer Dungeon": 37122995,
+    "Dungeon (player-owned house)": 37184337,
+    "Enakhra's Temple": 37121980,
+    "Eagles' Peak cave": 37125632,
+    "Fairy Resistance Hideout": 37166313,
+    "Dwarven Tunnel": 37162663,
+    "Ghorrock": 37125144,
+    "Easter Bunny's burrow": 37130795,
+    "Gamers' Grotto": 37120467,
+    "Forinthry Dungeon": 37136439,
+    "Eadgar's cave": 37133301,
+    "Edgeville Dungeon chaos druids dungeon": 37124840,
+    "Edgeville Dungeon hill giant resource dungeon": 37124839,
+    "Exiled Kalphite Hive": 37121137,
+    "Evil Bob Tribute": 37111044,
+    "Dragontooth Island resource dungeon": 37125028,
+    "Elder Halls": 37130565,
+    "Edimmu resource dungeon": 37129062,
+    "Gemstone cavern": 37188303,
+    "Dwarven mines": 37180943,
+    "Dwarven Mine resource dungeon": 37183426,
+    "Genie's Cave": 37121978,
+    "Elder God Wars Dungeon": 37166261,
+    "Erjolf's cave": 37123602,
+    "Dreamer's cave": 37130952,
+    "Eagles' eyrie": 37140993,
+    "Fort Forinthry Prison": 37124905,
+    "Giant golden egg cave (Asgarnian Ice Dungeon)": 37133206,
+    "Flesh-hatcher Mhekarnahz resource dungeon": 37161936,
+    "Keldagrim": 37185357,
+    "Kalphite Hive": 37182842,
+    "H.A.M. Hideout": 37110057,
+    "Goblin Cave": 37122591,
+    "Grand Tree Tunnels": 37130876,
+    "Jiggig": 37130788,
+    "Jaldraocht Pyramid": 37176292,
+    "God Wars Dungeon": 37197200,
+    "Gnome Village Dungeon": 37130547,
+    "Ice Troll Caves": 37125220,
+    "Glarial's Tomb": 37153547,
+    "Goblin Temple": 37130787,
+    "Guthixian temple": 37130786,
+    "Gorak Plane": 37130915,
+    "Jhallan's resting place": 37130962,
+    "Ice Queen's lair": 37130810,
+    "Here Be Penguins": 37163404,
+    "Karamja Volcano resource dungeon": 37122216,
+    "Jadinko Lair": 37214845,
+    "Glacor Cave": 37130580,
+    "Grotworm Lair": 37130541,
+    "Kalphite Nursery": 37122042,
+    "Guthixian ruins": 37130527,
+    "Kal'gerion resource dungeon": 37133258,
+    "Gorajo Hoardstalker Dungeon": 37129064,
+    "Invention Guild": 37124934,
+    "Heart of Gielinor": 37187608,
+    "Ice strykewyrm cave": 37123601,
+    "Het tomb": 37163388,
+    "Hall of Memories": 37192098,
+    "Kerapac's laboratory": 37130526,
+    "Gnome glider hangar": 37133198,
+    "Kerapac's laboratory (Daemonheim)": 37179857,
+    "Heroes' Guild Dungeon": 37187360,
+    "Hetty's basement": 37133199,
+    "Jiggig Dungeon": 37133283,
+    "Keldagrim entrance tunnel": 37125231,
+    "Goblin Mine": 37110018,
+    "Highweald Ruins": 37122414,
+    "Hermit Cave": 37122418,
+    "Melzar's Maze": 37130533,
+    "King Black Dragon's Lair": 37162638,
+    "Lighthouse": 37139825,
+    "Lumbridge Swamp Caves": 37169606,
+    "Observatory Dungeon": 37122888,
+    "Mogre Camp": 37163310,
+    "Lunar Isle mine": 37180820,
+    "Mos Le'Harmless Caves": 37125021,
+    "Mouse Hole": 37130936,
+    "Miscellania and Etceteria dungeon": 37170282,
+    "Myreque Hideout": 37125039,
+    "Lava Maze Dungeon": 37188000,
+    "Nature Grotto": 37124527,
+    "Lair of Tarn Razorlor (dungeon)": 37180063,
+    "Meiyerditch tunnels": 37124534,
+    "Lumbridge mine": 37126008,
+    "Lighthouse Dungeon": 37123892,
+    "Mystic's Camp": 37130968,
+    "Movario's base": 37130572,
+    "Mithril door": 36666741,
+    "Living Rock Caverns": 37180815,
+    "Kuradal's Dungeon": 37130530,
+    "Mourner tunnels": 37130549,
+    "Nomad's temple": 37130796,
+    "Meiyerditch mine": 37180825,
+    "Lumbridge Catacombs": 37109974,
+    "Mining Guild resource dungeon": 37180837,
+    "Lava Flow Mine": 37185688,
+    "Lumbridge cellar": 37125986,
+    "Monastery of Ascension": 37125126,
+    "Morvran's Dungeon": 37129038,
+    "Liberation of Mazcab": 37198987,
+    "Lletya well cave": 37130957,
+    "Morytania Slayer Tower dungeon": 37125018,
+    "Nodon Hibernatorium": 37130837,
+    "Music maze cave": 37133045,
+    "Legends' Guild Dungeon": 37133229,
+    "Mage Arena bank": 37174981,
+    "Mr Mordaut Tribute": 37124847,
+    "Mudknuckles' kitchen": 37130973,
+    "Pyramid Plunder": 37195756,
+    "Paterdomus": 37109872,
+    "Pothole Dungeon": 37122217,
+    "Ogre Enclave": 37130938,
+    "River Elid cave": 37122031,
+    "Saradomin's Encampment": 37133067,
+    "Poison Waste Slayer Dungeon": 37207161,
+    "Ourania Cave": 37130807,
+    "Shade Catacombs": 37124424,
+    "Shadow Dungeon": 37163304,
+    "Phoenix Gang Hideout": 37108399,
+    "Pollnivneach Slayer Dungeon": 37120649,
+    "Rogues' Den": 37130793,
+    "Quartz crystal cave": 35324255,
+    "Rellekka Hunter area dungeon": 37167019,
+    "Ritual plateau tunnels": 37125234,
+    "Senntisten Temple": 37155984,
+    "Ork's Rift": 37161465,
+    "Scabaras Dungeon": 37121990,
+    "Polypore Dungeon": 37134559,
+    "Polypore Dungeon resource dungeon": 37156281,
+    "Rashiliyia's Tomb": 37122293,
+    "Red Axe base": 37130551,
+    "Robert the Strong's library": 37130585,
+    "Scabaras tomb": 37167087,
+    "Phalaks' lab": 37130867,
+    "Rantz's cave": 37133299,
+    "Ripper Demon cave": 37130886,
+    "Orthen Oubliette": 37130935,
+    "Senntisten sewers": 37124855,
+    "Senntisten Asylum": 37124853,
+    "Pretty Flower's Cave": 37133335,
+    "Queen Black Dragon's lair": 37133318,
+    "Piscatoris summoning cave": 37133230,
+    "Old Tower": 37214438,
+    "Sabbot's cave": 37133302,
+    "Rex Matriarch lair": 37133046,
+    "Rogues' Den bank": 37133262,
+    "Sanctum of Rebirth": 37211664,
+    "Scabarite Cavern": 37183966,
+    "Taverley Dungeon": 37130519,
+    "Stronghold of Security": 37178687,
+    "Slayer Tower": 37153468,
+    "Smoke Dungeon": 37121995,
+    "Sophanem Dungeon": 37130830,
+    "Temple of Light": 37130798,
+    "Temple of Ikov (dungeon)": 37130839,
+    "Stronghold of Player Safety": 37177359,
+    "Skavid caves": 37130969,
+    "Sigmund's base": 37130826,
+    "Snake pit": 37133054,
+    "Shady grove": 37130906,
+    "Temple Knight HQ": 37130543,
+    "Slug Citadel": 37130951,
+    "Sophanem bank": 37133197,
+    "Thammaron's throne room": 37163362,
+    "Temple of Marimbo Dungeon": 37130887,
+    "Taverley hellhound resource dungeon": 37133275,
+    "Taverley blue dragon resource dungeon": 37133267,
+    "The Skullery": 37124862,
+    "Storm cellar": 36776406,
+    "Sliske's lair": 37178077,
+    "Tarshak's Sanctum": 37162053,
+    "Sophanem Slayer Dungeon": 37121996,
+    "Sliske's Labyrinth": 37130871,
+    "Shifting Tombs": 37199080,
+    "Sunken Pyramid": 37130568,
+    "Stalker dungeon": 37168659,
+    "Temple of Aminishi": 37184804,
+    "The Shadow Reef": 37184722,
+    "The Empty Throne Room": 37109914,
+    "Slayer Tower Mausoleum": 37125023,
+    "The Zamorakian Undercity": 37124868,
+    "Shredflesh's Cave": 37127142,
+    "Tch'ki nut cave": 37133274,
+    "Silverlight Crypt": 37133309,
+    "Summoning obelisk (dungeon)": 37177211,
+    "Shilo Village underground mine": 37180859,
+    "Temple of Isolation": 37178733,
+    "Sunken Tutorial Island cavern": 37165120,
+    "TzHaar City": 37179924,
+    "Tolna's rift": 37108397,
+    "Witchaven Dungeon": 37125239,
+    "Varrock Sewers": 37149521,
+    "Waterbirth Island Dungeon": 37123081,
+    "Troll Stronghold (area)": 37130524,
+    "Yanille Agility dungeon": 37122663,
+    "Tunnel of Chaos": 37108396,
+    "Waterfall Dungeon": 37130578,
+    "Varrock Museum": 37150091,
+    "Underground Pass (dungeon)": 37207809,
+    "Tower of Life (building)": 37125123,
+    "Zamorak's Fortress": 37133257,
+    "Viyeldi caves": 37122322,
+    "Underwater Tunnel": 37125019,
+    "Well of Voyage": 36512829,
+    "Troll Stronghold storeroom": 37133052,
+    "Uzer Mastaba": 37188251,
+    "Tutorial Island mine": 37180881,
+    "Tutorial Cellar": 37214062,
+    "Troll kitchen": 37133047,
+    "TzHaar City library": 37122223,
+    "Varrock Sewers resource dungeon": 37124864,
+    "Tomb of Catolax": 37122197,
+    "Troll tunnels": 37125236,
+    "Tomb of Bervirius": 37122212,
+    "Underground pig pens": 37163396,
+    "Tomb of the Fallen": 37163358,
+    "Valluta's domain": 37214408,
+    "Zamorak's hideout": 37168660,
+    "Warped chamber": 37212673,
+    "Turael's basement": 37130982,
+    "Troll cave": 37130980,
+    "Watermill cellar": 37124917,
+    "Tunnel to Trollheim": 37133254,
+    "Witch's House (location)": 37145502,
+    "Tunnel (Death Plateau)": 37133321,
+    "Windmill cellar": 37133337,
+    "Tutorial Island Underground": 37133043,
+    "Wilderness Agility Course Pit": 37133259,
+    "Zamorakian Crypt": 37133308,
+    "Fairy ring": 37201025,
+    "Braindeath Island": 37125024,
+    "Abyssal Area": 37121525,
+    "Senntisten": 37109913,
+    "Enclave guard": 37130931,
+    "Mazcab": 37121983,
+    "Tuska's corpse": 37126556,
+    "Mining Guild": 37180938,
+    "Ancient door (Senntisten)": 36498077,
+    "Nodon Front": 37109919,
+    "Dark Tunnel": 36789419,
+    "Lumbridge Castle": 37149520,
+    "Pirate Pete": 36848109,
+    "Clock Tower (building)": 37133134,
+    "Map:Ogre Enclave": 35977313,
+    "World window": 37176270,
+    "Desert goebie camp": 37133219,
+    "Map:Clock Tower surface": 35975787,
+    "Cave Entrance (Goblin Cave)": 37104279,
+    "Cave entrance (Ogre Enclave)": 36774610,
+    "Mysterious entrance (Flesh-hatcher Mhekarnahz)": 37117597,
+    "Resource dungeons": 37198050,
+    "Template:Dungeons": 37167652
+  },
+  "reviewed_coordinate_sources": {
+    "Clock Tower Dungeon": "Map:Clock Tower surface (zone 1 entrance; tile centre rounded down)",
+    "Elder God Wars Dungeon": "Ancient door (Senntisten)",
+    "Goblin Cave": "Cave Entrance (Goblin Cave)",
+    "Ogre Enclave": "Cave entrance (Ogre Enclave)",
+    "Ripper Demon cave": "Dark Tunnel",
+    "Mazcab": "World window (current Gielinor entrance; excludes removed Tuska corpse location)",
+    "Abyssal Area": "Fairy ring DKR access; Abyssal Area confirms destination ALR",
+    "Dorgesh-Kaan South Dungeon": "Fairy ring DKR access; destination article confirms AJQ",
+    "Braindeath Island 'Rum'-geon": "Pirate Pete (near Ectofuntus)",
+    "Flesh-hatcher Mhekarnahz resource dungeon": "Mysterious entrance (Flesh-hatcher Mhekarnahz), entrance object 134744",
+    "Edimmu resource dungeon": "Wiki map 28 coordinates converted through the Prifddinas transform to native world tiles",
+    "Gorajo Hoardstalker Dungeon": "Wiki map 28 coordinates converted through the Prifddinas transform to native world tiles",
+    "Morvran's Dungeon": "Wiki map 28 coordinates converted through the Prifddinas transform to native world tiles"
+  },
+  "interior_references": {
+    "transforms": "Module:Map coordinates/transform-data.json, revision 37189800",
+    "portals": "Resource dungeons overview; only bounded parent-map coordinates retained",
+    "shared_map_membership": "Map 41 native source bounds for all Polypore floors; conversion remains separate from membership"
+  }
+}

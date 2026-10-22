@@ -384,7 +384,7 @@ return function(root)
         self.marker.mark(self.location, "Abyssal demon")
         self.context:tick(100)
         lu.assertNotNil(self.hints.arrow)
-        lu.assertTrue(self.hints.height_reads <= 3)
+        lu.assertTrue(self.hints.height_reads <= 6) -- Destination and player terrain, at most once per check.
         lu.assertEquals(self.hints.adds, 3)
         self.marker.clear()
         self.context:tick(1)
@@ -432,6 +432,292 @@ return function(root)
         local adds = self.hints.adds
         self.context:tick(100)
         lu.assertEquals(self.hints.adds, adds)
+    end
+
+    function suite:test_entrance_markers_use_surface_coordinates_and_explicit_access_labels()
+        local location =
+            { name = "Kuradal's Dungeon", map = { id = 36, plane = 0, x = 100, z = 102 } }
+        local action, tooltip, reason = self.marker.action(location)
+        lu.assertEquals(action, "Entrance")
+        lu.assertNil(reason)
+        lu.assertEquals(tooltip, "Mark the entrance")
+        lu.assertTrue(self.marker.mark(location, "Abyssal demon"))
+        self.context:tick(1)
+        lu.assertEquals(self.hints.area.coordGrid, { level = 0, x = 2510, z = 3506 })
+        lu.assertEquals(self.hints.arrow.coordFine.level, 0)
+        lu.assertStrContains(self.marker.status(), "Ancient Cavern whirlpool")
+        -- Unsupported selections leave a working destination intact and make no
+        -- native calls, even when repeated rapidly.
+        local adds = self.hints.adds
+        for _ = 1, 100 do
+            lu.assertFalse(
+                self.marker.mark(
+                    { name = "Quest instance", map = { id = 28, plane = 0, x = 3200, z = 3400 } },
+                    "Test"
+                )
+            )
+            lu.assertFalse(self.marker.mark({ name = "Unknown" }, "Test"))
+        end
+        self.context:tick(1)
+        lu.assertEquals(self.hints.adds, adds)
+        lu.assertTrue(self.marker.has_target())
+        lu.assertStrContains(self.marker.status(), "whirlpool")
+        self.hints.player = { level = 2, x = 2510, z = 3506 }
+        self.context:tick(50)
+        lu.assertTrue(self.marker.has_target())
+        self.hints.player.level = 0
+        self.context:tick(50)
+        lu.assertTrue(self.marker.has_target()) -- An entrance is a waypoint, not the final arrival.
+    end
+
+    function suite:test_dungeon_goal_survives_parent_entrance_but_clears_at_an_unsupported_interior()
+        local location = { name = "Tarn's Lair", map = { id = 30, plane = 0, x = 45, z = 82 } }
+        self.hints.player = { level = 0, x = 3429, z = 3233 }
+        lu.assertTrue(self.marker.mark(location, "Terror dog"))
+        self.context:tick(1)
+        lu.assertTrue(self.marker.has_target())
+        lu.assertNotStrContains(self.marker.status(), "Arrived")
+        self.hints.player = { level = 0, x = 3430, z = 9633 }
+        self.context.environment.LocList = {
+            Filter = function(query)
+                lu.assertEquals(query.name, "Entrance")
+                return { { coordGrid = { level = 0, x = 3436, z = 9658 } } }
+            end,
+        }
+        self.context:tick(53)
+        lu.assertTrue(self.marker.has_target())
+        lu.assertNotNil(self.hints.arrow)
+        lu.assertEquals(self.hints.arrow.coordFine.z, 9658 * 512 + 256)
+        lu.assertStrContains(self.marker.status(), "Entrance to Tarn's Lair")
+        self.hints.player = { level = 0, x = 3180, z = 4545 }
+        self.context:tick(53)
+        lu.assertFalse(self.marker.has_target())
+        lu.assertNil(self.hints.arrow)
+        lu.assertStrContains(self.marker.status(), "Interior guidance unavailable")
+        -- A new selection in a supported region still marks the actual spawn.
+        self.hints.player = { level = 0, x = 3140, z = 4670 }
+        lu.assertTrue(self.marker.mark(location, "Terror dog"))
+        self.context:tick(53)
+        lu.assertNotNil(self.hints.arrow)
+        lu.assertEquals(self.hints.arrow.coordFine.x, 3149 * 512 + 256)
+        lu.assertEquals(self.hints.arrow.coordFine.z, 4650 * 512 + 256)
+        self.hints.player = { level = 0, x = 3149, z = 4650 }
+        self.context:tick(50)
+        lu.assertFalse(self.marker.has_target())
+        lu.assertStrContains(self.marker.status(), "Arrived")
+    end
+
+    function suite:test_new_destination_inside_mine_uses_a_loaded_exit_then_resumes_outside()
+        self.hints.player = { level = 0, x = 3430, z = 9633 }
+        local queries = 0
+        self.context.environment.LocList = {
+            Filter = function(query)
+                queries = queries + 1
+                lu.assertEquals(query.name, "Cart tunnel")
+                lu.assertTrue(query.sameLevel)
+                lu.assertEquals(query.range, 64)
+                return {
+                    { coordGrid = { level = 0, x = 3441, z = 9632 } },
+                    { coordGrid = { level = 0, x = 3429, z = 9625 } },
+                    { coordGrid = { level = 1, x = 3430, z = 9633 } },
+                    { coordGrid = { level = 0, x = 3430, z = 3233 } },
+                }
+            end,
+        }
+        local location = { name = "Varrock", map = { id = 28, plane = 0, x = 3225, z = 3439 } }
+        self.marker.mark(location, "Goblin")
+        self.context:tick(100)
+        lu.assertTrue(queries <= 3)
+        lu.assertEquals(self.hints.arrow.coordFine.z, 9625 * 512 + 256)
+        lu.assertStrContains(self.marker.status(), "Abandoned Mine exit")
+        lu.assertTrue(self.marker.has_target()) -- Standing near a gate must not clear the destination.
+        self.hints.player = { level = 0, x = 3429, z = 3233 }
+        self.context:tick(53)
+        lu.assertEquals(self.hints.arrow.coordFine.z, 3439 * 512 + 256)
+        lu.assertStrContains(self.marker.status(), "Goblin - Varrock")
+    end
+
+    function suite:test_unknown_dungeon_or_missing_exit_keeps_goal_but_has_no_void_arrow()
+        self.marker.mark(self.location, "Abyssal demon")
+        self.context:tick(1)
+        for _, point in ipairs({
+            { level = 0, x = 3430, z = 9633 },
+            { level = 0, x = 7000, z = 7000 },
+        }) do
+            self.hints.player = point
+            self.context:tick(50)
+            lu.assertNil(self.hints.arrow)
+            lu.assertTrue(self.marker.has_target())
+            lu.assertStrContains(self.marker.status(), "Paused")
+        end
+        self.hints.player = { level = 0, x = 3220, z = 3220 }
+        self.context:tick(53)
+        lu.assertNotNil(self.hints.arrow)
+        lu.assertStrContains(self.marker.status(), "Marked")
+    end
+
+    function suite:test_doorway_guidance_pauses_if_the_loaded_entrance_is_missing_or_ambiguous()
+        local location = { name = "Tarn's Lair", map = { id = 30, plane = 0, x = 45, z = 82 } }
+        self.hints.player = { level = 0, x = 3430, z = 9633 }
+        local entries = { { coordGrid = { level = 0, x = 3436, z = 9658 } } }
+        self.context.environment.LocList = {
+            Filter = function()
+                return entries
+            end,
+        }
+        self.marker.mark(location, "Terror dog")
+        self.context:tick(1)
+        lu.assertNotNil(self.hints.arrow)
+        for _, candidates in ipairs({
+            {},
+            { { coordGrid = { level = 1, x = 3436, z = 9658 } } },
+            { { coordGrid = { level = 0, x = 3436, z = 3258 } } },
+            {
+                { coordGrid = { level = 0, x = 3436, z = 9658 } },
+                { coordGrid = { level = 0, x = 3438, z = 9658 } },
+            },
+        }) do
+            entries = candidates
+            self.context:tick(50)
+            lu.assertNil(self.hints.arrow)
+            lu.assertTrue(self.marker.has_target())
+            lu.assertStrContains(self.marker.status(), "north of the mine")
+        end
+        entries = { { coordGrid = { level = 0, x = 3436, z = 9658 } } }
+        self.context:tick(53)
+        lu.assertNotNil(self.hints.arrow)
+        lu.assertStrContains(self.marker.status(), "Entrance to Tarn's Lair")
+    end
+
+    function suite:test_new_dungeon_keeps_goal_at_entrance_then_guides_to_spawn()
+        local location =
+            { name = "Smoke Dungeon", map = { id = 591, plane = 0, x = 3213, z = 9361 } }
+        self.hints.player = { level = 0, x = 3310, z = 2961 }
+        lu.assertTrue(self.marker.mark(location, "Dust devil"))
+        self.context:tick(1)
+        lu.assertTrue(self.marker.has_target())
+        self.hints.player = { level = 0, x = 3250, z = 9361 }
+        self.context:tick(53)
+        lu.assertNotNil(self.hints.arrow)
+        lu.assertEquals(self.hints.arrow.coordFine.x, 3213 * 512 + 256)
+        lu.assertEquals(self.hints.arrow.coordFine.z, 9361 * 512 + 256)
+        self.hints.player = { level = 0, x = 3213, z = 9361 }
+        self.context:tick(53)
+        lu.assertFalse(self.marker.has_target())
+    end
+
+    function suite:test_resource_dungeon_guides_to_portal_then_spawn_without_completing_at_either_entrance()
+        local location = {
+            name = "Taverley blue dragon resource dungeon",
+            map = { id = 379, plane = 0, x = 967, z = 4498 },
+        }
+        self.hints.player = { level = 0, x = 2885, z = 3397 }
+        lu.assertTrue(self.marker.mark(location, "Blue dragon"))
+        self.context:tick(1)
+        lu.assertTrue(self.marker.has_target())
+        self.hints.player = { level = 0, x = 2912, z = 9810 }
+        self.context:tick(53)
+        lu.assertTrue(self.marker.has_target())
+        lu.assertEquals(self.hints.arrow.coordFine.x, 2911 * 512 + 256)
+        lu.assertEquals(self.hints.arrow.coordFine.z, 9811 * 512 + 256)
+        self.hints.player = { level = 0, x = 995, z = 4498 }
+        self.context:tick(53)
+        lu.assertEquals(self.hints.arrow.coordFine.x, 967 * 512 + 256)
+        self.hints.player = { level = 0, x = 967, z = 4498 }
+        self.context:tick(53)
+        lu.assertFalse(self.marker.has_target())
+    end
+
+    function suite:test_entrance_without_spawn_coordinates_retains_selection_after_entering_unknown_interior()
+        self.hints.player = { level = 0, x = 3359, z = 2972 }
+        lu.assertTrue(self.marker.mark({ name = "Pollnivneach Slayer Dungeon" }, "Basilisk"))
+        self.context:tick(1)
+        lu.assertTrue(self.marker.has_target())
+        self.hints.player = { level = 0, x = 100, z = 100 }
+        self.context:tick(53)
+        lu.assertTrue(self.marker.has_target())
+        lu.assertStrContains(self.marker.status(), "still saved")
+    end
+
+    function suite:test_resource_return_route_keeps_hints_until_the_final_surface_destination()
+        self.hints.player = { level = 0, x = 1380, z = 4580 }
+        lu.assertTrue(self.marker.mark(self.location, "Abyssal demon"))
+        self.context:tick(1)
+        lu.assertEquals(self.hints.arrow.coordFine.x, 1395 * 512 + 256)
+        self.hints.player = { level = 0, x = 1395, z = 4587 }
+        self.context:tick(53)
+        lu.assertTrue(self.marker.has_target())
+        self.hints.player = { level = 0, x = 2852, z = 9840 }
+        self.context:tick(53)
+        lu.assertEquals(self.hints.arrow.coordFine.x, 2886 * 512 + 256)
+        self.hints.player = { level = 0, x = 2885, z = 3397 }
+        self.context:tick(53)
+        lu.assertEquals(self.hints.arrow.coordFine.x, 3407 * 512 + 256)
+        self.hints.player = { level = 2, x = 3407, z = 3546 }
+        self.context:tick(53)
+        lu.assertFalse(self.marker.has_target())
+    end
+
+    function suite:test_infested_axe_top_floor_pin_replaces_entrance_guidance()
+        local function read(name)
+            local file = assert(io.open(root .. "/tests/support/" .. name, "rb"))
+            local content = file:read("*a")
+            file:close()
+            return content
+        end
+        local rows = self.context
+            .load_module("src/data/monster_locations")
+            .parse(read("infested_axe_locations.html"))
+        self.context
+            .load_module("src/data/location_spawns")
+            .attach(rows, read("infested_axe_locations.wiki"))
+        self.hints.player = { level = 0, x = 3410, z = 3330 }
+        lu.assertTrue(self.marker.mark(rows[1], "Infested axe"))
+        self.context:tick(1)
+        lu.assertTrue(self.marker.has_target())
+        self.hints.player = { level = 3, x = 4645, z = 5400 }
+        self.context:tick(53)
+        lu.assertNotNil(self.hints.arrow)
+        lu.assertEquals(self.hints.arrow.coordFine.level, 3)
+        lu.assertEquals(self.hints.arrow.coordFine.x, 4661 * 512 + 256)
+        lu.assertEquals(self.hints.arrow.coordFine.z, 5405 * 512 + 256)
+        self.hints.player = { level = 3, x = 4661, z = 5405 }
+        self.context:tick(53)
+        lu.assertFalse(self.marker.has_target())
+    end
+
+    function suite:test_unsupported_polypore_floor_clears_after_entry_and_does_not_return_outside()
+        -- This is the old cached Infested axe map-centre record, with no spawn pins.
+        local location =
+            { name = "Polypore Dungeon", map = { id = 41, plane = 0, x = 3391, z = 9535 } }
+        self.hints.player = { level = 0, x = 3410, z = 3330 }
+        lu.assertTrue(self.marker.mark(location, "Infested axe"))
+        self.context:tick(1)
+        lu.assertTrue(self.marker.has_target())
+        self.hints.player = { level = 3, x = 4645, z = 5400 }
+        self.context:tick(53)
+        lu.assertFalse(self.marker.has_target())
+        lu.assertNil(self.hints.arrow)
+        lu.assertNil(self.hints.area)
+        lu.assertStrContains(self.marker.status(), "Dungeon entered")
+        lu.assertNotStrContains(self.marker.status(), "Arrived")
+        self.hints.player = { level = 0, x = 3410, z = 3330 }
+        self.context:tick(53)
+        lu.assertFalse(self.marker.has_target())
+        lu.assertNil(self.hints.arrow)
+        lu.assertTrue(self.marker.mark(location, "Infested axe"))
+        lu.assertNotStrContains(self.marker.status(), "Dungeon entered")
+    end
+
+    function suite:test_entrance_only_goal_clears_in_its_authored_destination_area()
+        self.hints.player = { level = 0, x = 3410, z = 3330 }
+        lu.assertTrue(self.marker.mark({ name = "Polypore Dungeon" }, "Infested axe"))
+        self.context:tick(1)
+        lu.assertTrue(self.marker.has_target())
+        self.hints.player = { level = 3, x = 4645, z = 5400 }
+        self.context:tick(53)
+        lu.assertFalse(self.marker.has_target())
+        lu.assertStrContains(self.marker.status(), "marker cleared")
     end
 
     return suite

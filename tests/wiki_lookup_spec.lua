@@ -227,5 +227,26 @@ return function(root)
         lu.assertStrContains(self.results[1].problem, "No matching monster")
     end
 
+    function suite:test_spawn_pins_share_the_existing_page_request_without_saving_raw_source()
+        respond_with_monster(self.context, "{}")
+        local function read(name)
+            local file = assert(io.open(root .. "/tests/support/" .. name, "rb"))
+            local content = file:read("*a")
+            file:close()
+            return content
+        end
+        self.context:respond(2, {
+            parse = {
+                text = read("infested_axe_locations.html"),
+                wikitext = read("infested_axe_locations.wiki"),
+            },
+        })
+        local result = self.results[1].result
+        lu.assertEquals(#result.locations[1].spawn_maps, 44)
+        lu.assertEquals(#self.context.requests, 2)
+        lu.assertNil(result.wikitext)
+        lu.assertNil(result.locations[1].wikitext)
+    end
+
     return suite
 end

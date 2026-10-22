@@ -1,0 +1,43 @@
+==Locations==
+{{LocTableHead}}
+{{LocLine
+|loc=[[Polypore Dungeon]]
+|lvls=105
+|mem=yes
+|mapID=41
+|npcid:14694,x:3277,y:9336|npcid:14694,x:3282,y:9312|npcid:14694,x:3286,y:9309
+|npcid:14694,x:3294,y:9296|npcid:14694,x:3306,y:9313|npcid:14694,x:3309,y:9298
+|npcid:14694,x:3347,y:9525|npcid:14694,x:3356,y:9515|npcid:14694,x:3371,y:9517
+|npcid:14694,x:3372,y:9512|npcid:14694,x:3376,y:9489|npcid:14694,x:3382,y:9500
+|npcid:14694,x:3411,y:9687|npcid:14694,x:3413,y:9699|npcid:14694,x:3445,y:9693
+|npcid:14694,x:3279,y:9384|npcid:14694,x:3281,y:9357|npcid:14694,x:3282,y:9383
+|npcid:14694,x:3293,y:9387|npcid:14694,x:3307,y:9353|npcid:14694,x:3309,y:9380
+|npcid:14694,x:3349,y:9547|npcid:14694,x:3370,y:9568|npcid:14694,x:3426,y:9772
+|npcid:14694,x:3435,y:9761|npcid:14694,x:3439,y:9736|npcid:14694,x:3442,y:9751
+|npcid:14694,x:3347,y:9363|npcid:14694,x:3362,y:9362|npcid:14694,x:3367,y:9390
+|npcid:14694,x:3369,y:9379|npcid:14694,x:3412,y:9568|npcid:14694,x:3412,y:9579
+|npcid:14694,x:3427,y:9548|npcid:14694,x:3431,y:9585|npcid:14694,x:3433,y:9570
+|npcid:14694,x:3434,y:9583|npcid:14694,x:3438,y:9553|npcid:14694,x:3475,y:9759
+|npcid:14694,x:3475,y:9775|npcid:14694,x:3490,y:9740|npcid:14694,x:3490,y:9775
+|npcid:14694,x:3499,y:9764|npcid:14694,x:3505,y:9764
+|leagueRegion = Misthalin
+}}
+{{LocLine
+|loc=[[Polypore Dungeon resource dungeon]]
+|lvls=105
+|mem=yes
+|requirements = {{Skillreq|Dungeoneering|82}}
+|mapID=41
+<!-- Plane 1 -->
+|npcid:14694,x:3210,y:9355|npcid:14694,x:3212,y:9334|npcid:14694,x:3216,y:9344
+|npcid:14694,x:3230,y:9359|npcid:14694,x:3235,y:9325|npcid:14694,x:3248,y:9342
+<!-- Plane 2 -->
+|npcid:14694,x:3279,y:9528|npcid:14694,x:3280,y:9540|npcid:14694,x:3282,y:9554
+|npcid:14694,x:3298,y:9554|npcid:14694,x:3315,y:9535
+<!-- Plane 3 -->
+|npcid:14694,x:3341,y:9703|npcid:14694,x:3343,y:9709|npcid:14694,x:3357,y:9707
+|npcid:14694,x:3367,y:9750|npcid:14694,x:3376,y:9710|npcid:14694,x:3379,y:9722
+|npcid:14694,x:3382,y:9749
+|leagueRegion = Misthalin
+}}
+{{LocTableBottom}}

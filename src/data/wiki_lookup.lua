@@ -160,6 +160,7 @@ local function request_page(result, on_complete)
 
         result.sections = sections
         result.locations, result.no_locations = monster_locations.parse(html)
+        require("src/data/location_spawns").attach(result.locations, response.parse.wikitext)
 
         -- plenty of monsters just dont drop anything. thats still a
         -- good result, the Monster info tab has stats to show and the drops tab says why its

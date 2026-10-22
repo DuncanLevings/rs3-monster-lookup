@@ -62,11 +62,11 @@ local function remove_layers(layers)
     end
 end
 
-function map_symbol.new(name, target)
+function map_symbol.new(name, target, level)
     return {
         name = name,
-        -- The main map uses the building's surface position even for upstairs targets.
-        coord = CoordGrid.new((target.x << 14) | target.z),
+        -- Buildings use their surface pin; dungeon waypoints retain their floor.
+        coord = CoordGrid.new(((level or 0) << 28) | (target.x << 14) | target.z),
         layers = {},
         revision = 0,
     }

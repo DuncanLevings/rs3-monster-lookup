@@ -40,10 +40,14 @@ function fixture.new(root, saved)
             __index = function(_, key)
                 if key == "hidden" then
                     return hidden
+                elseif key == "visible" then
+                    return not hidden
                 end
             end,
             __newindex = function(component, key, value)
-                if key == "hidden" then
+                if key == "visible" then
+                    error("Component.visible is read-only; write hidden instead")
+                elseif key == "hidden" then
                     hidden = value
                     component.visibility_updates = component.visibility_updates + 1
                 else

@@ -1,0 +1,333 @@
+[
+  {
+    "name": "Abyssal Area",
+    "map_id": 0,
+    "x": 3129,
+    "z": 3496,
+    "kind": "access"
+  },
+  {
+    "name": "Al Kharid resource dungeon",
+    "map_id": 0,
+    "x": 3297,
+    "z": 3308,
+    "kind": "entrance"
+  },
+  {
+    "name": "Asgarnian Ice Dungeon resource dungeon",
+    "map_id": 385,
+    "x": 3008,
+    "z": 3150,
+    "kind": "entrance"
+  },
+  {
+    "name": "Baxtorian Falls resource dungeon",
+    "map_id": 0,
+    "x": 2511,
+    "z": 3464,
+    "kind": "entrance"
+  },
+  {
+    "name": "Braindeath Island 'Rum'-geon",
+    "map_id": 0,
+    "x": 3680,
+    "z": 3537,
+    "kind": "access"
+  },
+  {
+    "name": "Brimhaven Dungeon resource dungeon",
+    "map_id": 384,
+    "x": 2744,
+    "z": 3155,
+    "kind": "entrance"
+  },
+  {
+    "name": "Chaos Tunnels resource dungeon",
+    "map_id": 381,
+    "x": 3058,
+    "z": 3550,
+    "kind": "entrance"
+  },
+  {
+    "name": "Clock Tower Dungeon",
+    "map_id": 0,
+    "x": 2566,
+    "z": 3242,
+    "kind": "entrance"
+  },
+  {
+    "name": "Daemonheim Peninsula Island",
+    "map_id": 0,
+    "x": 3514,
+    "z": 3668,
+    "kind": "entrance"
+  },
+  {
+    "name": "Dorgesh-Kaan South Dungeon",
+    "map_id": -1,
+    "x": 3129,
+    "z": 3496,
+    "kind": "access"
+  },
+  {
+    "name": "Dragontooth Island resource dungeon",
+    "map_id": -1,
+    "x": 3810,
+    "z": 3530,
+    "kind": "entrance"
+  },
+  {
+    "name": "Dwarven Mine resource dungeon",
+    "map_id": 0,
+    "x": 3060,
+    "z": 3378,
+    "kind": "entrance"
+  },
+  {
+    "name": "Edgeville Dungeon",
+    "map_id": 31,
+    "x": 3097,
+    "z": 3468,
+    "kind": "entrance"
+  },
+  {
+    "name": "Edgeville Dungeon chaos druids dungeon",
+    "map_id": 0,
+    "x": 3097,
+    "z": 3468,
+    "kind": "entrance"
+  },
+  {
+    "name": "Edgeville Dungeon hill giant resource dungeon",
+    "map_id": 0,
+    "x": 3097,
+    "z": 3468,
+    "kind": "entrance"
+  },
+  {
+    "name": "Edimmu resource dungeon",
+    "map_id": 675,
+    "x": 4604,
+    "z": 2692,
+    "kind": "entrance",
+    "level": 1
+  },
+  {
+    "name": "Elder God Wars Dungeon",
+    "map_id": 735,
+    "x": 3332,
+    "z": 3452,
+    "kind": "entrance"
+  },
+  {
+    "name": "Flesh-hatcher Mhekarnahz resource dungeon",
+    "map_id": 0,
+    "x": 3354,
+    "z": 3757,
+    "kind": "entrance"
+  },
+  {
+    "name": "Forinthry Dungeon",
+    "map_id": 6,
+    "x": 3071,
+    "z": 3649,
+    "kind": "entrance"
+  },
+  {
+    "name": "Glacor Cave",
+    "map_id": 450,
+    "x": 2909,
+    "z": 3839,
+    "kind": "entrance"
+  },
+  {
+    "name": "Goblin Cave",
+    "map_id": 0,
+    "x": 2626,
+    "z": 3392,
+    "kind": "entrance"
+  },
+  {
+    "name": "Gorajo Hoardstalker Dungeon",
+    "map_id": 0,
+    "x": 4604,
+    "z": 2719,
+    "kind": "entrance",
+    "level": 1
+  },
+  {
+    "name": "Heroes' Guild Dungeon",
+    "map_id": 719,
+    "x": 2905,
+    "z": 3516,
+    "kind": "entrance"
+  },
+  {
+    "name": "Jhallan's resting place",
+    "map_id": 613,
+    "x": 2866,
+    "z": 3927,
+    "kind": "entrance"
+  },
+  {
+    "name": "Kal'gerion resource dungeon",
+    "map_id": 667,
+    "x": 3401,
+    "z": 3665,
+    "kind": "entrance"
+  },
+  {
+    "name": "Karamja Volcano resource dungeon",
+    "map_id": 0,
+    "x": 2856,
+    "z": 3167,
+    "kind": "entrance"
+  },
+  {
+    "name": "Lava Maze Dungeon",
+    "map_id": 561,
+    "x": 3069,
+    "z": 3857,
+    "kind": "entrance"
+  },
+  {
+    "name": "Lumbridge Swamp Caves",
+    "map_id": 608,
+    "x": 3163,
+    "z": 3166,
+    "kind": "entrance"
+  },
+  {
+    "name": "Mazcab",
+    "map_id": 682,
+    "x": 3086,
+    "z": 2869,
+    "kind": "access"
+  },
+  {
+    "name": "Meiyerditch tunnels",
+    "map_id": 0,
+    "x": 3508,
+    "z": 3444,
+    "kind": "entrance"
+  },
+  {
+    "name": "Mining Guild resource dungeon",
+    "map_id": 0,
+    "x": 3020,
+    "z": 3339,
+    "kind": "entrance"
+  },
+  {
+    "name": "Mos Le'Harmless Caves",
+    "map_id": 27,
+    "x": 3747,
+    "z": 2973,
+    "kind": "entrance"
+  },
+  {
+    "name": "Mourner tunnels",
+    "map_id": 211,
+    "x": 2543,
+    "z": 3327,
+    "kind": "entrance"
+  },
+  {
+    "name": "Nodon Front",
+    "map_id": 0,
+    "x": 3332,
+    "z": 3452,
+    "kind": "entrance"
+  },
+  {
+    "name": "Observatory Dungeon",
+    "map_id": 0,
+    "x": 2459,
+    "z": 3184,
+    "kind": "entrance"
+  },
+  {
+    "name": "Ogre Enclave",
+    "map_id": 572,
+    "x": 2504,
+    "z": 3037,
+    "kind": "entrance"
+  },
+  {
+    "name": "Ripper Demon cave",
+    "map_id": 687,
+    "x": 3353,
+    "z": 3148,
+    "kind": "entrance"
+  },
+  {
+    "name": "Senntisten Asylum",
+    "map_id": 738,
+    "x": 3332,
+    "z": 3452,
+    "kind": "entrance"
+  },
+  {
+    "name": "Smoke Dungeon",
+    "map_id": 591,
+    "x": 3310,
+    "z": 2961,
+    "kind": "entrance"
+  },
+  {
+    "name": "Sophanem Slayer Dungeon",
+    "map_id": 718,
+    "x": 3291,
+    "z": 2709,
+    "kind": "entrance"
+  },
+  {
+    "name": "Taverley blue dragon resource dungeon",
+    "map_id": 379,
+    "x": 2885,
+    "z": 3397,
+    "kind": "entrance"
+  },
+  {
+    "name": "Taverley hellhound resource dungeon",
+    "map_id": 378,
+    "x": 2885,
+    "z": 3397,
+    "kind": "entrance"
+  },
+  {
+    "name": "Underground Pass (dungeon)",
+    "map_id": 0,
+    "x": 2438,
+    "z": 3315,
+    "kind": "entrance"
+  },
+  {
+    "name": "Varrock Sewers",
+    "map_id": 31,
+    "x": 3237,
+    "z": 3458,
+    "kind": "entrance"
+  },
+  {
+    "name": "Varrock Sewers resource dungeon",
+    "map_id": 380,
+    "x": 3237,
+    "z": 3458,
+    "kind": "entrance"
+  },
+  {
+    "name": "Waterbirth Island Dungeon",
+    "map_id": 16,
+    "x": 2522,
+    "z": 3740,
+    "kind": "entrance"
+  },
+  {
+    "name": "Witchaven Dungeon",
+    "map_id": 612,
+    "x": 2697,
+    "z": 3283,
+    "kind": "entrance"
+  }
+]

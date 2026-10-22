@@ -10,18 +10,18 @@ local locations_view = {}
 local COLUMNS = {
     { key = "name", title = "Location", width = 0.30 },
     { key = "levels", title = "Levels", width = 0.10 },
-    { key = "requirements", title = "Access requirements", width = 0.36 },
+    { key = "requirements", title = "Access requirements", width = 0.32 },
     { key = "spawns", title = "Spawns", width = 0.10 },
-    { key = "map", title = "Map", width = 0.14 },
+    { key = "map", title = "Map", width = 0.18 },
 }
 
-local function create_text(parent, value, small)
+local function create_text(parent, value, small, notice)
     local label = prettyui.Text.new(parent, {
         text = text_layout.display(value),
         height = 24,
         maxLines = 0,
         font = small and id.Font.MUSEO_SANS_11PT_REGULAR or id.Font.MUSEO_SANS_15PT_REGULAR,
-        colour = small and theme.TEXT_MUTED or theme.TEXT,
+        colour = notice and theme.TEXT_WARNING or small and theme.TEXT_MUTED or theme.TEXT,
         shadowed = not small,
     })
     label.clickthrough = true
@@ -50,15 +50,15 @@ local function create_row(controller, location, index)
     end
 
     if location then
-        local reason = marker.reason(location)
-        row.button = prettyui.SimpleButton.new(row.root, "Mark", function()
+        local action, tooltip, reason = marker.action(location)
+        row.button = prettyui.SimpleButton.new(row.root, action, function()
             if controller.destroyed then
                 return
             end
             local ok, problem = marker.mark(location, wiki_text.plain(controller.source_title))
             controller.problem = not ok and problem or nil
             controller.update_status()
-        end, { width = 54, height = 24, disabled = reason ~= nil, tooltip = reason })
+        end, { height = 24, disabled = reason ~= nil, tooltip = tooltip })
         widgets.forward_wheel(
             row.button.root,
             "monster_lookup_location_mark_wheel",
@@ -69,12 +69,13 @@ local function create_row(controller, location, index)
     return row
 end
 
-local function layout_row(row, width, y)
+local function layout_row(row, width, y, map_width)
     local height = 30
     local x = 0
 
-    for _, cell in ipairs(row.cells) do
-        local cell_width = math.floor(width * cell.width)
+    for index, cell in ipairs(row.cells) do
+        local cell_width = index == #COLUMNS and map_width
+            or math.floor((width - map_width) * cell.width / (1 - COLUMNS[5].width))
         height = math.max(height, text_layout.height(cell.value, cell_width - 16))
         cell.label:SetPos(x + 8, 4)
         cell.label:SetSize(cell_width - 16, height)
@@ -86,10 +87,7 @@ local function layout_row(row, width, y)
     end
 
     if row.button then
-        row.button.root:SetPos(
-            width - math.floor(width * COLUMNS[5].width) + 8,
-            math.floor((height - 24) / 2)
-        )
+        row.button.root:SetPos(width - map_width + 8, math.floor((height - 24) / 2))
     end
 
     row.root:SetPos(0, y)
@@ -129,8 +127,9 @@ local function layout(controller)
                 text_layout.height(
                     controller.status_text,
                     status_width,
-                    config.Font.MUSEO_SANS_11PT_REGULAR,
-                    16
+                    controller.status_attention and config.Font.MUSEO_SANS_15PT_REGULAR
+                        or config.Font.MUSEO_SANS_11PT_REGULAR,
+                    controller.status_attention and 20 or 16
                 )
             )
             controller.marker_status:SetPos(8, 4)
@@ -140,8 +139,16 @@ local function layout(controller)
             y = y + status_height + 12
         end
 
+        -- Reserve the fitted action width across every row so "Entrance" stays
+        -- readable on smaller screens and the table columns remain aligned.
+        local map_width = math.max(96, math.floor(width * COLUMNS[5].width))
         for _, row in ipairs(controller.rows) do
-            y = y + layout_row(row, width, y)
+            if row.button then
+                map_width = math.max(map_width, row.button.root.width + 16)
+            end
+        end
+        for _, row in ipairs(controller.rows) do
+            y = y + layout_row(row, width, y, map_width)
         end
 
         y = y + 8
@@ -164,8 +171,14 @@ function locations_view.render(page, result)
         if controller.destroyed or not controller.marker_status then
             return
         end
-        controller.status_text = controller.problem or marker.status()
-        controller.marker_status.content = controller.status_text
+        local status_text, attention = marker.status()
+        controller.status_text = controller.problem or status_text
+        controller.status_attention = controller.problem ~= nil or attention == true
+        controller.status_normal.hidden = controller.status_attention
+        controller.status_notice.hidden = not controller.status_attention
+        controller.marker_status = controller.status_attention and controller.status_notice
+            or controller.status_normal
+        controller.marker_status.content = text_layout.display(controller.status_text)
         controller.clear_button:SetDisabled(not marker.has_target())
         controller.measured_width = nil
         layout(controller)
@@ -173,7 +186,9 @@ function locations_view.render(page, result)
 
     if #rows > 0 then
         controller.toolbar = widgets.layer(controller.root, 1)
-        controller.marker_status = create_text(controller.toolbar, "", true)
+        controller.status_normal = create_text(controller.toolbar, "", true)
+        controller.status_notice = create_text(controller.toolbar, "", false, true)
+        controller.marker_status = controller.status_normal
         controller.clear_button = prettyui.SimpleButton.new(
             controller.toolbar,
             "Clear marker",
@@ -204,7 +219,7 @@ function locations_view.render(page, result)
 
         controller.note = "Source: RuneScape Wiki - "
             .. wiki_text.plain(result.title)
-            .. ". Locations cover the variants listed on that page; check levels and access requirements."
+            .. ". Check levels and access requirements. Dungeon markers continue in mapped areas; unsupported routes pause with instructions."
     else
         controller.note = empty_message(result)
     end

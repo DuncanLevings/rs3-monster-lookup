@@ -24,6 +24,7 @@
     "CoordFine",
     "World",
     "Player",
+    "LocList",
     "var"
   ],
   "workspace.checkThirdParty": false,

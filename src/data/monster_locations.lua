@@ -10,6 +10,9 @@ local location_map = require("src/data/location_map")
 ---@field requirements string
 ---@field spawns string
 ---@field map table? Wiki map space, not necessarily a game-world target
+---@field spawn_maps WikiLocationMap[]? bounded actual spawn pins, distinct from the map-link centre
+---@field page string? canonical location link, distinct from floor-qualified display text
+---@field map_issue string? malformed or conflicting coordinates must not be guessed
 
 local locations = {}
 local COLUMNS = {
@@ -154,7 +157,7 @@ local function row_map(row)
                 z = tonumber(text.attribute(attributes, "data-lat")),
             }
             if not location_map.valid(map) then
-                return nil
+                return nil, "invalid"
             end
             if
                 found
@@ -165,7 +168,7 @@ local function row_map(row)
                     or found.z ~= map.z
                 )
             then
-                return nil
+                return nil, "ambiguous"
             end
             found = map
         end
@@ -206,7 +209,17 @@ local function parse_row(row, columns)
         end
     end
 
-    result.map = row_map(row)
+    result.map, result.map_issue = row_map(row)
+    -- The linked page survives floor annotations and display aliases. Retain only
+    -- an article title, never an arbitrary URL or a link from another column.
+    for attributes in cells[columns.name]:gmatch("<a%s+([^>]*)>") do
+        local href = text.attribute(attributes, "href")
+        local title = text.attribute(attributes, "title")
+        if href:match("^/w/") and title ~= "" and not title:find(":", 1, true) then
+            result.page = title:gsub("#.*$", "")
+            break
+        end
+    end
     return result
 end
 

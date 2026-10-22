@@ -37,7 +37,7 @@ function queries.page(title)
         format = "json",
         formatversion = 2,
         page = title,
-        prop = "text",
+        prop = "text|wikitext",
     })
 end
 

@@ -10,7 +10,7 @@ Browse items, quantities, drop rates, GE guide prices and notes from the [RuneSc
 
 See weaknesses, behaviour and immunities at a glance. Expand **Slayer** for task and player-owned Slayer Dungeon details, or **Detailed stats** for combat information. Both sections remember your preference. Use the variant selector where available.
 
-The **Locations** tab lists spawn locations, levels, access requirements and spawn counts. Check the levels and requirements for the variant you want; unknown spawn counts are left blank. Locations can be marked to guide player to exact in game location (assuming requirements are met).
+The **Locations** tab lists spawn locations, levels, access requirements and spawn counts. Use **Mark** for world locations or **Entrance** for dungeon access. Supported routes continue through parent portals, known exits and floor transitions toward a spawn on your current floor when available. After entering a known dungeon, the marker clears if interior guidance is unavailable. Unknown areas pause guidance. Waypoints do not calculate a walking path. Only the final destination clears within 16 tiles on the matching floor.
 
 ## Search and settings
 

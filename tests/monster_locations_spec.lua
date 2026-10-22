@@ -155,5 +155,24 @@ return function(root)
         lu.assertEquals(invalid[1].name, "Varrock")
     end
 
+    function suite:test_location_article_and_map_failures_remain_distinct_from_missing_coordinates()
+        local html = "<h2>Locations</h2><table><tr><th>Location</th><th>Levels</th><th>Requirements</th><th>Spawns</th></tr>"
+            .. '<tr><td><a href="/w/Kuradal%%27s_Dungeon" title="Kuradal&#39;s Dungeon">Cave (Floor 2)</a></td><td>10</td><td>None</td><td>3</td><td>%s</td></tr></table>'
+        local pin =
+            '<a class="mw-kartographer-maplink" data-mapid="36" data-plane="0" data-lon="100" data-lat="102">Show map</a>'
+        local missing = locations.parse(html:format(""))[1]
+        lu.assertEquals(missing.page, "Kuradal's Dungeon")
+        lu.assertNil(missing.map_issue)
+        lu.assertNotNil(environment.require("src/data/location_map").target(missing))
+        local invalid =
+            locations.parse(html:format(pin:gsub('data%-plane="0"', 'data-plane="9"')))[1]
+        lu.assertEquals(invalid.map_issue, "invalid")
+        lu.assertNil(environment.require("src/data/location_map").target(invalid))
+        local ambiguous =
+            locations.parse(html:format(pin .. pin:gsub('data%-lon="100"', 'data-lon="101"')))[1]
+        lu.assertEquals(ambiguous.map_issue, "ambiguous")
+        lu.assertNil(ambiguous.map)
+    end
+
     return suite
 end

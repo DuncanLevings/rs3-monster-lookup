@@ -4,6 +4,7 @@ local fixture = {}
 function fixture.enable(context)
     local state =
         { arrows = {}, polygons = {}, adds = 0, removes = 0, ready = true, region = false }
+    state.player = { level = 0, x = 3220, z = 3220 }
     context.hints = state
     local environment = context.environment
     environment.HintList = {

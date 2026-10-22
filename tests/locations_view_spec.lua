@@ -140,6 +140,7 @@ return function(root)
         local marker = context.load_module("src/game/location_marker")
         self.result.locations[1].map = { id = 28, plane = 0, x = 3225, z = 3439 }
         self.result.locations[2].map = { id = 30, plane = 0, x = 109, z = 39 }
+        self.result.locations[2].name = "Unknown dungeon"
         context.subject.show_result(self.result)
         local mark, unsupported, clear
         for _, button in ipairs(context.simple_buttons) do
@@ -185,6 +186,68 @@ return function(root)
         lu.assertNil(clear.options.width)
         lu.assertEquals(clear.root.x, -clear.root.width - 8)
         lu.assertEquals(clear.root.x_anchor, 1)
+    end
+
+    function suite:test_entrance_action_is_distinct_and_fits_the_map_column()
+        require("tests/support/marker_fixture").enable(self.context)
+        self.result.locations[1] =
+            { name = "Kuradal's Dungeon", levels = "98", requirements = "None", spawns = "10" }
+        self.context.subject.show_result(self.result)
+        local found
+        for _, button in ipairs(self.context.simple_buttons) do
+            if button.content.content == "Entrance" then
+                found = button
+            end
+        end
+        lu.assertNotNil(found)
+        lu.assertFalse(found.disabled)
+        lu.assertEquals(found.options.tooltip, "Mark the entrance")
+        local row = found.root.parent
+        lu.assertTrue(found.root.x + found.root.width <= row.width)
+        local root = location_root(self.context)
+        root.width = 420
+        self.context.tabs.pages[3].content.width = 420
+        root.hooks[2](root)
+        lu.assertTrue(found.root.x + found.root.width <= 420)
+    end
+
+    function suite:test_paused_guidance_is_larger_amber_and_returns_to_muted_after_resuming()
+        local hints = require("tests/support/marker_fixture").enable(self.context)
+        local marker = self.context.load_module("src/game/location_marker")
+        local theme = self.context.load_module("src/ui/theme")
+        hints.player = { level = 0, x = 7000, z = 7000 }
+        self.result.locations[1].map = { id = 28, plane = 0, x = 3225, z = 3439 }
+        self.context.subject.show_result(self.result)
+        marker.start()
+        marker.mark(self.result.locations[1], "Goblin")
+        self.context:tick(1)
+        local notice
+        for _, label in ipairs(self.context.texts) do
+            if
+                label.visible ~= false and label.content:find("Return to the main world", 1, true)
+            then
+                notice = label
+            end
+        end
+        lu.assertNotNil(notice)
+        lu.assertEquals(notice.options.colour, theme.TEXT_WARNING)
+        lu.assertEquals(
+            notice.options.font,
+            self.context.environment.id.Font.MUSEO_SANS_15PT_REGULAR
+        )
+        lu.assertStrContains(notice.content, "<br>Destination:")
+        hints.player = { level = 0, x = 3220, z = 3220 }
+        self.context:tick(53)
+        lu.assertFalse(notice.visible)
+        local normal
+        for _, label in ipairs(self.context.texts) do
+            if label.visible ~= false and label.content:find("Marked:", 1, true) then
+                normal = label
+            end
+        end
+        lu.assertNotNil(normal)
+        lu.assertEquals(normal.options.colour, theme.TEXT_MUTED)
+        marker.stop()
     end
 
     return suite

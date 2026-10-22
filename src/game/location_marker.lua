@@ -1,6 +1,7 @@
 -- Button callbacks only change the desired destination. Native hints are changed
 -- on Logic ticks, with a gap before replacement and fresh names for each target.
 local location_map = require("src/data/location_map")
+local route = require("src/game/location_route")
 local clock = require("src/utils/cache_clock")
 local map_symbol = require("src/game/map_symbol")
 
@@ -10,8 +11,10 @@ local REPLACEMENT_GAP = 2
 local CHECK_INTERVAL_TICKS = clock.TICKS_PER_SECOND
 local ARRIVAL_RADIUS = 16
 local ARROW_HEIGHT = 900
-local desired, installed, retired, problem, ready_at, reached
+local desired, installed, retired, problem, ready_at, reached, completed
 local changed, paused, started = false, false, false
+local pause_reason
+local position_bucket, cached_position
 local tick, generation = 0, 0
 local listeners = {}
 
@@ -110,7 +113,7 @@ local function add_hints(entry)
         return false
     end
 
-    entry.symbol = map_symbol.new(entry.area_name, target)
+    entry.symbol = map_symbol.new(entry.area_name, target, entry.map_level)
     return map_symbol.refresh(entry.symbol)
 end
 
@@ -118,6 +121,7 @@ local function register(player_level, player_height)
     generation = generation + 1
     local entry = {
         target = desired.target,
+        map_level = desired.map_level,
         player_level = player_level,
         player_height = player_height,
         arrow_name = "monster_lookup_location_arrow_" .. generation,
@@ -138,14 +142,21 @@ local function register(player_level, player_height)
 end
 
 local function supported_target(location)
-    local target, reason = location_map.target(location)
-    if not target then
+    local resolution, reason = location_map.resolve(location)
+    if not resolution then
         return nil, reason
     end
     if not available() then
         return nil, "Native location markers are unavailable on this client."
     end
-    return target
+    return resolution.target, nil, resolution
+end
+
+function marker.action(location)
+    local _, reason, resolution = supported_target(location)
+    return resolution and resolution.kind == "entrance" and "Entrance" or "Mark",
+        reason or (resolution and resolution.tooltip),
+        reason
 end
 
 function marker.reason(location)
@@ -154,30 +165,52 @@ function marker.reason(location)
 end
 
 function marker.mark(location, source_title)
-    local target, reason = supported_target(location)
-    if not target then
+    local target, reason, resolution = supported_target(location)
+    if not target or not resolution then
         return false, reason
     end
     if not world_ready() then
         return false, "Location markers are available outside instances while logged in."
     end
 
-    local label = source_title .. " - " .. location.name
-    if desired and same_target(desired.target, target) then
-        desired.label = label
-    else
-        desired = { target = target, label = label }
+    local label = source_title .. " - " .. resolution.label
+    local selection = source_title .. " - " .. (location.name or "Location")
+    local same_interior = desired
+        and (
+            (not desired.goal.interior and not resolution.interior)
+            or same_target(desired.goal.interior, resolution.interior)
+        )
+    if
+        not (
+            desired
+            and desired.selection == selection
+            and desired.goal.interior_map == resolution.interior_map
+            and same_target(desired.goal.target, target)
+            and same_interior
+        )
+    then
+        desired = {
+            goal = resolution,
+            selection = selection,
+            source = source_title,
+            target = target,
+            label = label,
+            map_level = 0,
+            -- Allow the next periodic position snapshot to replace a cached
+            -- snapshot from the preceding selection before automatic completion.
+            confirm_after = tick + CHECK_INTERVAL_TICKS,
+        }
         changed = true
     end
 
-    problem, paused, reached = nil, false, nil
+    problem, paused, reached, completed = nil, false, nil, nil
     notify()
     return true
 end
 
 function marker.clear()
-    desired, problem, ready_at, reached = nil, nil, nil, nil
-    changed, paused = true, false
+    desired, problem, ready_at, reached, completed = nil, nil, nil, nil, nil
+    changed, paused, pause_reason = true, false, nil
     notify()
 end
 
@@ -188,11 +221,17 @@ function marker.status()
     if reached then
         return "Arrived: " .. reached .. ". Marker cleared."
     end
+    if completed then
+        return completed
+    end
     if desired then
+        if paused and pause_reason then
+            return "Paused: " .. pause_reason .. ".\nDestination: " .. desired.selection, true
+        end
         local prefix = paused and "Paused inside an instance or while the world loads: "
             or installed and same_target(installed.target, desired.target) and "Marked: "
             or "Updating marker: "
-        return prefix .. desired.label
+        return prefix .. desired.label, paused
     end
     return available() and "Select Mark, then open and pan the game map to the destination."
         or "Native location markers are unavailable on this client."
@@ -209,19 +248,38 @@ function marker.subscribe(callback)
     end
 end
 
-local function near_destination(target)
+local function player_position()
+    local bucket = math.floor(tick / CHECK_INTERVAL_TICKS)
+    if position_bucket == bucket then
+        return cached_position
+    end
+    position_bucket, cached_position = bucket, nil
     if not Player or not Player.IsAvailable() then
-        return false
+        return nil
     end
     local player = Player.GetEntity()
     local position = player and player.coordGrid
-    if not position then
-        return false
+    if position then
+        -- Retain a value snapshot, not entity userdata that can move between checks.
+        cached_position = { level = position.level, x = position.x, z = position.z }
     end
+    return cached_position
+end
+
+local function near_destination(target, position)
     local dx, dz = position.x - target.x, position.z - target.z
     local nearby = position.level == target.level
         and dx * dx + dz * dz <= ARRIVAL_RADIUS * ARRIVAL_RADIUS
     return nearby, position.level, not nearby and destination_height(position) or nil
+end
+
+local function pause_navigation(reason)
+    retire_current()
+    ready_at = nil
+    if not paused or pause_reason ~= reason then
+        paused, pause_reason = true, reason
+        notify()
+    end
 end
 
 local function update()
@@ -248,20 +306,58 @@ local function update()
     end
 
     if not world_ready() then
-        retire_current()
-        ready_at = nil
-        if not paused then
-            paused = true
-            notify()
-        end
+        position_bucket, cached_position = nil, nil
+        pause_navigation(nil)
         return
     end
 
-    local ok, nearby, player_level, player_height = pcall(near_destination, desired.target)
+    local position_ok, position = pcall(player_position)
+    if not position_ok then
+        position = nil
+    end
+    local routed, step, reason, outcome = pcall(route.next, desired.goal, position)
+    if
+        routed
+        and not step
+        and outcome == "interior_unavailable"
+        and tick >= desired.confirm_after
+    then
+        completed = "Dungeon entered. Interior guidance unavailable; marker cleared."
+        desired, problem, ready_at, reached = nil, nil, nil, nil
+        paused, pause_reason = false, nil
+        -- Use the same tick-owned removal path as normal arrival and replacement.
+        retire_current()
+        notify()
+        return
+    end
+    if not routed or not step then
+        pause_navigation(routed and reason or "Navigation is temporarily unavailable")
+        return
+    end
+    local label = desired.source .. " - " .. step.label
+    local status_changed = paused or desired.label ~= label
+    paused, pause_reason, desired.label = false, nil, label
+    desired.target, desired.map_level = step.target, step.map_level
+    if
+        installed
+        and (
+            not same_target(installed.target, desired.target)
+            or installed.map_level ~= desired.map_level
+        )
+    then
+        retire_current()
+        notify()
+        return
+    end
+    if status_changed then
+        notify()
+    end
+    local ok, nearby, player_level, player_height =
+        pcall(near_destination, desired.target, position)
     if not ok then
         player_level, player_height = nil, nil
     end
-    if ok and nearby then
+    if ok and nearby and step.final then
         reached = desired.label
         desired, problem = nil, nil
         paused = false
@@ -319,8 +415,10 @@ function marker.stop()
     started = false
     -- Shutdown must release accepted hints before the plugin's callbacks disappear.
     remove_hints(installed)
-    installed, desired, retired, problem, ready_at, reached = nil, nil, nil, nil, nil, nil
-    changed, paused, tick = false, false, 0
+    installed, desired, retired, problem, ready_at, reached, completed =
+        nil, nil, nil, nil, nil, nil, nil
+    changed, paused, tick, pause_reason = false, false, 0, nil
+    position_bucket, cached_position = nil, nil
     notify()
 end
 

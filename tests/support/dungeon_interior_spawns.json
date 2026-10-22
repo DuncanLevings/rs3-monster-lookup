@@ -1,0 +1,647 @@
+[
+  {
+    "name": "Chaos Tunnels",
+    "map": {
+      "id": 23,
+      "plane": 0,
+      "x": 3166,
+      "z": 5513
+    },
+    "target": {
+      "level": 0,
+      "x": 3166,
+      "z": 5513
+    },
+    "monster": "Dust devil"
+  },
+  {
+    "name": "Smoke Dungeon",
+    "map": {
+      "id": 591,
+      "plane": 0,
+      "x": 3213,
+      "z": 9361
+    },
+    "target": {
+      "level": 0,
+      "x": 3213,
+      "z": 9361
+    },
+    "monster": "Dust devil"
+  },
+  {
+    "name": "Taverley hellhound resource dungeon",
+    "map": {
+      "id": 378,
+      "plane": 0,
+      "x": 1362,
+      "z": 4570
+    },
+    "target": {
+      "level": 0,
+      "x": 1362,
+      "z": 4570
+    },
+    "monster": "Hellhound"
+  },
+  {
+    "name": "Witchaven Dungeon",
+    "map": {
+      "id": 612,
+      "plane": 0,
+      "x": 2734,
+      "z": 9688
+    },
+    "target": {
+      "level": 0,
+      "x": 2734,
+      "z": 9688
+    },
+    "monster": "Hellhound"
+  },
+  {
+    "name": "Taverley Dungeon",
+    "map": {
+      "id": 17,
+      "plane": 0,
+      "x": 2851,
+      "z": 9849
+    },
+    "target": {
+      "level": 0,
+      "x": 2851,
+      "z": 9849
+    },
+    "monster": "Hellhound"
+  },
+  {
+    "name": "Forinthry Dungeon",
+    "map": {
+      "id": 596,
+      "plane": 0,
+      "x": 3084,
+      "z": 10130
+    },
+    "target": {
+      "level": 0,
+      "x": 3084,
+      "z": 10130
+    },
+    "monster": "Hellhound"
+  },
+  {
+    "name": "Taverley Dungeon",
+    "map": {
+      "id": 17,
+      "plane": 0,
+      "x": 2854,
+      "z": 9776
+    },
+    "target": {
+      "level": 0,
+      "x": 2854,
+      "z": 9776
+    },
+    "monster": "Black demon"
+  },
+  {
+    "name": "Chaos Tunnels",
+    "map": {
+      "id": 23,
+      "plane": 0,
+      "x": 3157,
+      "z": 5522
+    },
+    "target": {
+      "level": 0,
+      "x": 3157,
+      "z": 5522
+    },
+    "monster": "Black demon"
+  },
+  {
+    "name": "Chaos Tunnels resource dungeon",
+    "map": {
+      "id": 381,
+      "plane": 0,
+      "x": 1232,
+      "z": 4513
+    },
+    "target": {
+      "level": 0,
+      "x": 1232,
+      "z": 4513
+    },
+    "monster": "Black demon"
+  },
+  {
+    "name": "Edgeville Dungeon",
+    "map": {
+      "id": 31,
+      "plane": 0,
+      "x": 3085,
+      "z": 9958
+    },
+    "target": {
+      "level": 0,
+      "x": 3085,
+      "z": 9958
+    },
+    "monster": "Black demon"
+  },
+  {
+    "name": "Mos Le'Harmless Caves",
+    "map": {
+      "id": 27,
+      "plane": 0,
+      "x": 3720,
+      "z": 9349
+    },
+    "target": {
+      "level": 0,
+      "x": 3720,
+      "z": 9349
+    },
+    "monster": "Cave horror"
+  },
+  {
+    "name": "Varrock Sewers resource dungeon",
+    "map": {
+      "id": 380,
+      "plane": 0,
+      "x": 1307,
+      "z": 4574
+    },
+    "target": {
+      "level": 0,
+      "x": 1307,
+      "z": 4574
+    },
+    "monster": "Moss giant"
+  },
+  {
+    "name": "Varrock Sewers",
+    "map": {
+      "id": 31,
+      "plane": 0,
+      "x": 3157,
+      "z": 9905
+    },
+    "target": {
+      "level": 0,
+      "x": 3157,
+      "z": 9905
+    },
+    "monster": "Moss giant"
+  },
+  {
+    "name": "Chaos Tunnels",
+    "map": {
+      "id": 23,
+      "plane": 0,
+      "x": 3200,
+      "z": 5495
+    },
+    "target": {
+      "level": 0,
+      "x": 3200,
+      "z": 5495
+    },
+    "monster": "Moss giant"
+  },
+  {
+    "name": "Morytania Slayer Tower dungeon",
+    "map": {
+      "id": 717,
+      "plane": 0,
+      "x": 1163,
+      "z": 4643
+    },
+    "target": {
+      "level": 0,
+      "x": 1163,
+      "z": 4643
+    },
+    "monster": "Dark beast"
+  },
+  {
+    "name": "Mourner tunnels",
+    "map": {
+      "id": 211,
+      "plane": 0,
+      "x": 1988,
+      "z": 4659
+    },
+    "target": {
+      "level": 0,
+      "x": 1988,
+      "z": 4659
+    },
+    "monster": "Dark beast"
+  },
+  {
+    "name": "Forinthry Dungeon",
+    "map": {
+      "id": 6,
+      "plane": 0,
+      "x": 3020,
+      "z": 10140
+    },
+    "target": {
+      "level": 0,
+      "x": 3020,
+      "z": 10140
+    },
+    "monster": "Dark beast"
+  },
+  {
+    "name": "Asgarnian Ice Dungeon resource dungeon",
+    "map": {
+      "id": 385,
+      "plane": 0,
+      "x": 1287,
+      "z": 4488
+    },
+    "target": {
+      "level": 0,
+      "x": 1287,
+      "z": 4488
+    },
+    "monster": "Frost dragon"
+  },
+  {
+    "name": "Glacor Cave",
+    "map": {
+      "id": 450,
+      "plane": 0,
+      "x": 4169,
+      "z": 5724
+    },
+    "target": {
+      "level": 0,
+      "x": 4169,
+      "z": 5724
+    },
+    "monster": "Glacor"
+  },
+  {
+    "name": "Elder God Wars Dungeon",
+    "map": {
+      "id": 735,
+      "plane": 0,
+      "x": 1759,
+      "z": 1127
+    },
+    "target": {
+      "level": 0,
+      "x": 1759,
+      "z": 1127
+    },
+    "monster": "Glacor"
+  },
+  {
+    "name": "Kal'gerion resource dungeon",
+    "map": {
+      "id": 667,
+      "plane": 0,
+      "x": 1295,
+      "z": 1325
+    },
+    "target": {
+      "level": 0,
+      "x": 1295,
+      "z": 1325
+    },
+    "monster": "Kal'gerion demon"
+  },
+  {
+    "name": "Ripper Demon cave",
+    "map": {
+      "id": 687,
+      "plane": 0,
+      "x": 5140,
+      "z": 7584
+    },
+    "target": {
+      "level": 0,
+      "x": 5140,
+      "z": 7584
+    },
+    "monster": "Ripper Demon"
+  },
+  {
+    "name": "Lava Maze Dungeon",
+    "map": {
+      "id": 561,
+      "plane": 0,
+      "x": 3029,
+      "z": 10250
+    },
+    "target": {
+      "level": 0,
+      "x": 3029,
+      "z": 10250
+    },
+    "monster": "Ripper Demon"
+  },
+  {
+    "name": "Chaos Tunnels",
+    "map": {
+      "id": 23,
+      "plane": 0,
+      "x": 3173,
+      "z": 5476
+    },
+    "target": {
+      "level": 0,
+      "x": 3173,
+      "z": 5476
+    },
+    "monster": "Gargoyle"
+  },
+  {
+    "name": "Edimmu resource dungeon",
+    "map": {
+      "id": 675,
+      "plane": 0,
+      "x": 1352,
+      "z": 4647
+    },
+    "target": {
+      "level": 0,
+      "x": 1352,
+      "z": 4647
+    },
+    "monster": "Edimmu"
+  },
+  {
+    "name": "Chaos Tunnels",
+    "map": {
+      "id": 23,
+      "plane": 0,
+      "x": 3145,
+      "z": 5557
+    },
+    "target": {
+      "level": 0,
+      "x": 3145,
+      "z": 5557
+    },
+    "monster": "Dagannoth"
+  },
+  {
+    "name": "Fremennik Slayer Dungeon",
+    "map": {
+      "id": 5,
+      "plane": 0,
+      "x": 2719,
+      "z": 10011
+    },
+    "target": {
+      "level": 0,
+      "x": 2719,
+      "z": 10011
+    },
+    "monster": "Turoth"
+  },
+  {
+    "name": "Chaos Tunnels",
+    "map": {
+      "id": 23,
+      "plane": 0,
+      "x": 3153,
+      "z": 5536
+    },
+    "target": {
+      "level": 0,
+      "x": 3153,
+      "z": 5536
+    },
+    "monster": "Turoth"
+  },
+  {
+    "name": "Fremennik Slayer Dungeon",
+    "map": {
+      "id": 5,
+      "plane": 0,
+      "x": 2699,
+      "z": 10029
+    },
+    "target": {
+      "level": 0,
+      "x": 2699,
+      "z": 10029
+    },
+    "monster": "Jelly"
+  },
+  {
+    "name": "Jhallan's resting place",
+    "map": {
+      "id": 613,
+      "plane": 0,
+      "x": 2833,
+      "z": 10342
+    },
+    "target": {
+      "level": 0,
+      "x": 2833,
+      "z": 10342
+    },
+    "monster": "Jelly"
+  },
+  {
+    "name": "Chaos Tunnels",
+    "map": {
+      "id": 23,
+      "plane": 0,
+      "x": 3267,
+      "z": 5447
+    },
+    "target": {
+      "level": 0,
+      "x": 3267,
+      "z": 5447
+    },
+    "monster": "Jelly"
+  },
+  {
+    "name": "Fremennik Slayer Dungeon",
+    "map": {
+      "id": 5,
+      "plane": 0,
+      "x": 2694,
+      "z": 9995
+    },
+    "target": {
+      "level": 0,
+      "x": 2694,
+      "z": 9995
+    },
+    "monster": "Kurask"
+  },
+  {
+    "name": "Fremennik Slayer Dungeon",
+    "map": {
+      "id": 5,
+      "plane": 0,
+      "x": 2781,
+      "z": 10000
+    },
+    "target": {
+      "level": 0,
+      "x": 2781,
+      "z": 10000
+    },
+    "monster": "Cave crawler"
+  },
+  {
+    "name": "Lumbridge Swamp Caves",
+    "map": {
+      "id": 608,
+      "plane": 0,
+      "x": 3186,
+      "z": 9582
+    },
+    "target": {
+      "level": 0,
+      "x": 3186,
+      "z": 9582
+    },
+    "monster": "Cave crawler"
+  },
+  {
+    "name": "Mazcab",
+    "map": {
+      "id": 682,
+      "plane": 0,
+      "x": 4235,
+      "z": 766
+    },
+    "target": {
+      "level": 0,
+      "x": 4235,
+      "z": 766
+    },
+    "monster": "Airut"
+  },
+  {
+    "name": "God Wars Dungeon",
+    "map": {
+      "id": 15,
+      "plane": 0,
+      "x": 2837,
+      "z": 5265
+    },
+    "target": {
+      "level": 0,
+      "x": 2837,
+      "z": 5265
+    },
+    "monster": "Spiritual mage"
+  },
+  {
+    "name": "Brimhaven Dungeon resource dungeon",
+    "map": {
+      "id": 384,
+      "plane": 0,
+      "x": 1095,
+      "z": 4506
+    },
+    "target": {
+      "level": 0,
+      "x": 1095,
+      "z": 4506
+    },
+    "monster": "Steel dragon"
+  },
+  {
+    "name": "Brimhaven Dungeon resource dungeon",
+    "map": {
+      "id": 384,
+      "plane": 0,
+      "x": 1091,
+      "z": 4528
+    },
+    "target": {
+      "level": 0,
+      "x": 1091,
+      "z": 4528
+    },
+    "monster": "Mithril dragon"
+  },
+  {
+    "name": "Taverley Dungeon",
+    "map": {
+      "id": 17,
+      "plane": 0,
+      "x": 2897,
+      "z": 9797
+    },
+    "target": {
+      "level": 0,
+      "x": 2897,
+      "z": 9797
+    },
+    "monster": "Blue dragon"
+  },
+  {
+    "name": "Taverley blue dragon resource dungeon",
+    "map": {
+      "id": 379,
+      "plane": 0,
+      "x": 967,
+      "z": 4498
+    },
+    "target": {
+      "level": 0,
+      "x": 967,
+      "z": 4498
+    },
+    "monster": "Blue dragon"
+  },
+  {
+    "name": "Ogre Enclave",
+    "map": {
+      "id": 572,
+      "plane": 0,
+      "x": 2568,
+      "z": 9437
+    },
+    "target": {
+      "level": 0,
+      "x": 2568,
+      "z": 9437
+    },
+    "monster": "Blue dragon"
+  },
+  {
+    "name": "Senntisten Asylum",
+    "map": {
+      "id": 738,
+      "plane": 0,
+      "x": 1990,
+      "z": 1488
+    },
+    "target": {
+      "level": 0,
+      "x": 1990,
+      "z": 1488
+    },
+    "monster": "Abyssal lord"
+  },
+  {
+    "name": "Senntisten Asylum",
+    "map": {
+      "id": 738,
+      "plane": 0,
+      "x": 1960,
+      "z": 1500
+    },
+    "target": {
+      "level": 0,
+      "x": 1960,
+      "z": 1500
+    },
+    "monster": "Abyssal savage"
+  }
+]

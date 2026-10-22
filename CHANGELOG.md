@@ -9,7 +9,7 @@
 - Keep drop controls visible while scrolling and tuck lengthy explanations behind Notes buttons.
 - Refresh saved lookups after two weeks, with searchable manual refresh in Customize that clears matching variants and shares a one-hour cooldown.
 - Improve variant selection, search results and saved-data availability when the Wiki is unreachable.
-- Added map marker location helpers for monsters with in game visual queue to guide player.
+- Mark world locations, dungeon entrances and supported interior waypoints, including resource-dungeon return routes and known floor transitions. Use actual spawn pins and prefer your current floor when available. Clear entrance markers after entering a known dungeon when interior guidance is unavailable; unknown areas pause guidance.
 
 ## 0.0.1
 

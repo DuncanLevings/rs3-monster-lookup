@@ -127,8 +127,33 @@ local function valid_locations(result)
             end
         end
 
+        if
+            (location.page ~= nil and type(location.page) ~= "string")
+            or (
+                location.map_issue ~= nil
+                and location.map_issue ~= "invalid"
+                and location.map_issue ~= "ambiguous"
+            )
+        then
+            return false
+        end
         if location.map ~= nil and not location_map.valid(location.map) then
             return false
+        end
+        if location.spawn_maps ~= nil then
+            if type(location.spawn_maps) ~= "table" or #location.spawn_maps > 128 then
+                return false
+            end
+            local pins = 0
+            for pin_index, pin in pairs(location.spawn_maps) do
+                if not is_whole(pin_index, 1) or not location_map.valid(pin) then
+                    return false
+                end
+                pins = pins + 1
+            end
+            if pins ~= #location.spawn_maps then
+                return false
+            end
         end
 
         count = count + 1

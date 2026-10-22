@@ -142,6 +142,8 @@ return function(root)
     function suite:test_locations_survive_reload_with_independent_rows()
         self.result.locations = {
             {
+                page = "Slayer Tower",
+                map_issue = "ambiguous",
                 name = "Lumbridge",
                 levels = "2",
                 requirements = "None",
@@ -820,6 +822,29 @@ return function(root)
         lu.assertEquals(self.results[1].problem, "Refresh cancelled.")
         self.requests[1].complete(self.result)
         lu.assertNil(self.cache.get(self.monster, 20160))
+    end
+
+    function suite:test_spawn_maps_survive_cache_roundtrip_and_invalid_arrays_are_rejected()
+        self.result.no_locations = nil
+        self.result.locations = {
+            {
+                name = "Polypore Dungeon",
+                page = "Polypore Dungeon",
+                levels = "105",
+                requirements = "None",
+                spawns = "44",
+                spawn_maps = { { id = 41, plane = 0, x = 3411, z = 9687 } },
+            },
+        }
+        lu.assertNotNil(self.cache.put(self.monster, self.result))
+        lu.assertEquals(
+            self.cache.get(self.monster, 60).locations[1].spawn_maps,
+            self.result.locations[1].spawn_maps
+        )
+        self.result.locations[1].spawn_maps[2] = { id = 41, plane = 0, x = 1.5, z = 9687 }
+        lu.assertNil(self.cache.put(self.monster, self.result))
+        self.result.locations[1].spawn_maps = { [2] = { id = 41, plane = 0, x = 3411, z = 9687 } }
+        lu.assertNil(self.cache.put(self.monster, self.result))
     end
 
     return suite
