@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.0.2 - Unreleased
+## 0.0.3 - Unreleased
+
+- Require Monster Data Core for local monster data, shared with other plugins.
+- Allow other plugins to open Monster Lookup and show its information in their own layouts.
+- Keep a saved-data refresh running when another monster is opened.
+
+## 0.0.2
 
 - Search monsters by name or location from the Plugins ribbon or Plugin Hub, including partial names, small typos and wildcards.
 - Add a Locations tab with spawn locations, levels, access requirements and spawn counts.

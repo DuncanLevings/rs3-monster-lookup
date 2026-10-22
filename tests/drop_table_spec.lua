@@ -332,9 +332,9 @@ return function(root)
         lu.assertEquals(window.title, "Goblin")
     end
 
-    -- drops with the numbers the build keeps, see src/data/drops/odds.lua
+    -- drops with the numbers the build keeps, see src/core/drops/odds.lua
     local function odds(fields)
-        require("src/data/drops/odds").fill(fields, fields.rate)
+        MonsterDataCore.fill_odds(fields, fields.rate)
         return fields
     end
 

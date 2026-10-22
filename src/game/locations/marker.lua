@@ -11,7 +11,7 @@
 --     fresh name, the client didnt cope with reusing a name straight away
 --   - listeners (the Locations tab) get told whenever status() would say something new
 
-local location_map = require("src/data/locations/resolve")
+local core = require("src/data/core")
 local route = require("src/game/locations/route")
 local clock = require("src/utils/cache_clock")
 local map_symbol = require("src/game/locations/symbol")
@@ -194,7 +194,7 @@ local function register(player_level, player_height, position)
 end
 
 local function supported_target(location)
-    local resolution, reason = location_map.resolve(location)
+    local resolution, reason = core.location_resolve(location)
 
     if not resolution then
         return nil, reason
@@ -237,7 +237,7 @@ local function same_selection(location, source_title, resolution)
 end
 
 function marker.is_target(location, source_title)
-    return same_selection(location, source_title, location_map.resolve(location))
+    return same_selection(location, source_title, core.location_resolve(location))
 end
 
 ---asks for a location to be marked, the hints follow on the next tick

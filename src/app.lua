@@ -9,16 +9,22 @@ local content_panel = require("src/ui/settings/content")
 local settings = require("src/settings")
 local location_marker = require("src/game/locations/marker")
 local prices = require("src/data/drops/prices")
+local extensions = require("src/ui/extensions/registry")
+local navigation = require("src/ui/locations/navigation")
 
 local app = {}
 local started = false
 local GAME_STATE_SUBSCRIPTION = "monster_lookup_window_lifecycle"
+-- the window and settings follow their own monsters, so a settings refresh and the window
+-- never cancel each other (see src/data/lookup/service.lua)
+local window_lookup, settings_lookup
 
 local function on_game_state_changed(event)
     if event.newState == GameState.LOBBY or event.newState == GameState.LOGINSCREEN then
         -- native UI belongs to the current game session; rebuild it after login
         location_marker.clear()
-        lookup_service.cancel()
+        window_lookup.cancel()
+        settings_lookup.cancel()
         monster_window.destroy()
         search_window.destroy()
         content_panel.destroy()
@@ -26,7 +32,7 @@ local function on_game_state_changed(event)
 end
 
 local function fetch_monster(monster, force_refresh)
-    lookup_service.fetch(monster, function(result, problem, metadata)
+    window_lookup.fetch(monster, function(result, problem, metadata)
         if result then
             monster_window.show_result(result, problem, metadata)
         else
@@ -40,15 +46,17 @@ local function on_monster_selected(monster, force_refresh)
     -- so it stays out of the lookup and the saved data
     local focus = monster.focus
     monster.focus = nil
-    local opened = monster_window.open(monster, lookup_service.cancel, focus)
+    local opened = monster_window.open(monster, window_lookup.cancel, focus)
 
     if opened then
         fetch_monster(monster, force_refresh == true)
     end
+
+    return opened
 end
 
 local function refresh_monster(monster, on_complete)
-    lookup_service.fetch(monster, function(result, problem, metadata)
+    settings_lookup.fetch(monster, function(result, problem, metadata)
         if metadata and metadata.refreshing then
             return
         end
@@ -69,6 +77,8 @@ function app.start()
         "Monster Lookup requires PrettyUI; install it from the Plugin Hub"
     )
     lookup_service.start()
+    window_lookup = lookup_service.new_handle()
+    settings_lookup = lookup_service.new_handle()
     location_marker.start()
     search_window.start(on_monster_selected)
     settings_panel.start(monster_window.refresh_settings, refresh_monster)
@@ -81,13 +91,35 @@ function app.start()
     log("Monster Lookup started.")
 end
 
+---opens the standard window for a monster, what the menu entry and search do. for other
+---plugins through src/api.lua
+---@param monster MonsterSelection with an optional focus (WindowFocus)
+---@return boolean opened false before the plugin started or while the game area isnt ready
+function app.open(monster)
+    if not started then
+        return false
+    end
+
+    return on_monster_selected(monster) == true
+end
+
+function app.started()
+    return started
+end
+
 function app.stop()
     if not started then
         return
     end
 
     started = false
+    -- other plugins sections, tabs and navigation go first, while the window theyre in still
+    -- exists
+    extensions.clear()
+    navigation.clear()
     npc_menu.stop()
+    window_lookup.destroy()
+    settings_lookup.destroy()
     lookup_service.stop()
     location_marker.stop()
     settings_panel.stop()

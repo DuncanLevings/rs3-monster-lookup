@@ -9,33 +9,8 @@
 local json = require("src/utils/json")
 local text = require("src/utils/wiki_text")
 local wiki_notes = require("src/utils/wiki_notes")
-local drop_odds = require("src/data/drops/odds")
+local core = require("src/data/core")
 local numbers = require("src/utils/numbers")
-
----@class Drop
----@field name string item name as shown on the page
----@field wiki_name string? item page name, used to look up the item id. saved data has the id already
----@field item_id integer? filled in later for the item icon
----@field quantity string
----@field rate string rarity text exactly as the wiki shows it eg "1/128" or "Rare"
----@field price number|{minimum: number, maximum: number}|"Not sold"|nil
----@field notes string footnote text for this row, "" if none
----@field note_marker string footnote numbers eg "1,3", "" if none
----@field chance string? percent per roll, see src/data/drops/odds.lua
----@field rolls integer? rolls per kill, nil means 1
----@field quantity_low integer? lowest quantity when its not just a number
----@field quantity_high integer? highest quantity when its not the same as the lowest
-
----@class DropSection
----@field title string headings above the table joined with " / "
----@field description string? paragraphs between the heading and the table
----@field afterword string? paragraphs after the table
----@field drops Drop[]
----@field notes string[] footnotes used in this table, numbered in order
----@field note_ids table<string, integer>
----@field drop_mode string? Wiki switch label for an enrage-dependent table
----@field drop_threshold number? minimum enrage, -1 for normal mode
----@field drop_switch integer? identifies tables from the same Wiki switcher
 
 local dropsline = {}
 
@@ -154,7 +129,7 @@ local function read_row(row)
     }
 
     -- the base rarity, not the luck boosted one, same as the wikis own average value
-    drop_odds.fill(drop, clean(data["Rarity"]))
+    core.fill_odds(drop, clean(data["Rarity"]))
     local rolls, low, high = data["Rolls"], data["Quantity Low"], data["Quantity High"]
 
     if drop.chance and numbers.is_whole(rolls) and rolls > 1 then

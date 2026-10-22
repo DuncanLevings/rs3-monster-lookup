@@ -1,7 +1,15 @@
 -- works out the next step towards a marked location for the marker, finding ladders and
 -- doors listed in routes.lua among the scenery loaded around the player. it never scans the
 -- whole world, and never treats just any ladder or door as the way out
-local coordinates = require("src/data/locations/coordinates")
+local core = require("src/data/core")
+-- the map geometry the planner needs, from the static data
+local coordinates = {
+    contains = core.map_contains,
+    is_shared = core.map_is_shared,
+    region = core.map_region,
+    connected = core.maps_connected,
+    world = core.map_world,
+}
 local planner =
     require("src/data/locations/navigation").new(require("src/data/locations/routes"), coordinates)
 local route = {}

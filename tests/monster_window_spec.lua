@@ -933,11 +933,11 @@ return function(root)
                 end
             end,
         }
-        context.stub_module("src/data/bundle/reader", {
+        context.stub_module("src/data/core", require("tests/support/core_stub")({
             npc_ids = function()
                 return { 1, 2 }
             end,
-        })
+        }))
     end
 
     function suite:test_preview_is_only_owned_by_the_visible_info_tab()

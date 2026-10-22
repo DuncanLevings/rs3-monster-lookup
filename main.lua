@@ -1,8 +1,12 @@
--- plugin entry point
+-- plugin entry point. what this file returns is what plugins depending on Monster Lookup
+-- get (src/api.lua, docs/API.md)
 
 local app = require("src/app")
+local api = require("src/api")
 
 function PluginShutdown()
+    -- whatever other plugins left behind first, while the window they might sit in exists
+    api.shutdown()
     app.stop()
 end
 
@@ -12,3 +16,5 @@ function PluginDependencyUpdate(event)
 end
 
 app.start()
+
+return api.export

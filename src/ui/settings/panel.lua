@@ -3,7 +3,7 @@
 
 local settings = require("src/settings")
 local cache = require("src/data/lookup/cache")
-local bundle = require("src/data/bundle/reader")
+local core = require("src/data/core")
 local plugin_pages = require("src/ui/settings/pages")
 
 local settings_panel = {}
@@ -64,7 +64,9 @@ local function add_cache_refresh(page, on_refresh)
     local has_downloads = false
 
     for _, monster in ipairs(cache.list()) do
-        if not bundle.find(monster) then
+        local status = core.coverage(monster).status
+
+        if status == "unknown" or status == "ambiguous" then
             has_downloads = true
             break
         end

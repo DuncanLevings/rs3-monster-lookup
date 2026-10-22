@@ -2,6 +2,10 @@
 
 View monster drops, stats and locations without leaving the game. Right-click a monster and choose **View drops**, or open Monster Lookup from the **Plugins** ribbon or **Plugin Hub > Manage** to search by name.
 
+Monster Data Core is a required dependency. For local development, place `monster-data-core`
+next to `monster-lookup` and enable the core first. Static records ship with that dependency;
+Monster Lookup keeps the UI, Wiki fallback, live prices and navigation.
+
 ## Drops
 
 Browse items, quantities, drop rates, GE guide prices and notes from the [RuneScape Wiki](https://runescape.wiki/). Search drops, collapse categories and choose a boss mode or enrage where available. The controls stay visible while you scroll. Expand **Notes** for drop conditions and hover over marked rarities for details.

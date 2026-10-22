@@ -13,8 +13,9 @@ local function position_tooltip(tooltip, label, page, overlay_parent)
     local popup = tooltip.root
     local x = target.x - origin.x
 
-    -- global layout coordinates don't include the viewport's scroll offset
-    local target_y = target.y - origin.y - page.scrollY
+    -- global layout coordinates don't include the viewport's scroll offset (when the target
+    -- is on a scrolling page at all, embedded components might not be)
+    local target_y = target.y - origin.y - (page and page.scrollY or 0)
     local y = target_y + label.height + GAP
 
     -- no room below so flip it above the target
@@ -27,7 +28,7 @@ local function position_tooltip(tooltip, label, page, overlay_parent)
     popup:SetPos(x, y)
 end
 
----@param page table scrolling page the target sits on
+---@param page table? scrolling page the target sits on, nil when its not on one
 ---@param target table component to hover over
 ---@param parent table component the tooltip is drawn in, normally the whole game area
 ---@param text string
@@ -42,9 +43,11 @@ function hover_tooltip.attach(page, target, parent, text)
     target:Subscribe(ui.Hook.ONMOUSEOVER, "monster_lookup_tip_position", function()
         position_tooltip(tooltip, target, page, parent)
     end)
-    widgets.forward_wheel(target, "monster_lookup_tip_wheel", page, function()
-        tooltip:Hide()
-    end)
+    if page then
+        widgets.forward_wheel(target, "monster_lookup_tip_wheel", page, function()
+            tooltip:Hide()
+        end)
+    end
 
     return tooltip
 end

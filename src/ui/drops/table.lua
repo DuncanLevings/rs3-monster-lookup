@@ -16,12 +16,10 @@ local theme = require("src/ui/common/theme")
 local widgets = require("src/ui/common/widgets")
 local internals = require("src/ui/common/prettyui_internals")
 
-local item_search = require("src/data/search/matcher")
-local drop_groups = require("src/data/drops/groups")
+local core = require("src/data/core")
 local drop_search = require("src/ui/drops/search")
 local drop_notes = require("src/ui/drops/notes")
 local wiki_notes = require("src/utils/wiki_notes")
-local kill_value = require("src/data/drops/value")
 
 local drop_table = {}
 local ROW_HEIGHT = 40
@@ -257,7 +255,7 @@ local function create_section_body(controller, data)
         rows = {},
         expanded = true,
     }
-    add_section_text(section, kill_value.without_wiki_averages(data.description), true)
+    add_section_text(section, core.without_wiki_averages(data.description), true)
 
     local table_layer = widgets.layer(body, 1)
     section.table_height = HEADER_HEIGHT + #data.drops * ROW_HEIGHT
@@ -271,7 +269,7 @@ local function create_section_body(controller, data)
         local row = add_drop_row(table_layer, drop, y, index, controller)
         section.rows[#section.rows + 1] = {
             root = row,
-            search_item = item_search.prepare(drop.name),
+            search_item = core.prepare_name(drop.name),
             hidden = false,
             y = y,
         }
@@ -283,7 +281,7 @@ local function create_section_body(controller, data)
         add_section_text(section, "[" .. number .. "] " .. note, false, references[number])
     end
 
-    add_section_text(section, kill_value.without_wiki_averages(data.afterword), false)
+    add_section_text(section, core.without_wiki_averages(data.afterword), false)
 
     return section
 end
@@ -305,7 +303,8 @@ local function layout_toolbar(controller)
         right = x + MODE_PICKER_WIDTH
     end
 
-    local bottom = controller.search.layout(right + 16, y)
+    -- without a search box the toolbar is just the buttons row
+    local bottom = controller.search and controller.search.layout(right + 16, y) or (y + 26)
     controller.toolbar:SetSize(controller.page.content.width, bottom + 8)
 
     y = bottom + 8 + TOOLBAR_CONTENT_GAP
@@ -415,7 +414,7 @@ end
 -- notes are left alone so the numbers on the rows still point at the right one
 local function apply_search(controller, query)
     local searching = query:find("%S") ~= nil
-    local matches = item_search.compile(query)
+    local matches = core.name_matcher(query)
     local total = 0
     controller.updating_sections = true
     controller.filtering_sections = true
@@ -544,7 +543,7 @@ end
 -- the average kill value for the tables being shown, worked out again on every render, which
 -- happens when the mode changes or live prices turn up, never per frame
 local function create_kill_value(controller, sections)
-    local value = kill_value.calculate(sections, controller.options.unit_price)
+    local value = core.kill_value(sections, controller.options.unit_price)
 
     if value.counted == 0 then
         return
@@ -716,6 +715,10 @@ local function create_toolbar(controller)
         create_mode_picker(controller, 132)
     end
 
+    if controller.options.search == false then
+        return
+    end
+
     local query = controller.options.search_query or ""
     controller.search = drop_search.new(controller.page, query, function(new_query)
         if controller.destroyed then
@@ -745,6 +748,8 @@ end
 ---@field mode integer? which mode to show when the page is split into modes, defaults to 1
 ---@field on_mode_change fun(mode: integer)? the caller re-renders with the new mode
 ---@field section_state table? shared category choices for this monster across drop modes
+---@field search boolean? false leaves out the search box
+---@field kill_value boolean? false leaves out the average kill line
 
 ---@param page table tab page to draw into
 ---@param sections DropSection[]
@@ -759,7 +764,7 @@ function drop_table.render(page, sections, overlay_parent, options)
         options = options,
         section_state = section_state,
         overlay_parent = overlay_parent,
-        groups = drop_groups.mode_groups(sections),
+        groups = core.drop_modes(sections),
         sections = {},
         tooltips = {},
         value_lines = {},
@@ -786,7 +791,9 @@ function drop_table.render(page, sections, overlay_parent, options)
     if #controller.sections > 0 then
         create_toolbar(controller)
         -- only the mode being shown, so normal and hard mode are never added together
-        create_kill_value(controller, shown)
+        if options.kill_value ~= false then
+            create_kill_value(controller, shown)
+        end
     end
 
     controller.building = false

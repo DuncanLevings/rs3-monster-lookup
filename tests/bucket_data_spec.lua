@@ -2,7 +2,7 @@ local lu = require("luaunit")
 local rows = require("tests/support/dropsline_rows")
 local dropsline = require("src/data/wiki/dropsline")
 local spawn_locations = require("src/data/wiki/spawn_locations")
-local drop_groups = require("src/data/drops/groups")
+local drop_groups = { mode_groups = MonsterDataCore.drop_modes }
 
 -- the readers for monsters that arent in the saved bundle, dropsline and coordinates rows
 return function()

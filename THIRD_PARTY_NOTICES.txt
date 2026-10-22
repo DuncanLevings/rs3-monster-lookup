@@ -1,3 +1,6 @@
+Static monster data and its build sources now ship in the Monster Data Core dependency.
+The static-data attribution below is retained for provenance; see that package for current paths.
+
 rxi/json.lua v0.1.2
 Source: https://github.com/rxi/json.lua
 Pinned revision: dbf4b2dd2eb7c23be2773c89eb059dadd6436f94
@@ -5,9 +8,8 @@ License: MIT (full license retained in src/vendor/json.lua)
 Modified locally to scan JSON strings in chunks and avoid repeated string copies.
 No downloaded Lua is executed.
 
-Monster and drop information is retrieved on demand from the RuneScape Wiki.
-The source page title is shown on the Monster info tab. Wiki text remains subject to the
-Wiki's content license: https://runescape.wiki/w/RuneScape:Copyrights
+Monster and drop reference information comes from the RuneScape Wiki.
+Wiki text remains subject to the Wiki's content license: https://runescape.wiki/w/RuneScape:Copyrights
 
 Combat icons named resources/stat_*.png are RuneScape artwork, copyright Jagex Ltd.
 Retrieved from the RuneScape Wiki. Individual file sources are listed in
@@ -24,14 +26,14 @@ Bundled monster-name index: RuneScape Wiki contributors.
 Source: https://runescape.wiki/api.php (Bucket API, infobox_monster.page_name)
 Retrieved 2026-10-21; 2,462 unique mainspace page titles, filtered from 6,062 current variant rows.
 Removed content and pages without drops or useful combat information are excluded.
-Location qualifiers in page titles are retained. No monster statistics or drops are bundled.
+Location qualifiers in page titles are retained. The full static bundle also includes monster statistics and drop records.
 License: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported
 https://creativecommons.org/licenses/by-nc-sa/3.0/
 Rebuild with tools/build_monster_index.py from saved Bucket API pages.
 
 Bundled dungeon entrance reference: RuneScape Wiki contributors.
 Retrieved 2026-10-21; surface access coordinates and access labels in
-src/data/dungeon_entrances.lua. These are entrance points, not interior map conversions.
+src/locations/dungeons/entrances.lua. These are entrance points, not interior map conversions.
 License: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported
 https://creativecommons.org/licenses/by-nc-sa/3.0/
 Sources:
@@ -51,7 +53,7 @@ https://runescape.wiki/w/Taverley_Dungeon?oldid=37130519
 https://runescape.wiki/w/Whirlpool_(Baxtorian_Falls)?oldid=36789093
 
 Bundled map-coordinate transforms: RuneScape Wiki contributors.
-Selected maps extracted as numeric reference data into src/data/dungeon_maps.lua.
+Selected maps extracted as numeric reference data into src/locations/dungeons/maps.lua.
 Source floors, coordinate offsets and coverage bounds are retained.
 Rebuild with tools/build_dungeon_maps.py from saved map configuration JSON.
 No downloaded Lua is executed. Route notes use the Abandoned Mine source above.

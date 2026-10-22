@@ -16,12 +16,47 @@ return function(root)
     function suite:load()
         local context = self
         local modules = {
-            ["src/data/bundle/reader"] = {
-                find = function(monster)
-                    return context.bundled and context.bundled[monster.name]
+            ["src/data/core"] = require("tests/support/core_stub")({
+                coverage = function(monster)
+                    local bundled = context.bundled and context.bundled[monster.name]
+                    return { status = bundled and "covered" or "unknown" }
                 end,
-            },
-            ["src/data/monsters/names"] = self.names,
+                titles = function()
+                    return { table.unpack(context.names) }
+                end,
+                -- stands in for the bundled drops.lua, see tests/search_index_spec.lua for that
+                items = function()
+                    return {
+                        { name = "Abyssal whip", count = 2 },
+                        { name = "Bones", count = 120 },
+                        { name = "Big bones", count = 1 },
+                    }
+                end,
+                droppers = function(name)
+                    local found = ({
+                        ["Abyssal whip"] = {
+                            total = 2,
+                            droppers = {
+                                { title = "Abyssal demon (elite)", rate = "1/500", quantity = "1" },
+                                { title = "Abyssal demon", rate = "1/1,024", quantity = "1" },
+                            },
+                        },
+                        Bones = {
+                            total = 120,
+                            droppers = {
+                                { title = "Goblin", rate = "Always", quantity = "1" },
+                                {
+                                    title = "Kerapac",
+                                    rate = "Always",
+                                    quantity = "2",
+                                    mode = "Hard mode",
+                                },
+                            },
+                        },
+                    })[name]
+                    return found or { total = 0, droppers = {} }
+                end,
+            }),
             ["src/data/lookup/cache"] = {
                 list = function()
                     return context.cached
@@ -32,33 +67,6 @@ return function(root)
                 end,
             },
             ["src/utils/cache_clock"] = { TICKS_PER_SECOND = 50 },
-            -- stands in for the bundled drops.lua, see tests/search_index_spec.lua for that
-            ["src/data/search/drops"] = {
-                items = function()
-                    return {
-                        { name = "Abyssal whip", count = 2 },
-                        { name = "Bones", count = 120 },
-                        { name = "Big bones", count = 1 },
-                    }
-                end,
-                droppers = function(position)
-                    return ({
-                        {
-                            { title = "Abyssal demon (elite)", rate = "1/500", quantity = "1" },
-                            { title = "Abyssal demon", rate = "1/1,024", quantity = "1" },
-                        },
-                        {
-                            { title = "Goblin", rate = "Always", quantity = "1" },
-                            {
-                                title = "Kerapac",
-                                rate = "Always",
-                                quantity = "2",
-                                mode = "Hard mode",
-                            },
-                        },
-                    })[position] or {}
-                end,
-            },
         }
         self.subscribers = {}
         local environment = setmetatable({
@@ -278,7 +286,7 @@ return function(root)
     end
 
     function suite:test_bundled_names_find_uncached_location_variants_without_http()
-        self.names = assert(loadfile(root .. "/src/data/monsters/names.lua"))()
+        self.names = MonsterDataCore.titles()
         self.cached = {}
         self:load()
         self.search.set_query("bloodveld god wars")
@@ -293,7 +301,7 @@ return function(root)
     end
 
     function suite:test_bundled_index_has_unique_titles_and_known_monsters()
-        local titles = assert(loadfile(root .. "/src/data/monsters/names.lua"))()
+        local titles = MonsterDataCore.titles()
         local seen = {}
         -- only monsters with drops are listed, see tools/fetch_wiki_data.py
         lu.assertTrue(#titles > 1000)

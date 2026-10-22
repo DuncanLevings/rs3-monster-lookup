@@ -2,10 +2,10 @@ local lu = require("luaunit")
 return function(root)
     local suite = {}
     local context = require("tests/support/window_fixture").new(root)
-    local c = context.load_module("src/data/locations/coordinates")
+    local c = context.load_core("src/locations/coordinates")
     local graph = context.load_module("src/data/locations/routes")
     local planner = context.load_module("src/data/locations/navigation").new(graph, c)
-    local maps = context.load_module("src/data/locations/resolve")
+    local maps = context.load_core("src/locations/resolve")
 
     function suite:test_authored_connections_have_bounded_departures_and_valid_arrival_floors()
         local count = 0

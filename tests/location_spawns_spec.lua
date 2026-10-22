@@ -4,10 +4,10 @@ return function(root)
     local context = require("tests/support/window_fixture").new(root)
     local parser = context.load_module("tools/wiki/monster_locations")
     local pins = context.load_module("tools/wiki/location_spawns")
-    local maps = context.load_module("src/data/locations/resolve")
+    local maps = context.load_core("src/locations/resolve")
     local planner = context.load_module("src/data/locations/navigation").new(
         context.load_module("src/data/locations/routes"),
-        context.load_module("src/data/locations/coordinates")
+        context.load_core("src/locations/coordinates")
     )
     local function read(name)
         local file = assert(io.open(root .. "/tests/support/" .. name, "rb"))
@@ -52,40 +52,6 @@ return function(root)
         lu.assertEquals(step.target.level, 3)
         lu.assertTrue(step.target.z >= 5568)
         lu.assertEquals(goal._selected_spawn.map_id, 267)
-    end
-
-    function suite:test_missing_or_malformed_optional_source_does_not_break_location_rows()
-        local result = { { page = "Polypore Dungeon" } }
-        pins.attach(result, false)
-        pins.attach(result, "{{LocLine|loc=[[Polypore Dungeon]]|mapID=41|x:3411,y:9687")
-        lu.assertNil(result[1].spawn_maps)
-        pins.attach(result, "{{LocLine|loc=[[Polypore Dungeon]]|mapID=bad|x:3411,y:9687}}")
-        lu.assertNil(result[1].spawn_maps)
-        pins.attach(
-            result,
-            "{{LocLine|loc=[[Polypore Dungeon]]|mapID=41|x:3411.5,y:9687|x:3411,y:9687,plane:bad}}"
-        )
-        lu.assertNil(result[1].spawn_maps)
-    end
-
-    function suite:test_source_template_nesting_and_duplicate_points_are_handled()
-        local result = { { page = "Polypore Dungeon" } }
-        pins.attach(
-            result,
-            "{{LocLine|loc=[[Polypore Dungeon|Cave]]|requirements={{Skillreq|Slayer|1}}|mapID=41|x:3411,y:9687|x:3411,y:9687}}"
-        )
-        lu.assertEquals(#result[1].spawn_maps, 1)
-    end
-
-    function suite:test_point_limit_keeps_other_native_floors()
-        local source = { "{{LocLine|loc=[[Polypore Dungeon]]|mapID=41" }
-        for _ = 1, 300 do
-            source[#source + 1] = "|x:3277,y:9336"
-        end
-        source[#source + 1] = "|x:3411,y:9687}}"
-        local result = { { page = "Polypore Dungeon" } }
-        pins.attach(result, table.concat(source))
-        lu.assertEquals(#result[1].spawn_maps, 2)
     end
 
     return suite

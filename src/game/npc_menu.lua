@@ -7,14 +7,6 @@ local SUBSCRIPTION_ID = "monster_lookup_npc_menu"
 local VIEW_DROPS = "View drops"
 local active_session
 
----@class MonsterSelection
----@field npc_id integer?
----@field wiki_title string? exact page selected by name search
----@field entity_uid integer?
----@field name string
----@field combat_level integer?
----@field parent_npc_id integer?
-
 local function get_valid_npc(entry)
     local npc = entry.npcData and entry.npcData.entity
 

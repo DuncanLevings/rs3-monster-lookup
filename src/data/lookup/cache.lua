@@ -11,10 +11,9 @@
 --
 -- if a save fails anyway the result is still kept in memory for this session
 
-local identity = require("src/data/monsters/identity")
+local core = require("src/data/core")
 local json = require("src/utils/json")
 local clock = require("src/utils/cache_clock")
-local location_map = require("src/data/locations/resolve")
 local numbers = require("src/utils/numbers")
 
 ---@class CacheMetadata
@@ -22,7 +21,7 @@ local numbers = require("src/utils/numbers")
 ---@field age_seconds number? nil when the age cant be worked out
 ---@field stale boolean true once the refresh interval has passed (or age is unknown)
 ---@field refreshing boolean? set while a refresh request is in flight
----@field bundled boolean? came from the bundled data (src/data/bundle/reader.lua), not the cache
+---@field bundled boolean? came from the bundled data (Monster Data Core), not the cache
 ---@field built string? date the bundle was built, eg "2026-10-21"
 
 local cache = {}
@@ -136,7 +135,7 @@ local function valid_locations(result)
             return false
         end
 
-        if location.map ~= nil and not location_map.valid(location.map) then
+        if location.map ~= nil and not core.location_valid(location.map) then
             return false
         end
 
@@ -148,7 +147,7 @@ local function valid_locations(result)
             local pins = 0
 
             for pin_index, pin in pairs(location.spawn_maps) do
-                if not is_whole(pin_index, 1) or not location_map.valid(pin) then
+                if not is_whole(pin_index, 1) or not core.location_valid(pin) then
                     return false
                 end
                 pins = pins + 1
@@ -507,7 +506,7 @@ function cache.list(include_summaries)
     local monsters = {}
 
     for _, entry in ipairs(entries) do
-        local monster = identity.selection(entry.key)
+        local monster = core.identity_selection(entry.key)
 
         if monster and not entry.invalidated then
             if include_summaries and entry.summary then
@@ -538,7 +537,7 @@ end
 -- it a few at a time instead of decoding everything when settings opens
 function cache.describe(monster)
     load()
-    local key = identity.key(monster)
+    local key = core.identity_key(monster)
 
     for _, entry in ipairs(entries) do
         if entry.key == key then
@@ -557,14 +556,14 @@ function cache.describe(monster)
 end
 
 local function entry_family(entry)
-    local monster = identity.selection(entry.key)
-    return identity.family(
+    local monster = core.identity_selection(entry.key)
+    return core.family(
         entry.summary and entry.summary.title or monster and (monster.wiki_title or monster.name)
     )
 end
 
 local function selected_family(monster)
-    local key = identity.key(monster)
+    local key = core.identity_key(monster)
 
     for _, entry in ipairs(entries) do
         if entry.key == key then
@@ -572,7 +571,7 @@ local function selected_family(monster)
         end
     end
 
-    return identity.family(monster.wiki_title or monster.name)
+    return core.family(monster.wiki_title or monster.name)
 end
 
 -- manual refresh is limited to once an hour per monster family (all variants of one
@@ -645,7 +644,7 @@ end
 ---@return CacheMetadata? metadata
 function cache.get(monster, refresh_minutes)
     load()
-    local key = identity.key(monster)
+    local key = core.identity_key(monster)
 
     for position = #entries, 1, -1 do
         local entry = entries[position]
@@ -696,9 +695,9 @@ function cache.put(monster, result)
         return nil
     end
 
-    local key = identity.key(monster)
+    local key = assert(core.identity_key(monster), "cache: monster has no identity")
     local order = 1
-    local family = identity.family(result.title)
+    local family = core.family(result.title)
     local attempt = manual_attempts[family]
     local manual_refresh_at = attempt and attempt.utc or nil
 

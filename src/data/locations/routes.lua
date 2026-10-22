@@ -43,7 +43,7 @@ local graph = {
     },
 }
 
-for id, name in pairs(require("src/data/locations/dungeons/map_names")) do
+for id, name in pairs(require("src/data/core").map_names()) do
     graph.nodes[id] = graph.nodes[id] or { name = name }
 end
 

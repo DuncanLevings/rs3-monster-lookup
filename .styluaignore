@@ -1,5 +1,2 @@
 src/vendor/
-src/data/bundle/generated/
 src/data/locations/dungeons/
-src/data/monsters/names.lua
-src/data/monsters/slayer_codex_data.lua

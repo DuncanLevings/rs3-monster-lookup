@@ -84,18 +84,21 @@ return function(root)
         }
         -- these tests are about the live lookup and its cache, so the bundle knows nothing
         -- unless a test sets context.bundle_match (tests/bundle_spec.lua covers the real one)
-        modules["src/data/bundle/reader"] = {
-            find = function()
-                return context.bundle_match
+        local statuses = { bundled = "covered", no_drops = "no_drops", not_covered = "excluded" }
+        modules["src/data/core"] = require("tests/support/core_stub")({
+            coverage = function()
+                local match = context.bundle_match
+                return { status = match and statuses[match.kind] or "unknown" }
             end,
-            load = function(page)
+            monster = function()
+                local page = context.bundle_match.page
                 return { title = "Bundled " .. page, info = {}, variants = {}, sections = {} },
-                    "2026-10-21"
+                    { status = "covered" }
             end,
-            placeholder = function(monster, kind)
-                return { title = monster.name, sections = {}, no_drops = kind, placeholder = true }
+            info = function()
+                return { schema = 1, built = "2026-10-21", monsters = 1 }
             end,
-        }
+        })
         modules["src/data/wiki/lookup"] = {
             synchronize_clock = function(complete)
                 context.time_checks = (context.time_checks or 0) + 1
@@ -107,8 +110,15 @@ return function(root)
             end,
             start = function() end,
             stop = function() end,
+            -- like the real one, each lookup has its own cancel handle
             fetch = function(monster, complete)
-                context.requests[#context.requests + 1] = { monster = monster, complete = complete }
+                local request = { monster = monster, complete = complete }
+                context.requests[#context.requests + 1] = request
+                return {
+                    cancel = function()
+                        request.cancelled = true
+                    end,
+                }
             end,
         }
 
@@ -457,7 +467,7 @@ return function(root)
 
         lu.assertEquals(#self.requests, 0)
         lu.assertEquals(self.results[1].result.no_drops, "not_covered")
-        lu.assertEquals(self.results[2].result.no_drops, "no_drops")
+        lu.assertEquals(self.results[2].result.no_drops, "none")
         lu.assertTrue(self.results[2].result.placeholder)
     end
 
@@ -925,6 +935,99 @@ return function(root)
         lu.assertNil(self.cache.put(self.monster, self.result))
         self.result.locations[1].spawn_maps = { [2] = { id = 41, plane = 0, x = 3411, z = 9687 } }
         lu.assertNil(self.cache.put(self.monster, self.result))
+    end
+
+    -- lookup handles: each caller follows its own monster, the requests behind them are shared
+
+    local function recorder()
+        local calls = {}
+        return calls, function(result, problem, metadata)
+            calls[#calls + 1] = { result = result, problem = problem, metadata = metadata }
+        end
+    end
+
+    function suite:test_cancelling_one_handle_leaves_another_running()
+        local first_calls, first = recorder()
+        local second_calls, second = recorder()
+        local a, b = self.service.new_handle(), self.service.new_handle()
+
+        a.fetch({ npc_id = 1, name = "Goblin" }, first)
+        b.fetch({ npc_id = 2, name = "Guard" }, second)
+        lu.assertEquals(#self.requests, 2)
+
+        a.cancel()
+        lu.assertTrue(self.requests[1].cancelled)
+        lu.assertNil(self.requests[2].cancelled)
+
+        self.requests[1].complete(self.result)
+        self.requests[2].complete(self.result)
+
+        lu.assertEquals(first_calls, {})
+        lu.assertEquals(#second_calls, 1)
+        lu.assertEquals(second_calls[1].result.title, self.result.title)
+        -- a cancelled lookup saves nothing
+        lu.assertNil(self.cache.get({ npc_id = 1, name = "Goblin" }, 60))
+        lu.assertNotNil(self.cache.get({ npc_id = 2, name = "Guard" }, 60))
+    end
+
+    function suite:test_handles_on_the_same_monster_share_one_request()
+        local first_calls, first = recorder()
+        local second_calls, second = recorder()
+        local a, b = self.service.new_handle(), self.service.new_handle()
+
+        a.fetch(self.monster, first)
+        b.fetch(self.monster, second)
+        lu.assertEquals(#self.requests, 1)
+
+        -- one of them leaving doesnt stop it for the other
+        a.cancel()
+        lu.assertNil(self.requests[1].cancelled)
+
+        self.requests[1].complete(self.result)
+        lu.assertEquals(first_calls, {})
+        lu.assertEquals(#second_calls, 1)
+        lu.assertNotNil(self.cache.get(self.monster, 60))
+    end
+
+    function suite:test_a_handle_ignores_its_older_selection()
+        local calls, complete = recorder()
+        local handle = self.service.new_handle()
+
+        handle.fetch({ npc_id = 1, name = "Goblin" }, complete)
+        handle.fetch({ npc_id = 2, name = "Guard" }, complete)
+
+        lu.assertTrue(self.requests[1].cancelled)
+        self.requests[1].complete(self.result)
+        lu.assertEquals(calls, {})
+
+        self.requests[2].complete(self.result)
+        lu.assertEquals(#calls, 1)
+    end
+
+    function suite:test_destroyed_handles_get_no_late_results()
+        local calls, complete = recorder()
+        local handle = self.service.new_handle()
+
+        handle.fetch(self.monster, complete)
+        handle.destroy()
+        self.requests[1].complete(self.result)
+
+        lu.assertTrue(self.requests[1].cancelled)
+        lu.assertEquals(calls, {})
+    end
+
+    function suite:test_the_default_handle_is_not_cancelled_by_other_handles()
+        local calls, complete = recorder()
+        local other = self.service.new_handle()
+
+        self.service.fetch(self.monster, self.complete)
+        other.fetch({ npc_id = 2, name = "Guard" }, complete)
+        other.cancel()
+        self.requests[1].complete(self.result)
+
+        lu.assertEquals(#self.results, 1)
+        lu.assertEquals(self.results[1].result.title, self.result.title)
+        lu.assertEquals(calls, {})
     end
 
     return suite

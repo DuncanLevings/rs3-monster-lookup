@@ -204,6 +204,20 @@ function prices.when_live(key, callback)
     return true
 end
 
+---stops waiting for this key, eg a drop table thats been destroyed
+---@param key string
+function prices.forget(key)
+    if waiting[key] == nil then
+        return
+    end
+
+    waiting[key] = nil
+
+    if next(waiting) == nil then
+        stop_waiting()
+    end
+end
+
 function prices.stop()
     stop_waiting()
 end

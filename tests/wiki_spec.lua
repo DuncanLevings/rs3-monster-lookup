@@ -2,8 +2,8 @@ local lu = require("luaunit")
 local fixture = require("tests/support/wiki_fixture")
 local markup = require("tests/support/wiki_markup")
 local rows = require("tests/support/dropsline_rows")
-local parser = require("tools/wiki/page")
-local drop_groups = require("src/data/drops/groups")
+local parser = require("tests/support/core_loader").new().load_module("tools/wiki/page")
+local drop_groups = { mode_groups = MonsterDataCore.drop_modes }
 local text = require("src/utils/wiki_text")
 local queries = require("src/data/wiki/queries")
 local url = require("src/utils/url")
@@ -309,9 +309,11 @@ return function(root)
         lu.assertEquals(#self.context.requests, 1)
     end
 
-    function suite:test_superseded_responses_cannot_replace_the_current_monster()
-        self.context.lookup.fetch({ npc_id = 1, name = "Old" }, self.complete)
+    -- whoever started a lookup cancels it through its handle, a late response is ignored
+    function suite:test_cancelled_lookups_cannot_replace_the_current_monster()
+        local old = self.context.lookup.fetch({ npc_id = 1, name = "Old" }, self.complete)
         self.context:tick()
+        old.cancel()
         self.context.lookup.fetch({ npc_id = 2, name = "New" }, self.complete)
         self.context:tick()
         self.context:respond(1, { bucket = { { page_name = "Old" } } })
@@ -319,6 +321,33 @@ return function(root)
         lu.assertTrue(self.context.requests[1].cancelled)
         lu.assertEquals(#self.context.requests, 2)
         lu.assertEquals(self.results, {})
+    end
+
+    -- two lookups started by different callers both keep going, cancelling one leaves the other
+    function suite:test_lookups_run_side_by_side_and_cancel_separately()
+        local first, second = {}, {}
+        local a = self.context.lookup.fetch({ name = "First", wiki_title = "First" }, function(result, problem)
+            first[#first + 1] = { result = result, problem = problem }
+        end)
+        self.context:tick()
+        self.context.lookup.fetch({ name = "Second", wiki_title = "Second" }, function(result, problem)
+            second[#second + 1] = { result = result, problem = problem }
+        end)
+        self.context:tick()
+
+        lu.assertEquals(#self.context.requests, 2)
+        lu.assertNil(self.context.requests[1].cancelled)
+
+        a.cancel()
+        lu.assertTrue(self.context.requests[1].cancelled)
+        lu.assertNil(self.context.requests[2].cancelled)
+
+        self.context:respond(2, { bucket = {} })
+        self.context:respond(1, { bucket = {} })
+        self.context:tick()
+
+        lu.assertEquals(first, {})
+        lu.assertEquals(#second, 1)
     end
 
     function suite:test_cancel_ignores_late_callbacks_after_shutdown()

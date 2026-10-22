@@ -108,11 +108,11 @@ return function(root)
                 end
             end,
         }
-        context.stub_module("src/data/bundle/reader", {
+        context.stub_module("src/data/core", require("tests/support/core_stub")({
             npc_ids = function()
                 return { 1 }
             end,
-        })
+        }))
     end
 
     local function open_info(context)

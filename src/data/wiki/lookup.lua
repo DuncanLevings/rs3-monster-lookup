@@ -8,6 +8,9 @@
 --   3. get its map pins from the coordinates bucket for the locations tab
 --   4. look up item ids for the drops in batches so the table can show item icons
 --      (skipped when the page has no drops)
+--
+-- every request of one lookup goes in its own http group, so cancelling a lookup only stops
+-- that lookup and two can run side by side (the lookup service shares them per monster)
 
 local clock = require("src/utils/cache_clock")
 local http = require("src/data/wiki/http")
@@ -15,15 +18,6 @@ local queries = require("src/data/wiki/queries")
 local wiki_response = require("src/data/wiki/response")
 local dropsline = require("src/data/wiki/dropsline")
 local spawn_locations = require("src/data/wiki/spawn_locations")
-
----@class MonsterResult
----@field title string wiki page title
----@field info table infobox values for the first variant
----@field variants table[] infobox values for every variant on the page
----@field sections DropSection[] empty when the page has no drops that can be showed
----@field no_drops "none"|"unreadable"|"not_covered"|nil why sections is empty, nil when it isnt
----@field locations MonsterLocation[]? nil only for saved lookups from older versions
----@field no_locations "none"|"unreadable"|nil why locations is empty
 
 local lookup = {}
 
@@ -107,7 +101,7 @@ local function finish_item_resolution(result, item_ids, on_complete, problem)
     on_complete(result)
 end
 
-local function request_item_batch(result, names, offset, item_ids, on_complete)
+local function request_item_batch(group, result, names, offset, item_ids, on_complete)
     if offset > #names then
         finish_item_resolution(result, item_ids, on_complete)
         return
@@ -135,12 +129,12 @@ local function request_item_batch(result, names, offset, item_ids, on_complete)
             item_ids[name] = item_id
         end
 
-        request_item_batch(result, names, offset + #batch, item_ids, on_complete)
-    end)
+        request_item_batch(group, result, names, offset + #batch, item_ids, on_complete)
+    end, group)
 end
 
 -- a failed bucket request fails the whole lookup, so a half loaded monster never gets cached
-local function request_rows(query, on_complete)
+local function request_rows(group, query, on_complete)
     http.get(query, function(response, problem)
         if not response then
             on_complete(nil, problem)
@@ -148,11 +142,11 @@ local function request_rows(query, on_complete)
         end
 
         on_complete(wiki_response.bucket(response))
-    end)
+    end, group)
 end
 
-local function request_spawns(result, on_complete)
-    request_rows(queries.spawns(result.title), function(rows, problem)
+local function request_spawns(group, result, on_complete)
+    request_rows(group, queries.spawns(result.title), function(rows, problem)
         if not rows then
             on_complete(nil, problem)
             return
@@ -173,12 +167,12 @@ local function request_spawns(result, on_complete)
             return
         end
 
-        request_item_batch(result, collect_item_names(result.sections), 1, {}, on_complete)
+        request_item_batch(group, result, collect_item_names(result.sections), 1, {}, on_complete)
     end)
 end
 
-local function request_drops(result, on_complete)
-    request_rows(queries.drops(result.title), function(rows, problem)
+local function request_drops(group, result, on_complete)
+    request_rows(group, queries.drops(result.title), function(rows, problem)
         local sections
 
         if rows then
@@ -191,11 +185,11 @@ local function request_drops(result, on_complete)
         end
 
         result.sections = sections
-        request_spawns(result, on_complete)
+        request_spawns(group, result, on_complete)
     end)
 end
 
-local function resolve_monster(monster, field, value, allow_fallback, on_complete)
+local function resolve_monster(group, monster, field, value, allow_fallback, on_complete)
     http.get(queries.monster(field, value), function(response, problem)
         if not response then
             on_complete(nil, problem)
@@ -212,32 +206,47 @@ local function resolve_monster(monster, field, value, allow_fallback, on_complet
         local result, match_problem = choose_monster(rows)
 
         if result then
-            request_drops(result, on_complete)
+            request_drops(group, result, on_complete)
         elseif match_problem then
             on_complete(nil, match_problem)
         elseif allow_fallback then
             -- only an empty ID match warrants trying the name; ambiguity or bad data stays visible
-            resolve_monster(monster, "page_name", monster.name, false, on_complete)
+            resolve_monster(group, monster, "page_name", monster.name, false, on_complete)
         else
             on_complete(nil, "No matching monster was found on the RuneScape Wiki.")
         end
-    end)
+    end, group)
 end
 
----starts a lookup, anything still running from a previous one is cancelled first
+-- what fetch and synchronize_clock hand back
+local function cancel_handle(group)
+    return {
+        cancel = function()
+            http.cancel_group(group)
+        end,
+    }
+end
+
+---starts a lookup. other lookups keep running, cancel this one with the returned handle
 ---@param monster MonsterSelection
 ---@param on_complete fun(result: MonsterResult?, problem: string?)
+---@return { cancel: fun() }
 function lookup.fetch(monster, on_complete)
-    http.cancel()
+    local group = http.group()
+
     if monster.wiki_title then
-        resolve_monster(monster, "page_name", monster.wiki_title, false, on_complete)
+        resolve_monster(group, monster, "page_name", monster.wiki_title, false, on_complete)
     else
-        resolve_monster(monster, "id", monster.npc_id, true, on_complete)
+        resolve_monster(group, monster, "id", monster.npc_id, true, on_complete)
     end
+
+    return cancel_handle(group)
 end
 
+---@return { cancel: fun() }
 function lookup.synchronize_clock(on_complete)
-    http.cancel()
+    local group = http.group()
+
     http.get(queries.time(), function(response, problem)
         if not response then
             on_complete(false, problem)
@@ -246,7 +255,9 @@ function lookup.synchronize_clock(on_complete)
         else
             on_complete(false, "The Wiki did not return a valid time for checking saved data.")
         end
-    end)
+    end, group)
+
+    return cancel_handle(group)
 end
 
 lookup.cancel = http.cancel

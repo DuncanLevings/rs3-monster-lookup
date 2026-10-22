@@ -3,7 +3,7 @@ return function(root)
     local suite = {}
     local context = require("tests/support/window_fixture").new(root)
     local factory = context.load_module("src/data/locations/navigation")
-    local coordinates = context.load_module("src/data/locations/coordinates")
+    local coordinates = context.load_core("src/locations/coordinates")
 
     function suite:test_map_transforms_recover_dungeon_coordinates_and_floors()
         lu.assertEquals(
@@ -123,7 +123,7 @@ return function(root)
         local file = assert(io.open(root .. "/tests/support/dungeon_interior_spawns.json", "rb"))
         local cases = require("src/vendor/json").decode(file:read("*a"))
         file:close()
-        local maps = context.load_module("src/data/locations/resolve")
+        local maps = context.load_core("src/locations/resolve")
         local planner = factory.new(context.load_module("src/data/locations/routes"), coordinates)
         lu.assertTrue(#cases >= 40)
         for _, case in ipairs(cases) do
@@ -136,7 +136,7 @@ return function(root)
     end
 
     function suite:test_shared_diagrams_use_the_selected_cave_on_all_floors()
-        local maps = context.load_module("src/data/locations/resolve")
+        local maps = context.load_core("src/locations/resolve")
         local planner = factory.new(context.load_module("src/data/locations/routes"), coordinates)
         local goal = assert(maps.resolve({
             name = "Polypore Dungeon",
@@ -159,7 +159,7 @@ return function(root)
     end
 
     function suite:test_native_coordinates_need_a_matching_authored_destination_region()
-        local maps = context.load_module("src/data/locations/resolve")
+        local maps = context.load_core("src/locations/resolve")
         local goal = assert(maps.resolve({
             name = "Polypore Dungeon resource dungeon",
             map = { id = -1, plane = 3, x = 4700, z = 5600 },
@@ -174,7 +174,7 @@ return function(root)
     end
 
     function suite:test_authored_resource_portals_belong_to_their_parent_map()
-        for name, portal in pairs(context.load_module("src/data/locations/dungeons/portals")) do
+        for name, portal in pairs(context.load_core("src/locations/dungeons/portals")) do
             if portal.target then
                 lu.assertTrue(coordinates.contains(portal.map_id, portal.target), name)
             else
@@ -185,7 +185,7 @@ return function(root)
     end
 
     function suite:test_parent_resource_entrance_does_not_complete_an_entrance_only_goal()
-        local maps = context.load_module("src/data/locations/resolve")
+        local maps = context.load_core("src/locations/resolve")
         local planner = factory.new(context.load_module("src/data/locations/routes"), coordinates)
         local goal = assert(maps.resolve({ name = "Taverley blue dragon resource dungeon" }))
         local step, _, outcome = planner.next(goal, { level = 0, x = 2911, z = 9811 })

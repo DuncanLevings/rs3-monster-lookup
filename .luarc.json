@@ -10,6 +10,7 @@
     "PluginShutdown",
     "PluginDependencyUpdate",
     "gepl",
+    "MonsterDataCore",
     "Event",
     "MiniMenuActionVerbType",
     "prettyui",
@@ -38,7 +39,9 @@
     ".git",
     "dist",
     "work",
-    "src/vendor",
-    "src/data/bundle/generated"
+    "src/vendor"
+  ],
+  "workspace.library": [
+    "../monster-data-core/types"
   ]
 }

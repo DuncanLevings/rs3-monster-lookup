@@ -3,7 +3,10 @@
 -- requests get sent and responses get handled from Event.Logic, not inside the native http
 -- callbacks. Had a client crash during dev when follow up requests and ui work ran inside
 -- the completion callback, so now the callback just stores the response and the next tick
--- deals with it. cancel() bumps the generation so anything from an old lookup gets ignored
+-- deals with it. cancel() bumps the generation so anything from before gets ignored
+--
+-- requests can also go in a group (one lookup), cancel_group() stops just that group so
+-- two lookups running side by side dont cancel each other
 
 local clock = require("src/utils/cache_clock")
 local json = require("src/utils/json")
@@ -24,6 +27,11 @@ local PERMISSION_ERROR = "Monster Lookup needs the HTTP access permission to rea
     .. "RuneScape Wiki.\n\n"
     .. "Allow it in Monster Lookup's plugin permissions in the Plugin Hub, "
     .. "then choose View drops again."
+
+-- still wanted: not from before a cancel(), and its group (if any) wasnt cancelled
+local function current(item)
+    return item.generation == generation and not (item.group and item.group.cancelled)
+end
 
 local function decode_response(entry)
     local response = entry.response
@@ -68,7 +76,7 @@ local function decode_response(entry)
 end
 
 local function finish_request(entry, response, problem)
-    if entry.settled or entry.generation ~= generation then
+    if entry.settled or not current(entry) then
         return
     end
 
@@ -104,7 +112,7 @@ local function stop_request(entry, problem)
 end
 
 local function receive_response(entry, request)
-    if entry.settled or entry.generation ~= generation then
+    if entry.settled or not current(entry) then
         return
     end
 
@@ -123,7 +131,7 @@ local function receive_response(entry, request)
 end
 
 local function track_progress(entry, request)
-    if not entry.settled and entry.generation == generation then
+    if not entry.settled and current(entry) then
         entry.problem = entry.problem
             or policy.transfer_problem(request.downloadedBytes, request.downloadTotalBytes)
     end
@@ -158,6 +166,7 @@ local function send_request(job)
     request_sequence = request_sequence + 1
     local entry = {
         generation = job.generation,
+        group = job.group,
         on_complete = job.on_complete,
         sequence = request_sequence,
         path = job.path,
@@ -203,6 +212,7 @@ local function queue_decode_retry(entry)
         path = entry.path,
         on_complete = entry.on_complete,
         generation = entry.generation,
+        group = entry.group,
         attempt = entry.attempt + 1,
         deadline = entry.deadline,
         not_before = retry_at,
@@ -227,8 +237,8 @@ end
 
 local function process_responses(responses)
     for _, entry in ipairs(responses) do
-        -- an earlier callback in this loop might have started a new lookup already
-        if entry.generation == generation then
+        -- an earlier callback in this loop might have cancelled it already
+        if current(entry) then
             process_response(entry)
         end
     end
@@ -246,7 +256,7 @@ local function process_tick()
     stop_expired_requests()
 
     for _, job in ipairs(outgoing) do
-        if job.generation == generation then
+        if current(job) then
             if (job.not_before and logic_tick < job.not_before) or logic_tick < next_send_tick then
                 queued[#queued + 1] = job
             else
@@ -282,6 +292,34 @@ function wiki_http.cancel()
     end
 end
 
+---a group to put one lookups requests in, see cancel_group
+function wiki_http.group()
+    return { cancelled = false }
+end
+
+---stops every request in the group, queued or running. requests from other groups carry on
+function wiki_http.cancel_group(group)
+    if not group or group.cancelled then
+        return
+    end
+
+    group.cancelled = true
+    local stopping = {}
+
+    for request, entry in pairs(pending) do
+        if entry.group == group then
+            stopping[request] = entry
+        end
+    end
+
+    -- off the pending list before the native Cancel, which may call back straight away
+    for request, entry in pairs(stopping) do
+        pending[request] = nil
+        entry.settled = true
+        cancel_native_request(request)
+    end
+end
+
 function wiki_http.stop()
     wiki_http.cancel()
 
@@ -295,13 +333,15 @@ end
 ---thats ok to show the player
 ---@param path string
 ---@param on_complete fun(result: table?, problem: string?)
-function wiki_http.get(path, on_complete)
+---@param group table? from wiki_http.group(), so cancel_group can stop it
+function wiki_http.get(path, on_complete, group)
     if not policy.valid_path(path) then
         on_complete(nil, "This Wiki request has an invalid API address.")
         return
     end
 
-    queued[#queued + 1] = { path = path, on_complete = on_complete, generation = generation }
+    queued[#queued + 1] =
+        { path = path, on_complete = on_complete, generation = generation, group = group }
 end
 
 return wiki_http

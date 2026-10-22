@@ -6,8 +6,7 @@
 -- surface pins far apart get split into areas, otherwise a monster found all over the world
 -- would only ever mark the first spot
 
-local location_map = require("src/data/locations/resolve")
-local map_names = require("src/data/locations/dungeons/map_names")
+local core = require("src/data/core")
 
 local spawn_locations = {}
 
@@ -28,7 +27,7 @@ local function pins_of(row)
         local pin = { id = row.mapid, plane = row.plane or 0, x = x, z = row.y[index] }
 
         -- map -1 is an instance or a grid with no map, the marker cant do anything with those
-        if pin.id ~= -1 and location_map.valid(pin) then
+        if pin.id ~= -1 and core.location_valid(pin) then
             pins[#pins + 1] = pin
         end
     end
@@ -101,7 +100,7 @@ function spawn_locations.parse(rows)
 
     for _, group in ipairs(groups) do
         -- maps without a name are mostly instances or small areas, the id at least tells them apart
-        local name = map_names[group.id] or ("Wiki map " .. group.id)
+        local name = core.map_name(group.id) or ("Wiki map " .. group.id)
 
         if group.id == SURFACE_MAP and surface_areas > 1 then
             area = area + 1

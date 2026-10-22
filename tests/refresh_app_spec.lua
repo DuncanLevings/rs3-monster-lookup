@@ -21,6 +21,8 @@ return function(root)
             },
             ["src/ui/search/window"] = { start = noop, destroy = noop },
             ["src/data/drops/prices"] = { stop = noop },
+            ["src/ui/extensions/registry"] = { clear = noop },
+            ["src/ui/locations/navigation"] = { clear = noop },
             ["src/ui/settings/content"] = { start = noop, stop = noop },
             ["src/ui/settings/panel"] = {
                 start = function(_, callback)
@@ -31,10 +33,15 @@ return function(root)
             ["src/data/lookup/service"] = {
                 start = noop,
                 stop = noop,
-                cancel = noop,
-                fetch = function(monster, callback, force)
-                    requested = { monster = monster, force = force }
-                    receive = callback
+                new_handle = function()
+                    return {
+                        cancel = noop,
+                        destroy = noop,
+                        fetch = function(monster, callback, force)
+                            requested = { monster = monster, force = force }
+                            receive = callback
+                        end,
+                    }
                 end,
             },
         }

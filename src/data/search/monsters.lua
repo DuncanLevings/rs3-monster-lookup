@@ -1,12 +1,13 @@
--- the search behind the search window and the saved monster picker. its all local, typing
--- never sends a request, and picking a result goes through the normal lookup
+-- runs the name searches for the search window and the saved monster picker. the matching
+-- and ranking is the cores (Monster Data Core name scanner), this adds what only Monster Lookup
+-- has: a tick to spread the work over, typing delay, saved Wiki lookups (they go first, and
+-- the picker only lists those) and the messages under the field
+--
 -- the "items" kind searches dropped item names instead, and an exact item name lists the
--- monsters that drop it (src/data/search/drops.lua)
-local names = require("src/data/monsters/names")
-local drop_index = require("src/data/search/drops")
+-- monsters that drop it (Monster Data Core drop index)
+
+local core = require("src/data/core")
 local cache = require("src/data/lookup/cache")
-local identity = require("src/data/monsters/identity")
-local matcher = require("src/data/search/matcher")
 local clock = require("src/utils/cache_clock")
 local plural = require("src/utils/number_format").plural
 
@@ -14,7 +15,7 @@ local search = {}
 local next_subscription = 0
 local DEBOUNCE_TICKS = math.ceil(0.15 * clock.TICKS_PER_SECOND)
 local ROWS_PER_TICK = 250
-local MAX_RESULTS = 50
+-- older saved lookups have no label in the index, reading one means decoding its payload
 local LEGACY_READS_PER_TICK = 3
 
 local function normalize(text)
@@ -24,14 +25,13 @@ end
 local function build_item_index()
     local entries, exact = {}, {}
 
-    for position, item in ipairs(drop_index.items()) do
+    for _, item in ipairs(core.items()) do
         local entry = {
-            item = position,
             item_name = item.name,
+            name = item.name,
             label = item.name .. " - " .. plural(item.count, "monster"),
             key = item.name:lower(),
             saved = false,
-            resolved = true,
             monster = { name = item.name },
         }
         entries[#entries + 1] = entry
@@ -43,10 +43,11 @@ end
 
 -- results for an exact item name: who drops it, best chance first
 local function dropper_results(entry)
-    local count = drop_index.items()[entry.item].count
+    local found = core.droppers(entry.item_name)
+    local count = found.total
     local results = {}
 
-    for _, dropper in ipairs(drop_index.droppers(entry.item)) do
+    for _, dropper in ipairs(found.droppers) do
         local name = dropper.mode and (dropper.title .. " (" .. dropper.mode .. ")")
             or dropper.title
         local quantity = dropper.quantity ~= "1" and (" | x" .. dropper.quantity) or ""
@@ -83,14 +84,16 @@ end
 
 local function build_index(saved_only)
     local entries, seen = {}, {}
+
     local function add(monster, saved)
-        local key = identity.key(monster)
+        local key = assert(core.identity_key(monster), "search entry has no monster identity")
 
         if seen[key] then
             seen[key].saved = seen[key].saved or saved
         else
             local entry = {
                 monster = monster,
+                name = monster.name,
                 label = monster.name,
                 key = key,
                 saved = saved,
@@ -103,7 +106,7 @@ local function build_index(saved_only)
     end
 
     if not saved_only then
-        for _, title in ipairs(names) do
+        for _, title in ipairs(core.titles()) do
             add({ name = title, wiki_title = title }, false)
         end
     end
@@ -112,10 +115,12 @@ local function build_index(saved_only)
         -- an npcs name and level dont say which wiki page its on (eg Bloodveld), so the
         -- search lists pages. clicked npcs still keep their own saved entry
         if saved_only then
-            if not require("src/data/bundle/reader").find(monster) then
+            local status = core.coverage(monster).status
+
+            if status == "unknown" or status == "ambiguous" then
                 add(monster, true)
             end
-        elseif monster.wiki_title and seen[identity.key(monster)] then
+        elseif monster.wiki_title and seen[core.identity_key(monster)] then
             add({ name = monster.wiki_title, wiki_title = monster.wiki_title }, true)
         end
     end
@@ -123,40 +128,7 @@ local function build_index(saved_only)
     return entries
 end
 
-local function score(entry, query)
-    local name = entry.prepared.name
-    local rank = name == query and 0
-        or name:sub(1, #query) == query and 10
-        or name:find(query, 1, true) and 20
-        or 30
-    return rank + (entry.saved and 0 or 1)
-end
-
-local function insert_match(matches, entry, rank)
-    local candidate = { entry = entry, score = rank }
-    local position = #matches + 1
-
-    for index, current in ipairs(matches) do
-        if rank < current.score or (rank == current.score and entry.key < current.entry.key) then
-            position = index
-            break
-        end
-    end
-
-    if position <= MAX_RESULTS then
-        table.insert(matches, position, candidate)
-
-        if #matches > MAX_RESULTS then
-            table.remove(matches)
-        end
-    end
-end
-
-local function publish(state, results, message)
-    state.results = results
-    state.on_update(results, message)
-end
-
+-- the picker searches saved lookups by their label (title, variant and level)
 local function prepare_saved_entry(entry)
     local summary = entry.summary
 
@@ -166,7 +138,7 @@ local function prepare_saved_entry(entry)
 
     if entry.base_label then
         entry.label = entry.base_label
-        return true
+        return entry.prepared
     end
 
     entry.label = summary.title
@@ -177,8 +149,8 @@ local function prepare_saved_entry(entry)
 
     entry.base_label = entry.label
     local searchable = entry.label .. (summary.level and (" Level " .. summary.level) or "")
-    entry.prepared = matcher.prepare(searchable)
-    return true
+    entry.prepared = core.prepare_name(searchable)
+    return entry.prepared
 end
 
 local function distinguish_saved_results(results)
@@ -202,48 +174,37 @@ local function distinguish_saved_results(results)
     end
 end
 
-local function scan_batch(state)
-    local last = math.min(state.position + ROWS_PER_TICK - 1, #state.index)
+local function publish(state, results, message)
+    state.results = results
+    state.on_update(results, message)
+end
 
-    local reads = 0
+-- how the core scan reads an entry. the picker reads missing labels a few per tick, nil
+-- tells the scan to stop and come back to this entry next tick
+local function entry_preparer(state)
+    return function(entry)
+        if not state.saved_only then
+            entry.prepared = entry.prepared or core.prepare_name(entry.name)
+            return entry.prepared
+        end
 
-    for index = state.position, last do
-        local entry = state.index[index]
-
-        if state.saved_only and not entry.resolved then
-            if reads >= LEGACY_READS_PER_TICK then
-                break
+        if not entry.resolved then
+            if state.reads >= LEGACY_READS_PER_TICK then
+                return nil
             end
 
             entry.summary = cache.describe(entry.monster)
             entry.resolved = true
-            reads = reads + 1
+            state.reads = state.reads + 1
         end
 
-        local available = not state.saved_only or prepare_saved_entry(entry)
-        entry.prepared = entry.prepared or matcher.prepare(entry.monster.name)
-
-        if available and state.matches(entry.prepared) then
-            insert_match(state.top, entry, score(entry, state.key))
-        end
-
-        state.position = index + 1
+        return prepare_saved_entry(entry)
     end
+end
 
-    if #state.index == 0 then
-        state.position = 1
-    end
-
-    if state.position <= #state.index then
-        return
-    end
-
-    state.position = nil
-    local results = {}
-
-    for _, candidate in ipairs(state.top) do
-        results[#results + 1] = candidate.entry
-    end
+local function finish(state)
+    local results = state.scan.results()
+    state.scan = nil
 
     if state.saved_only then
         distinguish_saved_results(results)
@@ -268,6 +229,19 @@ local function scan_batch(state)
     )
 end
 
+local function start_scan(state)
+    state.scan = core.scan(state.index, state.query, {
+        prepare = entry_preparer(state),
+        -- saved lookups first, then by identity so ties always come out the same way
+        bonus = function(entry)
+            return entry.saved and 0 or 1
+        end,
+        key = function(entry)
+            return entry.key
+        end,
+    })
+end
+
 ---@param on_update fun(results: table[], message: string)
 ---@param saved_only boolean? only monsters with saved lookups, for refreshing them
 ---@param kind "items"? search dropped items instead of monsters
@@ -276,6 +250,7 @@ function search.new(on_update, saved_only, kind)
     local subscription = "monster_lookup_search_" .. next_subscription
     local state = {
         tick = 0,
+        reads = 0,
         on_update = on_update,
         results = {},
         saved_only = saved_only == true,
@@ -299,13 +274,12 @@ function search.new(on_update, saved_only, kind)
             return
         end
 
-        state.query, state.key, state.due, state.position = query, key, nil, nil
+        state.query, state.key, state.due, state.scan = query, key, nil, nil
         local exact = state.items and state.exact[key]
 
         if exact then
             publish(state, dropper_results(exact))
         elseif #query >= 3 or (state.saved_only and #query > 0) then
-            state.matches = matcher.compile(query)
             state.due = state.tick + DEBOUNCE_TICKS
             publish(state, {}, state.items and "Searching items..." or "Searching names...")
         else
@@ -321,7 +295,7 @@ function search.new(on_update, saved_only, kind)
 
     function controller.stop()
         state.started = false
-        state.due, state.position = nil, nil
+        state.due, state.scan = nil, nil
         Event.Logic.Unsubscribe(subscription)
     end
 
@@ -332,7 +306,7 @@ function search.new(on_update, saved_only, kind)
                 if current == result then
                     -- picking an item from the list asks for its droppers, the search keeps
                     -- going and the window fills the field with the full name
-                    if result.item then
+                    if result.item_name then
                         return { item = result.item_name }
                     end
 
@@ -366,11 +340,15 @@ function search.new(on_update, saved_only, kind)
 
             if state.due and state.tick >= state.due then
                 state.due = nil
-                state.position, state.top = 1, {}
+                start_scan(state)
             end
 
-            if state.position then
-                scan_batch(state)
+            if state.scan then
+                state.reads = 0
+
+                if state.scan.step(ROWS_PER_TICK) then
+                    finish(state)
+                end
             end
         end)
         local previous = state.query or ""

@@ -23,8 +23,11 @@ function fixture.new(root, saved)
     }
     local environment = setmetatable({}, { __index = _G })
     local modules = {}
+    local dependency = require("tests/support/core_loader").new()
+    environment.MonsterDataCore = dependency.export
 
     local function load_module(path)
+        if path:match("^tools/") then return dependency.load_module(path) end
         if modules[path] == nil then
             modules[path] = assert(loadfile(root .. "/" .. path .. ".lua", "t", environment))()
         end
@@ -663,13 +666,14 @@ function fixture.new(root, saved)
     }
     context.environment = environment
     context.load_module = load_module
+    context.load_core = dependency.load_module
     context.stub_module = function(path, value)
         modules[path] = value
     end
     context.subject = load_module("src/ui/monster_window")
     -- UI cache fixtures represent downloaded monsters unless a test marks them bundled.
     context.bundled = {}
-    load_module("src/data/bundle/reader").find = function(monster)
+    dependency.load_module("src/bundle/reader").find = function(monster)
         return context.bundled[monster.name]
     end
     context.settings_panel = load_module("src/ui/settings/panel")
