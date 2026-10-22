@@ -17,6 +17,22 @@ return function(root)
         self.marker.stop()
     end
 
+    function suite:test_target_identity_uses_the_selected_location_floor_and_source_monster()
+        lu.assertFalse(self.marker.is_target(self.location, "Abyssal demon"))
+        self.marker.mark(self.location, "Abyssal demon")
+        local same = { name = "Slayer Tower", map = { id = 28, plane = 2, x = 3407, z = 3546 } }
+        lu.assertTrue(self.marker.is_target(same, "Abyssal demon"))
+        lu.assertTrue(self.marker.is_target(same))
+        lu.assertFalse(self.marker.is_target(same, "Guard"))
+        same.map.plane = 1
+        lu.assertFalse(self.marker.is_target(same, "Abyssal demon"))
+        same.map.plane, same.name = 2, "Other location"
+        lu.assertFalse(self.marker.is_target(same, "Abyssal demon"))
+        lu.assertFalse(self.marker.is_target(nil, "Abyssal demon"))
+        self.marker.clear()
+        lu.assertFalse(self.marker.is_target(self.location, "Abyssal demon"))
+    end
+
     function suite:test_surface_target_preserves_axes_floor_and_tile_centre()
         lu.assertTrue(self.marker.mark(self.location, "Abyssal demon"))
         self.context:tick(1)

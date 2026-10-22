@@ -164,6 +164,24 @@ function marker.reason(location)
     return reason
 end
 
+-- compare the selected goal, not the current dungeon waypoint or native hint.
+local function same_selection(location, source_title, resolution)
+    if not desired or not resolution then
+        return false
+    end
+    local same_interior = (not desired.goal.interior and not resolution.interior)
+        or same_target(desired.goal.interior, resolution.interior)
+    local selection = (source_title or desired.source) .. " - " .. (location.name or "Location")
+    return desired.selection == selection
+        and desired.goal.interior_map == resolution.interior_map
+        and same_target(desired.goal.target, resolution.target)
+        and same_interior == true
+end
+
+function marker.is_target(location, source_title)
+    return same_selection(location, source_title, location_map.resolve(location))
+end
+
 function marker.mark(location, source_title)
     local target, reason, resolution = supported_target(location)
     if not target or not resolution then
@@ -175,20 +193,7 @@ function marker.mark(location, source_title)
 
     local label = source_title .. " - " .. resolution.label
     local selection = source_title .. " - " .. (location.name or "Location")
-    local same_interior = desired
-        and (
-            (not desired.goal.interior and not resolution.interior)
-            or same_target(desired.goal.interior, resolution.interior)
-        )
-    if
-        not (
-            desired
-            and desired.selection == selection
-            and desired.goal.interior_map == resolution.interior_map
-            and same_target(desired.goal.target, target)
-            and same_interior
-        )
-    then
+    if not same_selection(location, source_title, resolution) then
         desired = {
             goal = resolution,
             selection = selection,

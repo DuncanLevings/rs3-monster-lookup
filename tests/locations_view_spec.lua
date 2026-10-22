@@ -5,6 +5,7 @@ return function(root)
     local suite = {}
 
     function suite:setUp()
+        self.marker, self.extra_views = nil, {}
         self.context = fixture.new(root)
         self.context.subject.open({ name = "Goblin" })
         self.result = {
@@ -24,7 +25,13 @@ return function(root)
     end
 
     function suite:tearDown()
+        for _, view in ipairs(self.extra_views) do
+            view.destroy()
+        end
         self.context.subject.destroy()
+        if self.marker then
+            self.marker.stop()
+        end
     end
 
     local function location_root(context)
@@ -42,6 +49,188 @@ return function(root)
                 parent = parent.parent
             end
         end
+    end
+
+    local function background_in(context, button)
+        for _, node in ipairs(context.nodes) do
+            if node.parent == button.root.parent and node.fill == true then
+                return node
+            end
+        end
+    end
+
+    local function mark_buttons(context, after)
+        local buttons = {}
+        for index = (after or 0) + 1, #context.simple_buttons do
+            local button = context.simple_buttons[index]
+            if not button.root.destroyed and button.content.content ~= "Clear marker" then
+                buttons[#buttons + 1] = button
+            end
+        end
+        return buttons
+    end
+
+    local function feedback_subscriptions(context)
+        local count = 0
+        for key in pairs(context.logic) do
+            if key:find("monster_lookup_location_feedback_", 1, true) then
+                count = count + 1
+            end
+        end
+        return count
+    end
+
+    function suite:show_markable_locations()
+        self.hints = require("tests/support/marker_fixture").enable(self.context)
+        self.marker = self.context.load_module("src/game/location_marker")
+        self.result.locations[1].map = { id = 28, plane = 0, x = 3225, z = 3439 }
+        self.result.locations[2].name = "Varrock"
+        self.result.locations[2].map = { id = 28, plane = 0, x = 3250, z = 3439 }
+        self.context.subject.show_result(self.result)
+        return mark_buttons(self.context)
+    end
+
+    function suite:test_click_marks_only_its_row_and_moving_the_marker_restores_the_old_row()
+        local buttons = self:show_markable_locations()
+        local theme = self.context.load_module("src/ui/theme")
+        buttons[1].action()
+        lu.assertEquals(buttons[1].content.content, "Marked")
+        lu.assertEquals(background_in(self.context, buttons[1]).rgba, theme.ROW_MARKED)
+        lu.assertEquals(buttons[2].content.content, "Mark")
+        lu.assertEquals(background_in(self.context, buttons[2]).rgba, theme.row_colour(2))
+        buttons[2].action()
+        lu.assertEquals(buttons[1].content.content, "Mark")
+        lu.assertEquals(background_in(self.context, buttons[1]).rgba, theme.row_colour(1))
+        lu.assertEquals(buttons[2].content.content, "Marked")
+        lu.assertEquals(background_in(self.context, buttons[2]).rgba, theme.ROW_MARKED)
+        lu.assertEquals(feedback_subscriptions(self.context), 1)
+    end
+
+    function suite:test_clear_and_arrival_restore_the_row_and_cancel_click_feedback()
+        local buttons = self:show_markable_locations()
+        buttons[1].action()
+        for _, button in ipairs(self.context.simple_buttons) do
+            if button.content.content == "Clear marker" then
+                button.action()
+            end
+        end
+        lu.assertEquals(buttons[1].content.content, "Mark")
+        lu.assertEquals(feedback_subscriptions(self.context), 0)
+        buttons[1].action()
+        self.marker.start()
+        self.hints.player = { level = 0, x = 3225, z = 3439 }
+        self.context:tick(1)
+        lu.assertFalse(self.marker.has_target())
+        lu.assertEquals(buttons[1].content.content, "Mark")
+        lu.assertEquals(feedback_subscriptions(self.context), 0)
+        lu.assertStrContains(self.marker.status(), "Arrived:")
+    end
+
+    function suite:test_second_view_with_the_same_coordinates_resets_the_first_monsters_row()
+        local buttons = self:show_markable_locations()
+        buttons[1].action()
+        local before = #self.context.simple_buttons
+        local view = self.context.load_module("src/ui/locations_view").render(
+            self.context.tabs.pages[3],
+            { title = "Guard", locations = self.result.locations }
+        )
+        self.extra_views[#self.extra_views + 1] = view
+        local other = mark_buttons(self.context, before)
+        lu.assertEquals(other[1].content.content, "Mark")
+        other[1].action()
+        lu.assertEquals(buttons[1].content.content, "Mark")
+        lu.assertEquals(other[1].content.content, "Marked")
+        lu.assertEquals(feedback_subscriptions(self.context), 1)
+        self.marker.clear()
+        lu.assertEquals(other[1].content.content, "Mark")
+        lu.assertEquals(feedback_subscriptions(self.context), 0)
+    end
+
+    function suite:test_failed_click_stays_unmarked_and_shows_the_existing_warning()
+        local buttons = self:show_markable_locations()
+        self.hints.region = true
+        buttons[1].action()
+        local theme = self.context.load_module("src/ui/theme")
+        lu.assertEquals(buttons[1].content.content, "Mark")
+        lu.assertEquals(background_in(self.context, buttons[1]).rgba, theme.row_colour(1))
+        lu.assertFalse(self.marker.has_target())
+        lu.assertEquals(feedback_subscriptions(self.context), 0)
+        local notice = text_in(
+            self.context,
+            location_root(self.context),
+            "Location markers are available outside instances while logged in."
+        )
+        lu.assertNotNil(notice)
+        lu.assertFalse(notice.hidden)
+        lu.assertEquals(notice.options.colour, theme.TEXT_WARNING)
+    end
+
+    function suite:test_click_feedback_lasts_three_seconds_without_layout_work_between_endpoints()
+        local buttons = self:show_markable_locations()
+        buttons[1].action()
+        local root = location_root(self.context)
+        local notice = text_in(
+            self.context,
+            root,
+            "Marked: Goblin - Lumbridge - open the world map to see it."
+        )
+        lu.assertNotNil(notice)
+        lu.assertFalse(notice.hidden)
+        lu.assertEquals(
+            notice.options.font,
+            self.context.environment.id.Font.MUSEO_SANS_15PT_REGULAR
+        )
+        local measurements = #self.context.text_measurements
+        local positions = notice.position_updates
+        self.context:tick(149)
+        lu.assertFalse(notice.hidden)
+        lu.assertEquals(#self.context.text_measurements, measurements)
+        lu.assertEquals(notice.position_updates, positions)
+        self.context:tick(1)
+        lu.assertTrue(notice.hidden)
+        lu.assertEquals(feedback_subscriptions(self.context), 0)
+        local normal = text_in(self.context, root, self.marker.status())
+        lu.assertFalse(normal.hidden)
+        lu.assertEquals(normal.options.colour, self.context.load_module("src/ui/theme").TEXT_MUTED)
+        lu.assertEquals(buttons[1].content.content, "Marked")
+    end
+
+    function suite:test_repeated_click_restarts_the_delay_and_destroy_stops_feedback()
+        local buttons = self:show_markable_locations()
+        buttons[1].action()
+        self.context:tick(100)
+        buttons[1].action()
+        self.context:tick(100)
+        lu.assertEquals(feedback_subscriptions(self.context), 1)
+        local root = location_root(self.context)
+        local notice = text_in(
+            self.context,
+            root,
+            "Marked: Goblin - Lumbridge - open the world map to see it."
+        )
+        self.context.subject.destroy()
+        lu.assertEquals(feedback_subscriptions(self.context), 0)
+        local content = notice.content
+        self.marker.mark(self.result.locations[2], "Guard")
+        self.context:tick(150)
+        lu.assertEquals(notice.content, content)
+    end
+
+    function suite:test_native_registration_failure_cancels_the_marked_row_and_success_notice()
+        local buttons = self:show_markable_locations()
+        self.hints.reject_arrow = true
+        self.marker.start()
+        buttons[1].action()
+        self.context:tick(1)
+        lu.assertEquals(buttons[1].content.content, "Mark")
+        lu.assertEquals(feedback_subscriptions(self.context), 0)
+        lu.assertNotNil(
+            text_in(
+                self.context,
+                location_root(self.context),
+                "The client could not create the location marker."
+            )
+        )
     end
 
     function suite:test_four_column_table_is_in_the_third_tab()
@@ -202,6 +391,10 @@ return function(root)
         lu.assertNotNil(found)
         lu.assertFalse(found.disabled)
         lu.assertEquals(found.options.tooltip, "Mark the entrance")
+        lu.assertEquals(found.root.width, #"Entrance" * 8 + 24)
+        found.action()
+        lu.assertEquals(found.content.content, "Marked")
+        lu.assertEquals(found.root.width, #"Entrance" * 8 + 24)
         local row = found.root.parent
         lu.assertTrue(found.root.x + found.root.width <= row.width)
         local root = location_root(self.context)

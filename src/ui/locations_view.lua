@@ -5,8 +5,12 @@ local wiki_text = require("src/utils/wiki_text")
 local widgets = require("src/ui/widgets")
 local theme = require("src/ui/theme")
 local marker = require("src/game/location_marker")
+local internals = require("src/ui/prettyui_internals")
+local clock = require("src/utils/cache_clock")
 
 local locations_view = {}
+local next_feedback_id = 0
+local FEEDBACK_TICKS = 3 * clock.TICKS_PER_SECOND
 local COLUMNS = {
     { key = "name", title = "Location", width = 0.30 },
     { key = "levels", title = "Levels", width = 0.10 },
@@ -29,9 +33,41 @@ local function create_text(parent, value, small, notice)
     return label
 end
 
+local function stop_feedback(controller)
+    if controller.feedback_row then
+        Event.Logic.Unsubscribe(controller.feedback_id)
+    end
+    controller.feedback_row, controller.feedback_text, controller.feedback_ticks = nil, nil, nil
+end
+
+local function show_feedback(controller, row)
+    controller.feedback_row = row
+    controller.feedback_text = "Marked: "
+        .. controller.source_title
+        .. " - "
+        .. wiki_text.plain(row.location.name or "Location")
+        .. " - open the world map to see it."
+    controller.feedback_ticks = FEEDBACK_TICKS
+    Event.Logic.Subscribe(controller.feedback_id, function()
+        if controller.destroyed then
+            return
+        end
+        controller.feedback_ticks = controller.feedback_ticks - 1
+        if controller.feedback_ticks == 0 then
+            stop_feedback(controller)
+            controller.update_status()
+        end
+    end)
+end
+
 local function create_row(controller, location, index)
-    local row = { root = widgets.layer(controller.root, 30), cells = {} }
-    widgets.background(row.root, location and theme.row_colour(index) or theme.COLUMN_HEADER)
+    local row = {
+        root = widgets.layer(controller.root, 30),
+        cells = {},
+        location = location,
+        normal_colour = location and theme.row_colour(index) or theme.COLUMN_HEADER,
+    }
+    row.background = widgets.background(row.root, row.normal_colour)
 
     for _, column in ipairs(COLUMNS) do
         local value = column.title
@@ -51,14 +87,25 @@ local function create_row(controller, location, index)
 
     if location then
         local action, tooltip, reason = marker.action(location)
-        row.button = prettyui.SimpleButton.new(row.root, action, function()
+        row.action = action
+        row.marked_label = "Marked"
+        -- entrance already fits the marked label; keep its normal compact width.
+        local fitted_label = #action >= #row.marked_label and action or row.marked_label
+        row.button = prettyui.SimpleButton.new(row.root, fitted_label, function()
             if controller.destroyed then
                 return
             end
-            local ok, problem = marker.mark(location, wiki_text.plain(controller.source_title))
+            stop_feedback(controller)
+            controller.marking = true
+            local ok, problem = marker.mark(location, controller.source_title)
+            controller.marking = false
             controller.problem = not ok and problem or nil
+            if ok then
+                show_feedback(controller, row)
+            end
             controller.update_status()
         end, { height = 24, disabled = reason ~= nil, tooltip = tooltip })
+        internals.set_button_text(row.button, action)
         widgets.forward_wheel(
             row.button.root,
             "monster_lookup_location_mark_wheel",
@@ -166,20 +213,39 @@ function locations_view.render(page, result)
         { page = page, root = widgets.layer(page.content, 1), rows = {}, building = true }
     local rows = result.locations or {}
 
-    controller.source_title = result.title
+    controller.source_title = wiki_text.plain(result.title)
+    next_feedback_id = next_feedback_id + 1
+    controller.feedback_id = "monster_lookup_location_feedback_" .. next_feedback_id
     controller.update_status = function()
         if controller.destroyed or not controller.marker_status then
             return
         end
+        local matched = false
+        for _, row in ipairs(controller.rows) do
+            if row.button then
+                local marked = not matched
+                    and marker.is_target(row.location, controller.source_title)
+                matched = matched or marked
+                if row.marked ~= marked then
+                    row.marked = marked
+                    row.background.rgba = marked and theme.ROW_MARKED or row.normal_colour
+                    internals.set_button_text(row.button, marked and row.marked_label or row.action)
+                end
+            end
+        end
         local status_text, attention = marker.status()
-        controller.status_text = controller.problem or status_text
-        controller.status_attention = controller.problem ~= nil or attention == true
+        status_text = controller.problem or controller.feedback_text or status_text
+        attention = controller.problem ~= nil or controller.feedback_row ~= nil or attention == true
+        controller.clear_button:SetDisabled(not marker.has_target())
+        if controller.status_text == status_text and controller.status_attention == attention then
+            return
+        end
+        controller.status_text, controller.status_attention = status_text, attention
         controller.status_normal.hidden = controller.status_attention
         controller.status_notice.hidden = not controller.status_attention
         controller.marker_status = controller.status_attention and controller.status_notice
             or controller.status_normal
         controller.marker_status.content = text_layout.display(controller.status_text)
-        controller.clear_button:SetDisabled(not marker.has_target())
         controller.measured_width = nil
         layout(controller)
     end
@@ -208,7 +274,21 @@ function locations_view.render(page, result)
         )
         controller.unsubscribe = marker.subscribe(function()
             controller.problem = nil
-            controller.update_status()
+            if controller.feedback_row then
+                local _, attention = marker.status()
+                if
+                    attention
+                    or not marker.is_target(
+                        controller.feedback_row.location,
+                        controller.source_title
+                    )
+                then
+                    stop_feedback(controller)
+                end
+            end
+            if not controller.marking then
+                controller.update_status()
+            end
         end)
         controller.update_status()
         controller.rows[1] = create_row(controller, nil, 0)
@@ -229,11 +309,16 @@ function locations_view.render(page, result)
         layout(controller)
     end)
     controller.building = false
+    controller.update_status()
     layout(controller)
 
     return {
         destroy = function()
+            if controller.destroyed then
+                return
+            end
             controller.destroyed = true
+            stop_feedback(controller)
             if controller.unsubscribe then
                 controller.unsubscribe()
             end

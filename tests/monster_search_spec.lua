@@ -4,6 +4,7 @@ return function(root)
     local suite = {}
 
     function suite:setUp()
+        self.bundled = nil
         self.saved_only, self.summary_reads, self.summaries = false, nil, nil
         self.names =
             { "Goblin", "Goblin (Goblin Village)", "Guard (Varrock)", "Abyssal demon", "Duckling" }
@@ -15,6 +16,11 @@ return function(root)
     function suite:load()
         local context = self
         local modules = {
+            ["src/data/bundle"] = {
+                find = function(monster)
+                    return context.bundled and context.bundled[monster.name]
+                end,
+            },
             ["src/data/monster_names"] = self.names,
             ["src/data/monster_cache"] = {
                 list = function()
@@ -43,7 +49,12 @@ return function(root)
                         },
                         {
                             { title = "Goblin", rate = "Always", quantity = "1" },
-                            { title = "Kerapac", rate = "Always", quantity = "2", mode = "Hard mode" },
+                            {
+                                title = "Kerapac",
+                                rate = "Always",
+                                quantity = "2",
+                                mode = "Hard mode",
+                            },
                         },
                     })[position] or {}
                 end,
@@ -321,6 +332,20 @@ return function(root)
         self:tick(8)
         lu.assertTrue(self.results[1].saved)
         lu.assertEquals(#self.results, 2)
+    end
+
+    function suite:test_refresh_search_excludes_cached_monsters_now_in_the_bundle()
+        self.saved_only = true
+        self.cached = {
+            { name = "Goblin", summary = { title = "Goblin" } },
+            { name = "New goblin", summary = { title = "New goblin" } },
+        }
+        self.bundled = { Goblin = { kind = "bundled" } }
+        self:load()
+        self.search.set_query("goblin")
+        self:tick(8)
+        lu.assertEquals(#self.results, 1)
+        lu.assertEquals(self.results[1].monster.name, "New goblin")
     end
 
     function suite:test_refresh_search_uses_resolved_page_names_and_original_cache_identity()
