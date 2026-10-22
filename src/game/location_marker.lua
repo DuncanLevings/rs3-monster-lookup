@@ -117,13 +117,14 @@ local function add_hints(entry)
     return map_symbol.refresh(entry.symbol)
 end
 
-local function register(player_level, player_height)
+local function register(player_level, player_height, position)
     generation = generation + 1
     local entry = {
         target = desired.target,
         map_level = desired.map_level,
         player_level = player_level,
         player_height = player_height,
+        player_position = position,
         arrow_name = "monster_lookup_location_arrow_" .. generation,
         area_name = "monster_lookup_location_area_" .. generation,
     }
@@ -306,6 +307,11 @@ local function update()
     if not desired then
         return
     end
+    -- nothing can be installed during the native replacement gap. wait before
+    -- routing or sampling terrain, then validate the destination when it ends.
+    if ready_at and tick < ready_at then
+        return
+    end
     if not requested and not ready_at and tick % CHECK_INTERVAL_TICKS ~= 0 then
         return
     end
@@ -376,13 +382,21 @@ local function update()
         local height = destination_height(installed.target)
         local terrain_changed = height ~= nil and height ~= installed.ground_height
         local floor_changed = player_level ~= nil and player_level ~= installed.player_level
-        local elevation_changed = player_height ~= nil and player_height ~= installed.player_height
+        -- moving onto a slope changes ground height without changing floors.
+        -- only a height change at the same tile means its terrain reference changed.
+        local elevation_changed = same_target(installed.player_position, position)
+            and player_height ~= nil
+            and player_height ~= installed.player_height
         if terrain_changed or floor_changed or elevation_changed then
             -- Native hints can retain their original terrain reference. Re-register
             -- on loading or climbing, without adding absolute height to the offset.
             retire_current()
             notify()
             return
+        end
+        installed.player_position = position
+        if player_height ~= nil then
+            installed.player_height = player_height
         end
         local refreshed, visible = pcall(map_symbol.refresh, installed.symbol)
         local next_problem = not (refreshed and visible)
@@ -394,12 +408,9 @@ local function update()
         end
         return
     end
-    if ready_at and tick < ready_at then
-        return
-    end
     ready_at, paused = nil, false
     if available() then
-        register(player_level, player_height)
+        register(player_level, player_height, position)
     else
         desired = nil
         problem = "Native location markers are unavailable on this client."

@@ -450,6 +450,98 @@ return function(root)
         lu.assertEquals(self.hints.adds, adds)
     end
 
+    function suite:test_walking_over_uneven_ground_keeps_the_existing_native_marker()
+        self.hints.player = { level = 0, x = 3220, z = 3220 }
+        self.context.environment.World.GetGroundHeight = function(level, x)
+            return level == 2 and 6200 or 1000 + x // 512, true
+        end
+        local notifications = 0
+        self.marker.subscribe(function()
+            notifications = notifications + 1
+        end)
+        self.marker.mark(self.location, "Abyssal demon")
+        self.context:tick(1)
+        local arrow = self.hints.arrow
+        for _ = 1, 20 do
+            self.hints.player.x = self.hints.player.x + 1
+            self.context:tick(50)
+            lu.assertIs(self.hints.arrow, arrow)
+        end
+        lu.assertEquals(self.hints.adds, 3)
+        lu.assertEquals(self.hints.removes, 0)
+        lu.assertEquals(notifications, 2)
+        lu.assertTrue(self.hints.player_reads <= 22)
+    end
+
+    function suite:test_height_reference_tracks_movement_but_still_refreshes_when_terrain_changes_in_place()
+        self.hints.player = { level = 0, x = 3375, z = 3546 }
+        local local_height = 1000
+        self.context.environment.World.GetGroundHeight = function(level)
+            return level == 2 and 6200 or local_height, true
+        end
+        self.marker.mark(self.location, "Abyssal demon")
+        self.context:tick(1)
+        local arrow = self.hints.arrow
+        self.hints.player.x = self.hints.player.x + 1
+        local_height = 1100
+        self.context:tick(49)
+        lu.assertIs(self.hints.arrow, arrow)
+        self.context:tick(50)
+        lu.assertIs(self.hints.arrow, arrow)
+        local_height = 1600
+        self.context:tick(50)
+        lu.assertNil(self.hints.arrow)
+        self.context:tick(2)
+        lu.assertNotEquals(self.hints.arrow.name, arrow.name)
+        lu.assertEquals(self.hints.adds, 6)
+        lu.assertEquals(self.hints.arrow.coordFine.y, 900)
+    end
+
+    function suite:test_replacement_wait_skips_routing_and_terrain_reads_then_revalidates()
+        local route = self.context.load_module("src/game/location_route")
+        local next_step = route.next
+        local route_calls = 0
+        route.next = function(...)
+            route_calls = route_calls + 1
+            return next_step(...)
+        end
+        self.marker.mark(self.location, "Abyssal demon")
+        self.context:tick(1)
+        local height_reads = self.hints.height_reads
+        lu.assertEquals(route_calls, 1)
+        self.marker.mark(
+            { name = "Varrock", map = { id = 28, plane = 0, x = 3225, z = 3439 } },
+            "Guard"
+        )
+        self.context:tick(1)
+        lu.assertNil(self.hints.arrow)
+        lu.assertEquals(route_calls, 1)
+        lu.assertEquals(self.hints.height_reads, height_reads)
+        self.context:tick(1)
+        lu.assertEquals(route_calls, 1)
+        lu.assertEquals(self.hints.height_reads, height_reads)
+        self.context:tick(1)
+        lu.assertEquals(route_calls, 2)
+        lu.assertEquals(self.hints.arrow.coordFine.x, 3225 * 512 + 256)
+        lu.assertEquals(self.hints.adds, 6)
+    end
+
+    function suite:test_entering_an_instance_during_replacement_does_not_install_the_pending_marker()
+        self.marker.mark(self.location, "Abyssal demon")
+        self.context:tick(1)
+        self.marker.mark(
+            { name = "Varrock", map = { id = 28, plane = 0, x = 3225, z = 3439 } },
+            "Guard"
+        )
+        self.context:tick(1)
+        self.hints.region = true
+        self.context:tick(2)
+        lu.assertNil(self.hints.arrow)
+        lu.assertEquals(self.hints.adds, 3)
+        lu.assertTrue(self.marker.has_target())
+        lu.assertStrContains(self.marker.status(), "Paused")
+    end
+
     function suite:test_entrance_markers_use_surface_coordinates_and_explicit_access_labels()
         local location =
             { name = "Kuradal's Dungeon", map = { id = 36, plane = 0, x = 100, z = 102 } }
