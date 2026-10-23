@@ -103,17 +103,24 @@ third-party attribution are recorded in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NO
 
 ## Developer guide
 
-Use **Monster Lookup** when you want the standard window, reusable UI, managed lookups,
-extensions or location actions. Use **Monster Data Core directly** when you only need static
-records, searches, calculations or coordinates. Monster Lookup does not re-export the core.
+Other plugins can use Monster Lookup in three ways:
 
-The [example consumer repository](https://github.com/DuncanLevings/rs3-monster-lookup-example)
-is a complete plugin demonstrating custom layouts, every search mode, embedded drops and
-locations, standard-window opening and registered extensions.
+| What you want | Where to start |
+| --- | --- |
+| Open the existing monster window from your plugin. | `MonsterLookup.open(...)` |
+| Put searches, stats, models or drop tables in your own window. | `MonsterLookup.components()` |
+| Add your own information to the existing window. | `MonsterLookup.register_extension(...)` |
 
-### Declare dependencies
+For a complete working plugin, start with the
+[Monster Lookup Example](https://github.com/DuncanLevings/rs3-monster-lookup-example).
+It shows all three approaches, including how to create the windows and clean them up.
 
-For a consumer using both data and PrettyUI containers:
+If you only need monster data and no UI, use
+[Monster Data Core](https://github.com/DuncanLevings/rs3-monster-data-core) directly.
+
+### 1. Add the dependencies
+
+Add these entries to your plugin's `plugin.json`, keeping its other fields:
 
 ```json
 {
@@ -125,167 +132,127 @@ For a consumer using both data and PrettyUI containers:
 }
 ```
 
-Declare the dependencies your code calls directly. If you only call `MonsterLookup.open`,
-you only need the Monster Lookup entry; its own required dependencies still load normally.
-For local development, use `"monster-lookup"` and `"monster-data-core"` as the corresponding
-values and keep those folders beside your plugin. The example's manifest uses that setup.
+The names on the left become variables your Lua code can use. The numbers identify the
+plugins on mod.io. This setup covers all the examples below. If you only open the standard
+window, you can keep just the `MonsterLookup` entry.
 
-The manifest aliases become Lua globals. Use dot calls such as `MonsterLookup.open(...)`.
-Do not `require` files inside another plugin: a require path is relative to your own package.
+For local development, use `"monster-lookup"` and `"monster-data-core"` instead of their
+numbers, with those folders beside your plugin. The example repository is set up this way.
 
-### Public API at a glance
+Call functions with a dot, such as `MonsterLookup.open(...)`. You do not need to `require`
+Monster Lookup's files.
 
-```lua
-local lookup = MonsterLookup
-local version = lookup.version()
-assert(version.api.major == 1, "Unsupported Monster Lookup API")
-```
-
-| Export | Returns / purpose |
-| --- | --- |
-| `version()` | `{ api = { major, minor }, plugin, data_schema }`. Currently API `1.0`, package `0.0.3`. |
-| `open(selection, options?)` | Boolean indicating whether the standard window opened; not whether its data finished loading. |
-| `lookup()` | A caller-owned handle with `fetch`, `cancel` and `destroy`. |
-| `components()` | A fresh table of component constructors, listed below. |
-| `register_extension(definition)` | A `{ id, dispose }` handle, or `nil, problem`. |
-| `register_navigation(provider)` | A `{ id, dispose }` handle, or `nil, problem`. |
-
-The API major identifies incompatible API changes; minor versions identify additions.
-The plugin package version and Monster Data Core's data schema are separate. Check the major
-API/schema your consumer supports rather than requiring one exact package version. Internal
-module paths, packed data formats and UI implementation details are not public API.
-
-### Open the standard window
+### 2. Open a monster window
 
 ```lua
-local opened = MonsterLookup.open("Abyssal demon", {
+MonsterLookup.open("Abyssal demon", {
     tab = "drops",
     item = "Abyssal whip",
 })
-
-if not opened then
-    log("Monster Lookup is not ready to open yet.")
-end
 ```
 
-A selection is an exact Wiki title string or `{ name, wiki_title?, npc_id? }`. For a clicked
-NPC, use its numeric config id, not its entity uid. Preserve the Wiki title supplied by
-search so similarly named monsters remain distinct.
+This opens Abyssal demon's drops, filtered to Abyssal whip. Leave out the options to open
+normally. `tab` can be `"drops"`, `"info"`, `"locations"` or an extension tab's id; `mode`
+can select a boss mode by its displayed name.
 
-Options are `tab`, `item` and `mode`. Built-in tab ids are `"drops"`, `"info"` and `"locations"`;
-a registered extension's id also works. Use the mode's displayed name when setting `mode`.
+Use an exact Wiki page title. You can also pass a table such as
+`{ name = "General Graardor", npc_id = 6260 }` for an NPC your plugin selected. Use the NPC's
+config id, not its entity uid. For search results, keep their `wiki_title` so similarly named
+monsters are not mixed up.
 
-### Own a lookup handle
+`open` returns false if the game window is not ready. A true result means the window opened;
+its data may still be loading.
 
-Use a separate handle for each independent view. It follows one selection at a time; cancelling
-it does not cancel another consumer's handle. Matching in-flight Wiki requests can be shared.
-A callback may run immediately for local data, or more than once when saved data is followed
-by a refresh, so create your UI state before calling `fetch`.
+### 3. Get data for your own view
+
+A lookup handle is a small object that follows your current monster request. Give each
+independent window its own handle so closing one does not cancel another's request.
 
 ```lua
 local request = MonsterLookup.lookup()
-local alive = true
 
 request.fetch({ name = "Abyssal demon", wiki_title = "Abyssal demon" },
-    function(record, problem, metadata)
-        if not alive then return end
-
+    function(record, problem)
         if record then
-            log("Received " .. record.title)
-            -- render/update your own components here
+            log("Loaded " .. record.title)
+            -- update your window here
         end
-        if problem then log(problem) end
+
+        if problem then
+            log(problem)
+        end
     end)
 
 function PluginShutdown()
-    alive = false
     request.destroy()
 end
 ```
 
-`fetch(selection, callback, force_refresh?)` returns through the callback. A record and a
-problem can coexist when saved data is still usable. Optional metadata includes `bundled`,
-`built`, `saved_at`, `age_seconds`, `stale` and `refreshing`. Always allow metadata to be nil.
+The function passed to `fetch` runs when data is available. It can run immediately for local
+data, and again if a saved result is refreshed. Create your window before fetching, and handle
+both a result and a possible warning. Call `request.cancel()` when closing that view, or
+`request.destroy()` when finished with the handle.
 
-`cancel()` stops this handle's current subscription. `destroy()` cancels and removes the
-handle; do not reuse it afterward. Forced refresh uses the same coverage/cooldown policy as
-the standard UI and does not fetch replacements for static records.
+For static local data only, use `MonsterDataCore.monster(...)` instead. That returns the
+record directly and makes no network request.
 
-The core can supply an immediate local record without a managed lookup:
-`MonsterDataCore.monster(selection)`. See its [developer guide](https://github.com/DuncanLevings/rs3-monster-data-core#readme).
+### 4. Choose pieces for your own layout
 
-### Build your own info/model layout
-
-Given a native `parent` container owned by your plugin:
+A component is a ready-made piece of UI. You decide which pieces to use and where to put them.
+For this example, `parent` is a window container your plugin has already created; the
+[demo's view code](https://github.com/DuncanLevings/rs3-monster-lookup-example/blob/main/src/view.lua)
+shows how to create one.
 
 ```lua
-local components = MonsterLookup.components()
+local parts = MonsterLookup.components()
 local record = assert(MonsterDataCore.monster("General Graardor"))
-local variant = MonsterDataCore.variants(record)[1]
 
-local stats = components.stats(parent, {
+local stats = parts.stats(parent, {
     fields = { "Weakness", "Aggressive", "Susceptible to" },
-    overlay_parent = parent,
 })
-stats.set_info(variant.info, record.title)
-local height = stats.layout(420, 0)
+stats.set_info(record.info, record.title)
+stats.layout(400, 0) -- width, vertical position
 
-local model = components.model(parent, {
-    x = 432, y = 0, width = 220, height = math.max(220, height),
-    zoom_min = 1, zoom_max = 1.5, turn = false,
+local model = parts.model(parent, {
+    x = 420, y = 0, width = 220, height = 220,
 })
-model.set_monster({ title = record.title, info = variant.info })
-model.set_active(true) -- only while your view is visible
+model.set_monster({ title = record.title, info = record.info })
+model.set_active(true)
 
 function PluginShutdown()
     stats.destroy()
     model.destroy()
-    -- destroy the caller-owned parent after its components
 end
 ```
 
-You choose layout, fields, sizing, groups and visibility. A compact or specialized view belongs
-to the consumer; it does not require a separate preset in Monster Lookup.
+This puts selected stats on the left and a model on the right. Change the fields, positions
+and sizes to suit your plugin. `record.info` is the first variant; use
+`MonsterDataCore.variants(record)` if you want a variant picker.
 
-| Constructor | Content |
+| Piece | What it shows |
 | --- | --- |
-| `stats(parent, options?)` | Selected summary rows, or all summary rows by default. |
-| `weaknesses(parent, options?)` | Weakness, susceptibilities and immunities. |
-| `slayer(parent, options?)` | Collapsible Slayer/POD sections. |
-| `detailed_stats(parent, options?)` | Collapsible combat, offensive, defensive and affinity sections. |
-| `model(parent, options)` | Independently positioned/framed native model preview. |
+| `stats` | All summary rows, or just the labels in `fields`. |
+| `weaknesses` | Weakness, susceptibilities and immunities. |
+| `slayer` | Collapsible Slayer and POD information. |
+| `detailed_stats` | Collapsible combat stats. |
+| `model` | A model preview, where a matching model is available. |
 
-Info components expose `set_info(info, title?)`, `layout(width, y?)` returning height,
-`height()`, `empty()`, `hide_tooltips()` and `destroy()`. Use a variant's infobox table,
-not a whole record, with `set_info`.
+Stats pieces use `set_info(info, title)` to change the monster, then `layout(width, y)` to
+position them. `layout` returns the height used. For collapsible pieces, use `on_toggle`
+to lay out your window again after their height changes.
 
-Info options include `overlay_parent`, `page` for scroll-wheel forwarding, and `fields` for
-summary components. `summary_fields()` lists accepted row labels. Slayer/detailed options
-also accept `expanded` and `on_toggle(open)`; relayout after a toggle changes the height.
-Persist any custom-view preferences in your own plugin if needed.
+Call `model.set_active(false)` when hiding its view, and true when showing it again. This
+releases the hidden model rather than continuing to draw it.
 
-Model options include `x`, `y`, `width`, `height`, `zoom_min`, `zoom_max`, `scroll_zoom`, `turn`,
-`background`, `overlay_parent` and `on_interact`. Model methods are `set_monster`, `set_active`,
-`resize(width, height)`, `set_position(x, y)`, `showing()`, `failed()`, `can_turn()`,
-`hide_tooltip()` and `destroy()`. Its selection accepts `title`, optional variant `info`,
-`npc_id` and/or the original `selection`. Missing models are a supported outcome.
+### 5. Add a search to your window
 
-### Embed a search
-
-Search, drops and locations need a **PrettyUI scrolling page**: a window or tab page with
-`content`, `root`, `SetContentHeight`, `SetScrollPosition` and `ScrollBy`. A bare native layer
-is sufficient for info/model components, but not for these page-based views.
-
-Given your own PrettyUI `page`:
+Here, `page` is a scrolling PrettyUI window or tab page your plugin created:
 
 ```lua
-local components = MonsterLookup.components()
-local search = components.search(page, {
-    modes = { "monsters", "items", "stats" },
+local parts = MonsterLookup.components()
+local search = parts.search(page, {
     on_select = function(selection)
-        log("Selected " .. selection.name)
-        -- update your own view; nothing opens automatically
-        -- selection.focus can contain an item, mode or starting tab
+        MonsterLookup.open(selection, selection.focus)
     end,
 })
 search.set_active(true)
@@ -295,34 +262,30 @@ function PluginShutdown()
 end
 ```
 
-Use `search_monsters(page, options)`, `search_items(...)` or `search_stats(...)` for a single
-mode without the mode picker. Each instance owns its query, filters and result handling.
+This adds the combined search and opens Monster Lookup when a monster is selected. To show
+the result in your own window instead, replace the `on_select` function with your own code.
+The component only does what your function asks it to do.
 
-Methods are `set_active(bool)`, `resize()`, `state()` and `destroy()`. Start only the visible
-view; deactivating stops its runners. Name/item matching is spread across logic ticks;
-stat ranking runs when its filters change. Options also include `y`, `on_height(height)`
-and a saved `state` table. The saved state contains the selected mode and stat filters,
-not a complete snapshot of every name/item query.
+Use `parts.search_monsters`, `parts.search_items` or `parts.search_stats` for a single search
+mode. With `parts.search`, you can choose modes using
+`modes = { "monsters", "items", "stats" }`.
 
-To open the standard window from your callback, call
-`MonsterLookup.open(selection, selection.focus)`. For a custom view, keep selection handling
-local as the example does.
+Each search keeps its own state. Set it inactive while hidden with `search.set_active(false)`
+and destroy it when finished. The example demonstrates switching between several searches.
 
-### Embed drops and locations
+### 6. Add drop tables or locations
 
-Given two caller-owned PrettyUI pages, `drops_page` and `locations_page`:
+These also need scrolling PrettyUI pages. In this example, `drops_page` and `locations_page`
+are two pages your window already owns:
 
 ```lua
-local components = MonsterLookup.components()
+local parts = MonsterLookup.components()
 local record = assert(MonsterDataCore.monster("Abyssal demon"))
 
-local drops = components.drops(drops_page, {
-    percentage_rarity = true,
-    live_prices = false,
-})
+local drops = parts.drops(drops_page, { live_prices = false })
 drops.set_monster(record, { item = "Abyssal whip" })
 
-local locations = components.locations(locations_page)
+local locations = parts.locations(locations_page)
 locations.set_monster(record)
 
 function PluginShutdown()
@@ -331,100 +294,100 @@ function PluginShutdown()
 end
 ```
 
-Drops methods are `set_monster(record, focus?)`, `update(record)`, `configure(options)`,
-`refresh()`, `mode()`, `hide_tooltips()` and `destroy()`. `set_monster` resets view state;
-`update` keeps the current search/mode/expanded sections for a refreshed record. Focus accepts
-`item` and `mode`. Configuration changes apply on the next render/refresh.
+Drop options let you hide its search or average-value line, show percentage rarities and
+choose live or saved prices. Use `drops.update(record)` for a refreshed copy of the same
+monster to keep the user's search, mode and expanded categories.
 
-Drops options include `overlay_parent`, `percentage_rarity`, `live_prices`, `search`,
-`kill_value`, `status`, `problem` and `on_mode_change`. Disable search or the kill-value line
-with `false`; `live_prices` defaults to true. The status may be text or a function asked on redraw.
+Location buttons use **the same marker** as the standard window. Selecting a destination
+in your plugin replaces that shared destination too.
 
-Locations exposes `set_monster(record)` and `destroy()`. Its actions use the current shared
-navigation provider. Marking a location here replaces the same destination used by the
-standard window. These components do not expose a generic `set_active` method; destroy them
-when no longer needed. Drops with live prices enabled may receive price updates while hidden.
+### 7. Add your own information to Monster Lookup
 
-### Add sections and tabs to the standard window
+You can add a section to Monster info without creating your own window:
 
 ```lua
-local extension, problem = MonsterLookup.register_extension({
-    id = "my_plugin.monster_notes",
+local section, problem = MonsterLookup.register_extension({
+    id = "my_plugin.notes",
     kind = "section",
     title = "My plugin notes",
-    order = 20,
     content = function(context)
         return {
             rows = {
                 { "Monster", context.monster.title },
                 { "Variant", context.variant or "Default" },
             },
-            text = "Additional information supplied by my plugin.",
+            text = "Extra information from my plugin.",
         }
     end,
 })
-assert(extension, problem)
+assert(section, problem)
 
 function PluginShutdown()
-    extension.dispose()
+    section.dispose()
 end
 ```
 
-Use a unique namespaced id. A structured section/tab returns `{ rows = { {label, value}, ... },
-text = "..." }`; returning nil shows nothing. Set `kind = "tab"` to add a structured tab.
-Register a tab before opening the window; registrations changed later are reflected when
-Monster Lookup next rebuilds its tab list on open.
+Choose an id unique to your plugin. Monster Lookup draws the rows and text returned by
+`content`, and supplies the current monster and variant in `context`. Change `kind` to
+`"tab"` to put that information in a separate tab. Register it before opening the window.
 
-For a fully custom tab, supply `create(container)` and `update(context, container)`, plus
-optional `activate(context)`, `deactivate()` and `destroy(container)` instead of structured
-`content`. The host owns the container; destroy your children/resources before it disappears.
-Set its height to match your content. Custom tab callbacks are described in
-[src/ui/extensions/registry.lua](src/ui/extensions/registry.lua).
+The example repository includes both a section and a tab. More advanced tabs can draw their
+own controls rather than returning rows.
 
-Context includes `monster`, `variant`, `mode`, `source` and `revision`. Its `is_current()`
-checks whether the selection/registration still applies; use it before applying an async
-result. `refresh()` requests a redraw for a current context. Callback errors are contained
-in the extension's slot and logged, but callbacks still need to stay fast.
+### Cleaning up
 
-### Replace location actions
+The examples each show a `PluginShutdown` function. When combining them, put all cleanup
+calls in **one** shutdown function.
 
-`register_navigation(provider)` replaces the provider used by **all** Locations components
-until its returned handle is disposed. Providers are stacked; disposing the current provider
-restores the previous one, eventually Monster Lookup's default marker.
+- Stop hidden searches and models with `set_active(false)`.
+- Destroy components before destroying the window/container holding them.
+- Cancel or destroy lookup handles and remove extensions with `dispose()`.
+- Ignore late results if a view has closed or changed monster; the example's selection
+  checks show how to do this.
+- Recreate game windows after logout/login. If a dependency is reloaded, your plugin may
+  need to be enabled again afterward.
 
-A provider has a namespaced `id` and two required functions:
+Keep your own state in Lua tables. Do not change the shared `MonsterLookup` export or add
+custom fields to native/PrettyUI objects.
 
-| Hook | Contract |
+### Further options
+
+The walkthrough covers the usual starting points. These references cover additional controls
+when you need them:
+
+| Area | Reference |
 | --- | --- |
-| `action(location)` | Return `{ label, active_label?, tooltip?, unavailable? }`, or nil to omit the button. |
-| `start(location, source_title)` | Perform your action and return `ok, problem`. |
+| Info fields, collapse settings and tooltips | [Info components](src/ui/info/components.lua) |
+| Model zoom, turning, background and sizing | [Model component](src/ui/info/model.lua) |
+| Drop display settings and refresh methods | [Drops component](src/ui/drops/component.lua) |
+| Search modes, saved state and positioning | [Search component](src/ui/search/view.lua) |
+| Custom tab controls and update callbacks | [Extension registration](src/ui/extensions/registry.lua) |
+| Replacing the actions on all Locations views | [Navigation provider](src/ui/locations/navigation.lua) |
 
-Optional hooks are `confirmation`, `is_active`, `status`, `can_stop`, `stop` and `subscribe`.
-`can_stop` and `stop` must be supplied together. `subscribe(callback)` returns an unsubscribe
-function and should notify when status/active rows change. Text options are `column_title`,
-`stop_label` and `note`. Dispose the registration and clean up any resources your provider owns.
-The full hook signatures are in [src/ui/locations/navigation.lua](src/ui/locations/navigation.lua).
+<details>
+<summary>Additional API notes</summary>
 
-For coordinates without taking over Locations actions, call Monster Data Core's geometry
-helpers directly. The example intentionally leaves the default navigation provider in place.
+- `MonsterLookup.version()` reports `api.major`, `api.minor`, `plugin` and `data_schema`.
+  The current API is **1.0**. Check the API major your plugin supports; the package version
+  and data schema are separate version numbers.
+- `request.fetch(selection, callback, true)` asks for a forced refresh. This follows the
+  normal cooldown rules and does not replace static records. Its callback can also receive
+  metadata describing where the data came from and whether it is stale or refreshing.
+- Info pieces take a native container. Search, drops and locations need a PrettyUI scrolling
+  page; a bare layer does not provide their scrolling controls.
+- Components have different methods: stats use `set_info`/`layout`, models use
+  `set_monster`/`resize`/`set_active`, and page-based views use the methods shown above.
+  Drops and locations do not have `set_active`; destroy them when no longer needed.
+- An extension's context also includes `mode`, `source`, `revision`, `is_current()` and
+  `refresh()`. Use `is_current()` before applying a delayed result, then `refresh()` to ask
+  Monster Lookup to redraw that section/tab.
+- `register_navigation(provider)` lets a plugin replace the buttons/actions used by all
+  Locations views. It returns a handle; `dispose()` restores the previous provider.
+  This changes shared navigation, so only register one when your plugin intends to take over.
+- Registration functions return `nil, problem` on failure. Keep the returned handle and
+  call `dispose()` when your plugin stops.
 
-### Ownership, shutdown and dependency reloads
-
-- Treat dependency exports as shared read-only tables. Keep consumer state in your own Lua
-  tables, not on exports or native/PrettyUI objects.
-- Create lookup handles and components for each independent view. Handle the possibility of
-  immediate/repeated lookup callbacks and reject stale callbacks after close or selection change.
-- Deactivate hidden searches/models. Destroy components **before** their parent containers,
-  destroy lookup handles, and dispose extension/navigation registrations on shutdown.
-- The code examples each show their own cleanup. Merge those calls into your existing
-  `PluginShutdown`; do not overwrite earlier cleanup when combining examples.
-- Destroy game-session UI on logout and rebuild it after login. Reloading a required dependency
-  can stop consumers; enable/reload them again after the dependency is ready.
-- Optional GE Price Library enable/disable changes are handled by Monster Lookup. That does
-  not make Monster Lookup itself a hot-swappable optional dependency for your consumer.
-- No single universal component interface is implied: info, model, search, drops and locations
-  have the distinct methods listed above. Core records are data; PrettyUI/native containers
-  remain owned by the plugin that creates them.
+</details>
 
 ## Development checks
 
