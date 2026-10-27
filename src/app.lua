@@ -9,8 +9,6 @@ local content_panel = require("src/ui/settings/content")
 local settings = require("src/settings")
 local location_marker = require("src/game/locations/marker")
 local prices = require("src/data/drops/prices")
-local extensions = require("src/ui/extensions/registry")
-local navigation = require("src/ui/locations/navigation")
 
 local app = {}
 local started = false
@@ -45,7 +43,6 @@ local function on_monster_selected(monster, force_refresh)
     -- where to open the window (an item to filter on, a tab) isnt part of which monster it is,
     -- so it stays out of the lookup and the saved data
     local focus = monster.focus
-    monster.focus = nil
     local opened = monster_window.open(monster, window_lookup.cancel, focus)
 
     if opened then
@@ -91,32 +88,12 @@ function app.start()
     log("Monster Lookup started.")
 end
 
----opens the standard window for a monster, what the menu entry and search do. for other
----plugins through src/api.lua
----@param monster MonsterSelection with an optional focus (WindowFocus)
----@return boolean opened false before the plugin started or while the game area isnt ready
-function app.open(monster)
-    if not started then
-        return false
-    end
-
-    return on_monster_selected(monster) == true
-end
-
-function app.started()
-    return started
-end
-
 function app.stop()
     if not started then
         return
     end
 
     started = false
-    -- other plugins sections, tabs and navigation go first, while the window theyre in still
-    -- exists
-    extensions.clear()
-    navigation.clear()
     npc_menu.stop()
     window_lookup.destroy()
     settings_lookup.destroy()

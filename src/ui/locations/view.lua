@@ -1,28 +1,23 @@
--- the Locations tab: where the monster spawns, from the wiki. rows grow to fit wrapped
--- requirement text
---
--- the "take me there" part (a button per row, the highlighted row, the status line and its
--- stop button) is whatever navigation provider is current (navigation.lua), Monster
--- Lookup's marker unless another plugin replaced it. this file doesnt know what any of it does
+-- built-in Locations tab, including marker controls and wrapped access requirements.
 
 local text_layout = require("src/ui/common/text_layout")
 local wiki_text = require("src/utils/wiki_text")
 local widgets = require("src/ui/common/widgets")
 local theme = require("src/ui/common/theme")
-local navigation = require("src/ui/locations/navigation")
+local marker_controls = require("src/game/locations/marker_navigation")
 local internals = require("src/ui/common/prettyui_internals")
 local clock = require("src/utils/cache_clock")
 
 local locations_view = {}
 local next_feedback_id = 0
--- how long the providers confirmation stays in the status line after a click
+-- how long the marker controls' confirmation stays in the status line after a click
 local FEEDBACK_TICKS = 3 * clock.TICKS_PER_SECOND
 local COLUMNS = {
     { key = "name", title = "Location", width = 0.30 },
     { key = "levels", title = "Levels", width = 0.10 },
     { key = "requirements", title = "Access requirements", width = 0.32 },
     { key = "spawns", title = "Spawns", width = 0.10 },
-    -- the providers buttons, titled by it
+    -- the marker controls' buttons, titled by it
     { key = "action", title = "", width = 0.18 },
 }
 local ACTION_COLUMN = #COLUMNS
@@ -47,14 +42,9 @@ local function stop_feedback(controller)
     controller.feedback_row, controller.feedback_text, controller.feedback_ticks = nil, nil, nil
 end
 
--- the providers short confirmation, eg "Marked: ...", for a few seconds after a click
+-- the marker controls' short confirmation, eg "Marked: ...", for a few seconds after a click
 local function show_feedback(controller, row)
-    local ok, text = navigation.call(
-        controller.provider,
-        "confirmation",
-        row.location,
-        controller.source_title
-    )
+    local ok, text = pcall(marker_controls.confirmation, row.location, controller.source_title)
 
     if not ok or type(text) ~= "string" then
         return
@@ -78,8 +68,7 @@ local function show_feedback(controller, row)
 end
 
 local function add_action_button(controller, row, location)
-    local provider = controller.provider
-    local ok, action = navigation.call(provider, "action", location)
+    local ok, action = pcall(marker_controls.action, location)
 
     if not ok or type(action) ~= "table" or type(action.label) ~= "string" then
         return
@@ -99,7 +88,7 @@ local function add_action_button(controller, row, location)
         stop_feedback(controller)
         controller.acting = true
         local called, started, problem =
-            navigation.call(provider, "start", location, controller.source_title)
+            pcall(marker_controls.start, location, controller.source_title)
         controller.acting = false
 
         if not called then
@@ -128,27 +117,24 @@ local function create_row(controller, location, index)
     row.background = widgets.background(row.root, row.normal_colour)
 
     for column_index, column in ipairs(COLUMNS) do
-        if column_index ~= ACTION_COLUMN or controller.provider then
-            local value = column_index == ACTION_COLUMN and controller.provider.column_title
-                or column.title
+        local value = column_index == ACTION_COLUMN and marker_controls.column_title or column.title
 
-            if location then
-                value = column.key == "action" and "" or location[column.key]
+        if location then
+            value = column.key == "action" and "" or location[column.key]
 
-                if column.key == "spawns" then
-                    value = tostring(value or ""):match("^%s*(%d+)%s*$") or ""
-                end
+            if column.key == "spawns" then
+                value = tostring(value or ""):match("^%s*(%d+)%s*$") or ""
             end
-
-            row.cells[#row.cells + 1] = {
-                label = create_text(row.root, value),
-                value = value,
-                width = column.width,
-            }
         end
+
+        row.cells[#row.cells + 1] = {
+            label = create_text(row.root, value),
+            value = value,
+            width = column.width,
+        }
     end
 
-    if location and controller.provider then
+    if location then
         add_action_button(controller, row, location)
     end
 
@@ -158,7 +144,7 @@ end
 local function layout_row(row, width, y, action_width)
     local height = 30
     local x = 0
-    -- without a provider the four location columns share the whole width
+    -- reserve room for the action button before distributing the text columns
     local share = action_width > 0 and (1 - COLUMNS[ACTION_COLUMN].width) or 1
 
     for index, cell in ipairs(row.cells) do
@@ -236,13 +222,11 @@ local function layout(controller)
         -- and the columns stay lined up
         local action_width = 0
 
-        if controller.provider then
-            action_width = math.max(96, math.floor(width * COLUMNS[ACTION_COLUMN].width))
+        action_width = math.max(96, math.floor(width * COLUMNS[ACTION_COLUMN].width))
 
-            for _, row in ipairs(controller.rows) do
-                if row.button then
-                    action_width = math.max(action_width, row.button.root.width + 16)
-                end
+        for _, row in ipairs(controller.rows) do
+            if row.button then
+                action_width = math.max(action_width, row.button.root.width + 16)
             end
         end
 
@@ -260,19 +244,18 @@ local function layout(controller)
     end)
 end
 
--- the status line, stop button and highlighted row, from the provider
+-- the status line, stop button and highlighted row, from the marker
 local function update_status(controller)
     if controller.destroyed or not controller.status_label then
         return
     end
 
-    local provider = controller.provider
     local matched = false
 
     for _, row in ipairs(controller.rows) do
         if row.button then
             local called, active =
-                navigation.call(provider, "is_active", row.location, controller.source_title)
+                pcall(marker_controls.is_active, row.location, controller.source_title)
             active = not matched and called and active == true
             matched = matched or active
 
@@ -284,7 +267,7 @@ local function update_status(controller)
         end
     end
 
-    local called, status_text, attention = navigation.call(provider, "status")
+    local called, status_text, attention = pcall(marker_controls.status)
 
     if not called then
         status_text, attention = status_text, true
@@ -294,7 +277,7 @@ local function update_status(controller)
     attention = controller.problem ~= nil or controller.feedback_row ~= nil or attention == true
 
     if controller.stop_button then
-        local can_called, can_stop = navigation.call(provider, "can_stop")
+        local can_called, can_stop = pcall(marker_controls.can_stop)
         controller.stop_button:SetDisabled(not (can_called and can_stop == true))
     end
 
@@ -312,44 +295,45 @@ local function update_status(controller)
     layout(controller)
 end
 
--- the bar above the table: the providers status line and stop button
+-- the bar above the table: the marker controls' status line and stop button
 local function create_toolbar(controller)
-    local provider = controller.provider
     controller.toolbar = widgets.layer(controller.root, 1)
     controller.status_normal = create_text(controller.toolbar, "", true)
     controller.status_notice = create_text(controller.toolbar, "", false, true)
     controller.status_label = controller.status_normal
 
-    if provider.stop then
-        controller.stop_button = prettyui.SimpleButton.new(controller.toolbar, provider.stop_label, function()
+    controller.stop_button = prettyui.SimpleButton.new(
+        controller.toolbar,
+        marker_controls.stop_label,
+        function()
             if controller.destroyed then
                 return
             end
 
             controller.problem = nil
-            navigation.call(provider, "stop")
-        end, { height = 24 })
-        widgets.forward_wheel(
-            controller.stop_button.root,
-            "monster_lookup_location_stop_wheel",
-            controller.page
-        )
-    end
+            pcall(marker_controls.stop)
+        end,
+        { height = 24 }
+    )
+    widgets.forward_wheel(
+        controller.stop_button.root,
+        "monster_lookup_location_stop_wheel",
+        controller.page
+    )
 
-    local called, unsubscribe = navigation.call(provider, "subscribe", function()
+    local called, unsubscribe = pcall(marker_controls.subscribe, function()
         if controller.destroyed then
             return
         end
 
         controller.problem = nil
 
-        -- the confirmation goes as soon as the provider has something to say or the row
+        -- the confirmation goes as soon as the marker has something to say or the row
         -- it was about isnt the active one any more
         if controller.feedback_row then
-            local _, _, attention = navigation.call(provider, "status")
-            local _, still_active = navigation.call(
-                provider,
-                "is_active",
+            local _, _, attention = pcall(marker_controls.status)
+            local _, still_active = pcall(
+                marker_controls.is_active,
                 controller.feedback_row.location,
                 controller.source_title
             )
@@ -371,7 +355,6 @@ function locations_view.render(page, result)
         { page = page, root = widgets.layer(page.content, 1), rows = {}, building = true }
     local rows = result.locations or {}
 
-    controller.provider = navigation.current()
     controller.source_title = wiki_text.plain(result.title)
     next_feedback_id = next_feedback_id + 1
     controller.feedback_id = "monster_lookup_location_feedback_" .. next_feedback_id
@@ -380,7 +363,7 @@ function locations_view.render(page, result)
     end
 
     if #rows > 0 then
-        if controller.provider then
+        if marker_controls then
             create_toolbar(controller)
             controller.update_status()
         end
@@ -391,7 +374,7 @@ function locations_view.render(page, result)
             controller.rows[#controller.rows + 1] = create_row(controller, location, index)
         end
 
-        local note = controller.provider and controller.provider.note
+        local note = marker_controls.note
         controller.note = "Source: RuneScape Wiki - "
             .. wiki_text.plain(result.title)
             .. ". Check levels and access requirements."

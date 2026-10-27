@@ -35,17 +35,12 @@ local create_routing_suite = require("tests/dungeon_routing_spec")
 local create_spawns_suite = require("tests/location_spawns_spec")
 local create_info_components_suite = require("tests/info_components_spec")
 local create_tab_components_suite = require("tests/tab_components_spec")
-local create_extensions_suite = require("tests/extensions_spec")
-local create_navigation_provider_suite = require("tests/navigation_provider_spec")
 local runner = lu.LuaUnit.new()
 
 runner:runSuiteByInstances({
-    { "TestConsumerExample", require("tests/consumer_example_spec")(root) },
     { "TestCoreDependency", require("tests/core_dependency_spec")(root) },
     { "TestInfoComponents", create_info_components_suite(root) },
     { "TestTabComponents", create_tab_components_suite(root) },
-    { "TestExtensions", create_extensions_suite(root) },
-    { "TestNavigationProvider", create_navigation_provider_suite(root) },
     { "TestLocationSpawns", create_spawns_suite(root) },
     { "TestDungeonRouting", create_routing_suite(root) },
     { "TestLocationNavigation", create_navigation_suite(root) },

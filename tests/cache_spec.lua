@@ -92,8 +92,9 @@ return function(root)
             end,
             monster = function()
                 local page = context.bundle_match.page
-                return { title = "Bundled " .. page, info = {}, variants = {}, sections = {} },
-                    { status = "covered" }
+                return { title = "Bundled " .. page, info = {}, variants = {}, sections = {} }, {
+                    status = "covered",
+                }
             end,
             info = function()
                 return { schema = 1, built = "2026-10-21", monsters = 1 }
@@ -941,9 +942,10 @@ return function(root)
 
     local function recorder()
         local calls = {}
-        return calls, function(result, problem, metadata)
-            calls[#calls + 1] = { result = result, problem = problem, metadata = metadata }
-        end
+        return calls,
+            function(result, problem, metadata)
+                calls[#calls + 1] = { result = result, problem = problem, metadata = metadata }
+            end
     end
 
     function suite:test_cancelling_one_handle_leaves_another_running()

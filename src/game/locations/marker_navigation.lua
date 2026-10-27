@@ -1,6 +1,4 @@
--- Monster Lookup's own navigation for the Locations tab: the native arrow and map X from
--- marker.lua, as a provider (see src/ui/locations/navigation.lua). everything the tab says
--- about marking comes from here, so a plugin that registers its own navigation replaces it all
+-- labels and actions for the built-in location marker.
 
 local marker = require("src/game/locations/marker")
 local wiki_text = require("src/utils/wiki_text")

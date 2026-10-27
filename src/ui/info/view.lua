@@ -1,10 +1,4 @@
--- the standard Monster info tab: a variant picker, then the stats summary with the model
--- beside it, then the Slayer and Detailed stats groups. its put together from the same info
--- components other plugins get (components.lua), this adds what only the standard tab has:
--- the variant picker, the model, the source note and remembering which groups were open.
--- sections other plugins registered (src/ui/extensions/registry.lua) go after the groups
---
--- the variant picker swaps the body without rebuilding the whole tab
+-- monster stats, variant selection and model preview for the built-in info tab.
 
 local core = require("src/data/core")
 local settings = require("src/settings")
@@ -13,7 +7,6 @@ local stat_blocks = require("src/ui/info/stat_blocks")
 local components = require("src/ui/info/components")
 local widgets = require("src/ui/common/widgets")
 local model_viewer = require("src/ui/info/model")
-local extensions = require("src/ui/extensions/registry")
 
 local monster_info_view = {}
 local PADDING = stat_blocks.PADDING
@@ -67,10 +60,7 @@ local function layout_blocks(controller)
     for index, entry in ipairs(controller.blocks) do
         local height
 
-        if entry.extension and not entry.block then
-            -- an extension with nothing to show right now keeps its place, takes no room
-            height = nil
-        elseif entry.note then
+        if entry.note then
             height = stat_blocks.layout_note(entry.note, width, y)
         elseif entry.summary then
             height = layout_summary(controller, entry, width, y)
@@ -111,78 +101,12 @@ local function destroy_tooltips(controller)
     controller.context.tooltips = {}
 end
 
-local function destroy_block(block)
-    if block.toggle then
-        block.toggle:Destroy()
-    end
-
-    block.root:Destroy()
-end
-
 local function destroy_components(controller)
     for _, entry in ipairs(controller.blocks or {}) do
         if entry.component then
             entry.component.destroy()
-        elseif entry.extension then
-            -- the slot belongs to the body being replaced, a late refresh() for it does nothing
-            entry.dead = true
-
-            if entry.block then
-                destroy_block(entry.block)
-                entry.block = nil
-            end
         end
     end
-end
-
-local build_extension
-
--- asks an extension for its content again, eg after its own data arrived (context.refresh)
-local function refresh_extension(controller, slot)
-    if controller.destroyed or slot.dead then
-        return
-    end
-
-    if slot.block then
-        destroy_block(slot.block)
-        slot.block = nil
-    end
-
-    build_extension(controller, slot)
-    layout(controller)
-end
-
--- one extension sections group, in the slot it keeps between refreshes. nothing to show
--- leaves the slot empty, an error shows the message in it
-build_extension = function(controller, slot)
-    local entry = slot.extension
-    local context = extensions.context(entry, controller.extension_state, function()
-        refresh_extension(controller, slot)
-    end)
-    local ok, content = extensions.call(entry, "content", context)
-    local section, problem
-
-    if ok then
-        section, problem = extensions.section(entry, content)
-    else
-        problem = content
-    end
-
-    if problem then
-        section = { title = entry.title, widths = { 1 }, labels = { false }, rows = {}, note = problem }
-    end
-
-    if not section then
-        return
-    end
-
-    slot.block = stat_blocks.group(controller.context, controller.body, entry.title, { section }, {
-        expanded = controller.expanded[entry.id] ~= false,
-        on_toggle = function(open)
-            controller.expanded[entry.id] = open
-            layout(controller)
-        end,
-    })
 end
 
 local function add_note(controller, text)
@@ -273,7 +197,8 @@ local function replace_body(controller, info)
 
     -- anything the summary and the two groups dont cover gets its own table
     for _, section in ipairs(data.sections) do
-        local in_summary = summary and (section.title == "Overview" or section.title == "Immunities")
+        local in_summary = summary
+            and (section.title == "Overview" or section.title == "Immunities")
         local in_group = section.title == "Slayer"
             or section.title == "Player-owned Slayer Dungeon"
             or section.detailed
@@ -287,11 +212,6 @@ local function replace_body(controller, info)
     add_group(controller, components.slayer, "Slayer")
     add_group(controller, components.detailed_stats, DETAILS_TITLE)
 
-    for _, entry in ipairs(extensions.list("section")) do
-        local slot = { extension = entry }
-        controller.blocks[#controller.blocks + 1] = slot
-        build_extension(controller, slot)
-    end
     add_note(
         controller,
         "Source: RuneScape Wiki - "
@@ -311,7 +231,11 @@ local function add_variant_selector(controller, variants)
         entries[#entries + 1] = { text = variant.name, id = index }
     end
 
-    stat_blocks.text(controller.root, "Wiki variant", { x = 8, y = PADDING, width = 140, height = 32 })
+    stat_blocks.text(
+        controller.root,
+        "Wiki variant",
+        { x = 8, y = PADDING, width = 140, height = 32 }
+    )
     controller.selector = widgets.dropdown(controller.root, {
         x = 156,
         y = PADDING,
@@ -324,12 +248,6 @@ local function add_variant_selector(controller, variants)
             local variant = variants[entry_id]
 
             if variant then
-                -- the window moves the extension context on to this variant first, so the
-                -- sections built below already see it
-                if controller.on_variant then
-                    controller.on_variant(variant.name)
-                end
-
                 replace_body(controller, variant.info)
                 layout(controller)
                 controller.page:SetScrollPosition(0)
@@ -339,10 +257,7 @@ local function add_variant_selector(controller, variants)
     controller.body_y = 48
 end
 
----@param options { extension_state: table?, on_variant: fun(name: string)? }? the windows
----extension selection state and what to call when the player picks another variant
-function monster_info_view.render(page, result, overlay_parent, selection, options)
-    options = options or {}
+function monster_info_view.render(page, result, overlay_parent, selection)
     local controller = {
         page = page,
         overlay_parent = overlay_parent,
@@ -351,9 +266,6 @@ function monster_info_view.render(page, result, overlay_parent, selection, optio
         expanded = {},
         selection = selection,
         active = false,
-        on_variant = options.on_variant,
-        -- without a window (tests, other callers) extensions see a context of their own
-        extension_state = options.extension_state or { revision = 0, monster = { title = result.title } },
     }
     controller.context = { page = page, overlay_parent = overlay_parent, tooltips = {} }
     controller.source_title = wiki_text.plain(result.title or "Monster information")

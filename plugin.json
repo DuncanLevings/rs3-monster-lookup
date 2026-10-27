@@ -5,8 +5,7 @@
   "hasSettingsIcon": true,
   "hasRibbonIcon": true,
   "requiredDependencies": {
-    "prettyui": 6398181,
-    "MonsterDataCore": 6471519
+    "prettyui": 6398181
   },
   "optionalDependencies": {
     "gepl": 6414886

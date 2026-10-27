@@ -708,10 +708,7 @@ function cache.put(monster, result)
         local same_monster = previous.key == key
         order = math.max(order, previous.order + 1)
 
-        if
-            previous.manual_refresh_at
-            and (same_monster or entry_family(previous) == family)
-        then
+        if previous.manual_refresh_at and (same_monster or entry_family(previous) == family) then
             manual_refresh_at = math.max(manual_refresh_at or 0, previous.manual_refresh_at)
         end
 

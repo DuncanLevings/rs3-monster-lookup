@@ -24,10 +24,13 @@ function fixture.new(root, saved)
     local environment = setmetatable({}, { __index = _G })
     local modules = {}
     local dependency = require("tests/support/core_loader").new()
+    modules["src/data/core"] = dependency.export
     environment.MonsterDataCore = dependency.export
 
     local function load_module(path)
-        if path:match("^tools/") then return dependency.load_module(path) end
+        if path:match("^tools/") then
+            return dependency.load_module(path)
+        end
         if modules[path] == nil then
             modules[path] = assert(loadfile(root .. "/" .. path .. ".lua", "t", environment))()
         end

@@ -1,17 +1,5 @@
--- the Monster info pieces as components anyone can place: the stat summary (or some of its
--- fields), weaknesses and immunities, Slayer info and detailed stats. the standard Monster
--- info tab (view.lua) is built from these, other plugins get the same ones
---
--- every component lives under the parent its given and only touches what it made itself.
--- it doesnt know about the standard window, tabs or settings: whatever owns it decides the
--- size and position (layout), which monster it shows (set_info) and when its destroyed.
--- a component that has nothing to show (no Slayer data) says so with empty() and draws nothing
---
---   local stats = components.stats(parent, { overlay_parent = game_area })
---   stats.set_info(info, title)  -- one variants infobox values, eg MonsterData.variants(record)[1].info
---   local height = stats.layout(300, 0)
---   ...
---   stats.destroy()
+-- internal stat groups shared by the built-in info view.
+-- the caller owns layout and cleanup; empty groups create no visible content.
 
 local core = require("src/data/core")
 local stat_blocks = require("src/ui/info/stat_blocks")

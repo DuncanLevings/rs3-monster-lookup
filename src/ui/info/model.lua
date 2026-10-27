@@ -18,7 +18,8 @@ local widgets = require("src/ui/common/widgets")
 
 local model_viewer = {}
 
-local TURN_HINT = "Drag to turn the monster preview, Shift+drag to move it up or down, scroll to zoom."
+local TURN_HINT =
+    "Drag to turn the monster preview, Shift+drag to move it up or down, scroll to zoom."
 local ZOOM_HINT = "Scroll to zoom the monster preview."
 
 ---@class ModelOptions
@@ -141,12 +142,14 @@ function model_viewer.new(parent, options)
     function viewer.set_monster(monster)
         clear()
         state.failed = false
-        state.monster = monster and {
-            title = monster.title,
-            info = monster.info,
-            npc_id = monster.npc_id,
-            selection = monster.selection,
-        } or nil
+        state.monster = monster
+                and {
+                    title = monster.title,
+                    info = monster.info,
+                    npc_id = monster.npc_id,
+                    selection = monster.selection,
+                }
+            or nil
 
         if state.active then
             build()

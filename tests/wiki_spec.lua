@@ -326,13 +326,19 @@ return function(root)
     -- two lookups started by different callers both keep going, cancelling one leaves the other
     function suite:test_lookups_run_side_by_side_and_cancel_separately()
         local first, second = {}, {}
-        local a = self.context.lookup.fetch({ name = "First", wiki_title = "First" }, function(result, problem)
-            first[#first + 1] = { result = result, problem = problem }
-        end)
+        local a = self.context.lookup.fetch(
+            { name = "First", wiki_title = "First" },
+            function(result, problem)
+                first[#first + 1] = { result = result, problem = problem }
+            end
+        )
         self.context:tick()
-        self.context.lookup.fetch({ name = "Second", wiki_title = "Second" }, function(result, problem)
-            second[#second + 1] = { result = result, problem = problem }
-        end)
+        self.context.lookup.fetch(
+            { name = "Second", wiki_title = "Second" },
+            function(result, problem)
+                second[#second + 1] = { result = result, problem = problem }
+            end
+        )
         self.context:tick()
 
         lu.assertEquals(#self.context.requests, 2)

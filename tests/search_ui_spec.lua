@@ -173,19 +173,22 @@ return function(root)
         local context = self.context
         stub_search(context)
         local ranked = {}
-        context.stub_module("src/data/core", require("tests/support/core_stub")({
-            stat_choices = function()
-                return { { id = 1, label = "Combat XP" }, { id = 2, label = "Slayer XP" } }
-            end,
-            stat_ranking = function(stat, filters)
-                ranked[#ranked + 1] = { stat = stat, filters = filters }
-                return {
-                    { title = "Abyssal lord", label = "Abyssal lord - 1,000 XP" },
-                    { title = "Goblin", label = "Goblin - 5 XP" },
-                },
-                    120
-            end,
-        }))
+        context.stub_module(
+            "src/data/core",
+            require("tests/support/core_stub")({
+                stat_choices = function()
+                    return { { id = 1, label = "Combat XP" }, { id = 2, label = "Slayer XP" } }
+                end,
+                stat_ranking = function(stat, filters)
+                    ranked[#ranked + 1] = { stat = stat, filters = filters }
+                    return {
+                        { title = "Abyssal lord", label = "Abyssal lord - 1,000 XP" },
+                        { title = "Goblin", label = "Goblin - 5 XP" },
+                    },
+                        120
+                end,
+            })
+        )
         local view = context.load_module("src/ui/search/window")
         local selections = {}
         view.start(function(monster)
@@ -468,15 +471,18 @@ return function(root)
         local context = self.context
         stub_search(context)
         local ranked = 0
-        context.stub_module("src/data/core", require("tests/support/core_stub")({
-            stat_choices = function()
-                return { { id = 1, label = "Combat XP" } }
-            end,
-            stat_ranking = function()
-                ranked = ranked + 1
-                return {}, 0
-            end,
-        }))
+        context.stub_module(
+            "src/data/core",
+            require("tests/support/core_stub")({
+                stat_choices = function()
+                    return { { id = 1, label = "Combat XP" } }
+                end,
+                stat_ranking = function()
+                    ranked = ranked + 1
+                    return {}, 0
+                end,
+            })
+        )
         local view = context.load_module("src/ui/search/window")
         view.start(function() end)
         view.open()
@@ -519,7 +525,8 @@ return function(root)
     -- would put it in its own window
 
     local function own_page(context)
-        local page = context.environment.prettyui.Window.new(context.parent, { onClose = function() end })
+        local page =
+            context.environment.prettyui.Window.new(context.parent, { onClose = function() end })
         page:Show()
         return page
     end
@@ -539,7 +546,10 @@ return function(root)
         })
 
         lu.assertEquals(#context.dropdowns, dropdowns)
-        lu.assertEquals(context.text_fields[#context.text_fields].options.placeholder, "Search dropped items...")
+        lu.assertEquals(
+            context.text_fields[#context.text_fields].options.placeholder,
+            "Search dropped items..."
+        )
         lu.assertNil(made.items)
 
         view.set_active(true)
@@ -547,10 +557,16 @@ return function(root)
         lu.assertTrue(items.started)
         lu.assertNil(made.monsters)
 
-        items.update({ { label = "Kerapac - Always", title = "Kerapac", focus = { item = "Bones" } } }, "1 monster")
+        items.update(
+            { { label = "Kerapac - Always", title = "Kerapac", focus = { item = "Bones" } } },
+            "1 monster"
+        )
         context.simple_buttons[#context.simple_buttons].action()
 
-        lu.assertEquals(picked[1], { name = "Kerapac", wiki_title = "Kerapac", focus = { item = "Bones" } })
+        lu.assertEquals(
+            picked[1],
+            { name = "Kerapac", wiki_title = "Kerapac", focus = { item = "Bones" } }
+        )
         -- picking never closes or opens a window, thats up to whoever gets on_select
         lu.assertTrue(page.visible)
         lu.assertEquals(#context.windows, 1)
@@ -560,14 +576,17 @@ return function(root)
     function suite:test_any_combination_of_searches_gets_a_picker_in_that_order()
         local context = self.context
         stub_search(context)
-        context.stub_module("src/data/core", require("tests/support/core_stub")({
-            stat_choices = function()
-                return { { id = 1, label = "Combat XP" } }
-            end,
-            stat_ranking = function()
-                return {}, 0
-            end,
-        }))
+        context.stub_module(
+            "src/data/core",
+            require("tests/support/core_stub")({
+                stat_choices = function()
+                    return { { id = 1, label = "Combat XP" } }
+                end,
+                stat_ranking = function()
+                    return {}, 0
+                end,
+            })
+        )
         local search_view = context.load_module("src/ui/search/view")
         local view = search_view.new(own_page(context), {
             modes = { "stats", "items" },
@@ -605,9 +624,15 @@ return function(root)
             end,
         })
         local search_view = context.load_module("src/ui/search/view")
-        local first = search_view.new(own_page(context), { modes = { "monsters" }, on_select = function() end })
+        local first = search_view.new(
+            own_page(context),
+            { modes = { "monsters" }, on_select = function() end }
+        )
         local first_field = context.text_fields[#context.text_fields]
-        local second = search_view.new(own_page(context), { modes = { "monsters" }, on_select = function() end })
+        local second = search_view.new(
+            own_page(context),
+            { modes = { "monsters" }, on_select = function() end }
+        )
         local second_field = context.text_fields[#context.text_fields]
 
         first.set_active(true)
@@ -633,14 +658,17 @@ return function(root)
     function suite:test_a_later_search_starts_where_an_earlier_one_was()
         local context = self.context
         stub_search(context)
-        context.stub_module("src/data/core", require("tests/support/core_stub")({
-            stat_choices = function()
-                return { { id = 1, label = "Combat XP" }, { id = 2, label = "Slayer XP" } }
-            end,
-            stat_ranking = function()
-                return {}, 0
-            end,
-        }))
+        context.stub_module(
+            "src/data/core",
+            require("tests/support/core_stub")({
+                stat_choices = function()
+                    return { { id = 1, label = "Combat XP" }, { id = 2, label = "Slayer XP" } }
+                end,
+                stat_ranking = function()
+                    return {}, 0
+                end,
+            })
+        )
         local search_view = context.load_module("src/ui/search/view")
         local first = search_view.new(own_page(context), { on_select = function() end })
         context.dropdowns[#context.dropdowns]:pick(2)
@@ -652,7 +680,10 @@ return function(root)
         lu.assertEquals(state.stats.stat, 2)
 
         state.stats.stat = 1
-        local second = search_view.new(own_page(context), { on_select = function() end, state = first.state() })
+        local second = search_view.new(
+            own_page(context),
+            { on_select = function() end, state = first.state() }
+        )
         lu.assertEquals(second.state().mode, "stats")
         lu.assertEquals(second.state().stats.stat, 2)
         second.destroy()

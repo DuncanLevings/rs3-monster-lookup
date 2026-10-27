@@ -137,7 +137,12 @@ local function read_row(row)
     end
 
     -- the bucket has the bounds as numbers already, theyre better than the text
-    if numbers.is_whole(low) and numbers.is_whole(high) and low <= high and tostring(low) ~= drop.quantity then
+    if
+        numbers.is_whole(low)
+        and numbers.is_whole(high)
+        and low <= high
+        and tostring(low) ~= drop.quantity
+    then
         drop.quantity_low = low
         drop.quantity_high = high ~= low and high or nil
     end

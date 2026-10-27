@@ -1,30 +1,33 @@
--- tests load the sibling plugin in its own environment and module cache, like the client
+-- tests load the embedded library through the same module paths as the runtime.
 local loader = {}
-local default_root = (
-    debug.getinfo(1, "S").source:sub(2):match("^(.*)[/\\]tests[/\\]support[/\\][^/\\]+$") or "."
-) .. "/../monster-data-core"
-function loader.new(root)
-    root = root or os.getenv("MONSTER_DATA_CORE_ROOT") or default_root
+local plugin_root = debug
+    .getinfo(1, "S").source
+    :sub(2)
+    :match("^(.*)[/\\]tests[/\\]support[/\\][^/\\]+$") or "."
+
+function loader.new()
     local modules = {}
-    local environment = setmetatable({}, {
-        __index = function(_, key)
-            if key ~= "MonsterDataCore" then
-                return _G[key]
-            end
-        end,
-    })
+    local environment = setmetatable({}, { __index = _G })
     local function load_module(name)
-        if modules[name] == nil then
-            local chunk, problem = loadfile(root .. "/" .. name .. ".lua", "t", environment)
-            assert(
-                chunk,
-                "cannot load Monster Data Core from " .. root .. ": " .. tostring(problem)
-            )
-            modules[name] = chunk()
+        local path = name:gsub("^src/", "src/data/library/")
+            :gsub("^tools/", "tests/support/core_tools/")
+        if not modules[path] then
+            modules[path] =
+                assert(loadfile(plugin_root .. "/" .. path .. ".lua", "t", environment))()
         end
-        return modules[name]
+        return modules[path]
     end
-    environment.require = load_module
-    return { export = load_module("main"), load_module = load_module, root = root }
+    environment.require = function(name)
+        if name:match("^src/data/library/") or name:match("^tests/support/core_tools/") then
+            if not modules[name] then
+                modules[name] =
+                    assert(loadfile(plugin_root .. "/" .. name .. ".lua", "t", environment))()
+            end
+            return modules[name]
+        end
+        return load_module(name)
+    end
+    return { export = load_module("src/api"), load_module = load_module, root = plugin_root }
 end
+
 return loader
