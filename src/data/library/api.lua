@@ -1,4 +1,4 @@
--- internal static-library facade, embedded from Monster Data Core 0.0.3
+-- the static monster data export returned by this plugins main.lua
 --
 -- rules this file keeps, because the client hands the same tables to every plugin (checked
 -- in the client, nothing is copied between plugins):

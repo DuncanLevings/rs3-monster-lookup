@@ -4,7 +4,7 @@ The static-data attribution below is retained for provenance; see that package f
 rxi/json.lua v0.1.2
 Source: https://github.com/rxi/json.lua
 Pinned revision: dbf4b2dd2eb7c23be2773c89eb059dadd6436f94
-License: MIT (full license retained in src/vendor/json.lua)
+License: MIT (full license retained in src/data/library/vendor/json.lua)
 Modified locally to scan JSON strings in chunks and avoid repeated string copies.
 No downloaded Lua is executed.
 
@@ -103,7 +103,7 @@ Original source/revision details follow (historical plugin paths describe the so
 rxi/json.lua v0.1.2
 Source: https://github.com/rxi/json.lua
 Pinned revision: dbf4b2dd2eb7c23be2773c89eb059dadd6436f94
-License: MIT (full license retained in src/vendor/json.lua)
+License: MIT (full license retained in src/data/library/vendor/json.lua)
 Modified locally to scan JSON strings in chunks and avoid repeated string copies.
 No downloaded Lua is executed.
 

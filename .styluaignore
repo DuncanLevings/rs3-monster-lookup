@@ -6,3 +6,6 @@ src/data/library/vendor/
 src/data/library/monsters/names.lua
 src/data/library/monsters/slayer_codex_data.lua
 src/data/library/locations/dungeons/
+
+# Imported snapshot: preserve upstream formatting for reviewable updates.
+src/data/library/
