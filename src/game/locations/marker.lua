@@ -13,7 +13,7 @@
 
 local core = require("src/data/core")
 local route = require("src/game/locations/route")
-local clock = require("src/utils/cache_clock")
+local clock = require("src/utils/clock")
 local map_symbol = require("src/game/locations/symbol")
 
 local marker = {}

@@ -56,10 +56,14 @@ local function check_definition(definition)
     end
 
     if definition.kind ~= "section" and definition.kind ~= "tab" then
-        return id .. ": kind must be \"section\" or \"tab\""
+        return id .. ': kind must be "section" or "tab"'
     end
 
-    if type(definition.title) ~= "string" or definition.title == "" or #definition.title > MAX_TITLE then
+    if
+        type(definition.title) ~= "string"
+        or definition.title == ""
+        or #definition.title > MAX_TITLE
+    then
         return id .. ": the title must be 1 to " .. MAX_TITLE .. " characters"
     end
 
@@ -205,7 +209,14 @@ function registry.call(entry, name, ...)
 
     if not reported[key] then
         reported[key] = true
-        log("Monster Lookup: extension " .. entry.id .. " failed in " .. name .. ". " .. tostring(result))
+        log(
+            "Monster Lookup: extension "
+                .. entry.id
+                .. " failed in "
+                .. name
+                .. ". "
+                .. tostring(result)
+        )
     end
 
     return false, "This " .. entry.kind .. " from another plugin could not be shown."

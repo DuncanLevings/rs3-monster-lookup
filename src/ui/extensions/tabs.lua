@@ -204,7 +204,10 @@ function extension_tabs.new(entries, state, overlay_parent)
         for _, slot in pairs(host.slots) do
             if slot.entry == entry and not slot.removed then
                 tear_down(slot)
-                slot.note = stat_blocks.note(slot.page.content, "The plugin that added this tab was turned off.")
+                slot.note = stat_blocks.note(
+                    slot.page.content,
+                    "The plugin that added this tab was turned off."
+                )
                 stat_blocks.layout_note(slot.note, math.max(200, slot.page.content.width), PADDING)
             end
         end

@@ -162,7 +162,14 @@ function navigation.call(provider, name, ...)
 
     if not reported[key] then
         reported[key] = true
-        log("Monster Lookup: navigation " .. provider.id .. " failed in " .. name .. ". " .. tostring(results[2]))
+        log(
+            "Monster Lookup: navigation "
+                .. provider.id
+                .. " failed in "
+                .. name
+                .. ". "
+                .. tostring(results[2])
+        )
     end
 
     return false, "Navigation from another plugin ran into a problem."

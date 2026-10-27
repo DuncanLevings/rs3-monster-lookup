@@ -121,7 +121,7 @@ return function(root)
 
     function suite:test_real_wiki_spawns_continue_after_entering_the_dungeon()
         local file = assert(io.open(root .. "/tests/support/dungeon_interior_spawns.json", "rb"))
-        local cases = require("src/vendor/json").decode(file:read("*a"))
+        local cases = require("src/data/library/vendor/json").decode(file:read("*a"))
         file:close()
         local maps = context.load_core("src/locations/resolve")
         local planner = factory.new(context.load_module("src/data/locations/routes"), coordinates)

@@ -1,0 +1,61 @@
+-- public record shapes, shared by offline tools and dependent plugin diagnostics
+
+---@class MonsterSelection
+---@field npc_id integer?
+---@field wiki_title string? exact page selected by name search
+---@field entity_uid integer?
+---@field name string
+---@field combat_level integer?
+---@field parent_npc_id integer?
+
+---@class Drop
+---@field name string item name as shown on the page
+---@field wiki_name string? item page name, used to look up the item id. saved data has the id already
+---@field item_id integer? filled in later for the item icon
+---@field quantity string
+---@field rate string rarity text exactly as the wiki shows it eg "1/128" or "Rare"
+---@field price number|{minimum: number, maximum: number}|"Not sold"|nil
+---@field notes string footnote text for this row, "" if none
+---@field note_marker string footnote numbers eg "1,3", "" if none
+---@field chance string? percent per roll, see src/drops/odds.lua
+---@field rolls integer? rolls per kill, nil means 1
+---@field quantity_low integer? lowest quantity when its not just a number
+---@field quantity_high integer? highest quantity when its not the same as the lowest
+
+---@class DropSection
+---@field title string headings above the table joined with " / "
+---@field description string? paragraphs between the heading and the table
+---@field afterword string? paragraphs after the table
+---@field drops Drop[]
+---@field notes string[] footnotes used in this table, numbered in order
+---@field note_ids table<string, integer>
+---@field drop_mode string? Wiki switch label for an enrage-dependent table
+---@field drop_threshold number? minimum enrage, -1 for normal mode
+---@field drop_switch integer? identifies tables from the same Wiki switcher
+
+---@class MonsterResult
+---@field title string wiki page title
+---@field info table infobox values for the first variant
+---@field variants table[] infobox values for every variant on the page
+---@field sections DropSection[] empty when the page has no drops that can be showed
+---@field no_drops "none"|"unreadable"|"not_covered"|nil why sections is empty, nil when it isnt
+---@field locations MonsterLocation[]? nil only for saved lookups from older versions
+---@field no_locations "none"|"unreadable"|nil why locations is empty
+---@field source "bundle"|nil set on results from the bundled data
+---@field placeholder boolean? a stand in for a known monster with nothing bundled
+
+---@class MonsterLocation
+---@field name string
+---@field levels string
+---@field requirements string
+---@field spawns string
+---@field map table? Wiki map space, not necessarily a game-world target
+---@field spawn_maps WikiLocationMap[]? bounded actual spawn pins, distinct from the map-link centre
+---@field page string? canonical location link, distinct from floor-qualified display text
+---@field map_issue string? malformed or conflicting coordinates must not be guessed
+
+---@class WikiLocationMap
+---@field id integer Wiki map ID; dungeon maps may use a local diagram grid
+---@field plane integer zero-based floor
+---@field x integer Wiki longitude
+---@field z integer Wiki latitude

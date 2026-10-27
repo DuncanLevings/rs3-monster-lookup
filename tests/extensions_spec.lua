@@ -67,16 +67,44 @@ return function(root)
     function suite:test_registration_checks_the_definition_and_copies_it()
         local registry = self.registry
 
-        lu.assertNil(registry.register({ id = "no-dot", kind = "section", title = "A", content = print }))
-        lu.assertNil(registry.register({ id = "me.plugin.a", kind = "box", title = "A", content = print }))
+        lu.assertNil(
+            registry.register({ id = "no-dot", kind = "section", title = "A", content = print })
+        )
+        lu.assertNil(
+            registry.register({ id = "me.plugin.a", kind = "box", title = "A", content = print })
+        )
         lu.assertNil(registry.register({ id = "me.plugin.a", kind = "section", title = "A" }))
-        lu.assertNil(registry.register({ id = "me.plugin.a", kind = "section", title = "A", create = print }))
+        lu.assertNil(
+            registry.register({ id = "me.plugin.a", kind = "section", title = "A", create = print })
+        )
 
-        local definition = { id = "me.plugin.b", kind = "section", title = "B", order = 2, content = print }
+        local definition =
+            { id = "me.plugin.b", kind = "section", title = "B", order = 2, content = print }
         local b = assert(registry.register(definition))
-        local a = assert(registry.register({ id = "me.plugin.a", kind = "section", title = "A", order = 2, content = print }))
-        assert(registry.register({ id = "me.plugin.c", kind = "section", title = "C", order = 1, content = print }))
-        local again, problem = registry.register({ id = "me.plugin.a", kind = "section", title = "A", content = print })
+        local a = assert(
+            registry.register({
+                id = "me.plugin.a",
+                kind = "section",
+                title = "A",
+                order = 2,
+                content = print,
+            })
+        )
+        assert(
+            registry.register({
+                id = "me.plugin.c",
+                kind = "section",
+                title = "C",
+                order = 1,
+                content = print,
+            })
+        )
+        local again, problem = registry.register({
+            id = "me.plugin.a",
+            kind = "section",
+            title = "A",
+            content = print,
+        })
 
         lu.assertNil(again)
         lu.assertStrContains(problem, "already registered")

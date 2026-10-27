@@ -88,7 +88,7 @@ return function(root)
     local function stub_search(context)
         local made = {}
         context.stub_module("src/data/search/monsters", {
-            new = function(callback, _, kind)
+            new = function(callback, kind)
                 local model = { kind = kind or "monsters", update = callback, queries = {} }
                 function model.get_query()
                     return model.queries[#model.queries] or ""
@@ -173,19 +173,22 @@ return function(root)
         local context = self.context
         stub_search(context)
         local ranked = {}
-        context.stub_module("src/data/core", require("tests/support/core_stub")({
-            stat_choices = function()
-                return { { id = 1, label = "Combat XP" }, { id = 2, label = "Slayer XP" } }
-            end,
-            stat_ranking = function(stat, filters)
-                ranked[#ranked + 1] = { stat = stat, filters = filters }
-                return {
-                    { title = "Abyssal lord", label = "Abyssal lord - 1,000 XP" },
-                    { title = "Goblin", label = "Goblin - 5 XP" },
-                },
-                    120
-            end,
-        }))
+        context.stub_module(
+            "src/data/core",
+            require("tests/support/core_stub")({
+                stat_choices = function()
+                    return { { id = 1, label = "Combat XP" }, { id = 2, label = "Slayer XP" } }
+                end,
+                stat_ranking = function(stat, filters)
+                    ranked[#ranked + 1] = { stat = stat, filters = filters }
+                    return {
+                        { title = "Abyssal lord", label = "Abyssal lord - 1,000 XP" },
+                        { title = "Goblin", label = "Goblin - 5 XP" },
+                    },
+                        120
+                end,
+            })
+        )
         local view = context.load_module("src/ui/search/window")
         local selections = {}
         view.start(function(monster)
@@ -359,124 +362,22 @@ return function(root)
         lu.assertTrue(stopped >= 2)
     end
 
-    function suite:test_refresh_results_live_in_customize_and_stop_when_the_page_changes()
-        local context = self.context
-        local monster = { name = "Bloodveld", npc_id = 6215 }
-        context.cache.put(
-            monster,
-            { title = "Bloodveld (God Wars Dungeon)", info = {}, sections = {}, no_drops = "none" }
-        )
-        local selected = 0
-        context.settings_panel.start(function() end, function(choice)
-            lu.assertEquals(choice, monster)
-            selected = selected + 1
-        end)
-        context.on_settings_ready({ component = context.parent })
-        local selector = context.dropdowns[1]
-        selector:pick(1)
-        local field = context.text_fields[1]
-        context:tick(30)
-        lu.assertEquals(#context.simple_buttons, 1)
-        field:SetText("blodveld god wars", true)
-        context:tick(30)
-        local button = context.simple_buttons[#context.simple_buttons]
-        lu.assertEquals(button.text, "Bloodveld (God Wars Dungeon)")
-        lu.assertTrue(button.root.width > 0)
-        lu.assertEquals(
-            button.root.width,
-            context.settings_views[#context.settings_views].content.width - 16
-        )
-        lu.assertNil(button.options.widthAnchor)
-        lu.assertEquals(#context.windows, 0)
-        button.action()
-        button.action()
-        lu.assertEquals(selected, 1)
-        field:SetText("blood*god w?rs*", true)
-        context:tick(30)
-        local next_button = context.simple_buttons[#context.simple_buttons]
-        selector:pick(0)
-        lu.assertTrue(field.root.destroyed)
-        lu.assertTrue(next_button.root.destroyed)
-        lu.assertNil(next(context.logic))
-        next_button.action()
-        lu.assertEquals(selected, 1)
-        context.settings_panel.stop()
-    end
-
-    function suite:test_inline_refresh_shows_cooldown_and_blocks_the_selection()
-        local context = self.context
-        local monster = { name = "Goblin", npc_id = 1 }
-        context.cache.put(
-            monster,
-            { title = "Goblin", info = {}, sections = {}, no_drops = "none" }
-        )
-        context.cache.begin_manual_refresh(monster)
-        local selected = 0
-        context.settings_panel.start(function() end, function()
-            selected = selected + 1
-        end)
-        context.on_settings_ready({ component = context.parent })
-        context.dropdowns[1]:pick(1)
-        context.text_fields[1]:SetText("gob", true)
-        context:tick(30)
-        local button = context.simple_buttons[#context.simple_buttons]
-        lu.assertStrContains(button.text, "refresh in 60 min")
-        button.action()
-        lu.assertEquals(selected, 0)
-        context.settings_panel.stop()
-    end
-
-    function suite:test_settings_refresh_displays_completion_and_ignores_results_after_destruction()
-        local context = self.context
-        context.cache.put({ name = "Goblin", npc_id = 1 }, {
-            title = "Goblin",
-            info = {},
-            sections = {},
-            no_drops = "none",
-        })
-        local finish
-        context.settings_panel.start(function() end, function(_, complete)
-            finish = complete
-        end)
-        context.on_settings_ready({ component = context.parent })
-        context.dropdowns[1]:pick(1)
-        context.text_fields[1]:SetText("gob", true)
-        context:tick(30)
-        context.simple_buttons[#context.simple_buttons].action()
-        local status
-        for _, label in ipairs(context.texts) do
-            if
-                type(label.content) == "string"
-                and label.content:find("Refreshing Goblin", 1, true)
-            then
-                status = label
-            end
-        end
-        lu.assertNotNil(status)
-        finish(true)
-        lu.assertStrContains(status.content, "Refreshed Goblin")
-        lu.assertEquals(#context.windows, 0)
-        finish(false, "Wiki unavailable")
-        lu.assertEquals(status.content, "Wiki unavailable")
-        context.dropdowns[1]:pick(0)
-        finish(true)
-        lu.assertEquals(status.content, "Wiki unavailable")
-        context.settings_panel.stop()
-    end
-
     function suite:test_stats_filters_fill_rows_and_reflow_without_reranking_on_resize()
         local context = self.context
         stub_search(context)
         local ranked = 0
-        context.stub_module("src/data/core", require("tests/support/core_stub")({
-            stat_choices = function()
-                return { { id = 1, label = "Combat XP" } }
-            end,
-            stat_ranking = function()
-                ranked = ranked + 1
-                return {}, 0
-            end,
-        }))
+        context.stub_module(
+            "src/data/core",
+            require("tests/support/core_stub")({
+                stat_choices = function()
+                    return { { id = 1, label = "Combat XP" } }
+                end,
+                stat_ranking = function()
+                    ranked = ranked + 1
+                    return {}, 0
+                end,
+            })
+        )
         local view = context.load_module("src/ui/search/window")
         view.start(function() end)
         view.open()
@@ -519,7 +420,8 @@ return function(root)
     -- would put it in its own window
 
     local function own_page(context)
-        local page = context.environment.prettyui.Window.new(context.parent, { onClose = function() end })
+        local page =
+            context.environment.prettyui.Window.new(context.parent, { onClose = function() end })
         page:Show()
         return page
     end
@@ -539,7 +441,10 @@ return function(root)
         })
 
         lu.assertEquals(#context.dropdowns, dropdowns)
-        lu.assertEquals(context.text_fields[#context.text_fields].options.placeholder, "Search dropped items...")
+        lu.assertEquals(
+            context.text_fields[#context.text_fields].options.placeholder,
+            "Search dropped items..."
+        )
         lu.assertNil(made.items)
 
         view.set_active(true)
@@ -547,10 +452,16 @@ return function(root)
         lu.assertTrue(items.started)
         lu.assertNil(made.monsters)
 
-        items.update({ { label = "Kerapac - Always", title = "Kerapac", focus = { item = "Bones" } } }, "1 monster")
+        items.update(
+            { { label = "Kerapac - Always", title = "Kerapac", focus = { item = "Bones" } } },
+            "1 monster"
+        )
         context.simple_buttons[#context.simple_buttons].action()
 
-        lu.assertEquals(picked[1], { name = "Kerapac", wiki_title = "Kerapac", focus = { item = "Bones" } })
+        lu.assertEquals(
+            picked[1],
+            { name = "Kerapac", wiki_title = "Kerapac", focus = { item = "Bones" } }
+        )
         -- picking never closes or opens a window, thats up to whoever gets on_select
         lu.assertTrue(page.visible)
         lu.assertEquals(#context.windows, 1)
@@ -560,14 +471,17 @@ return function(root)
     function suite:test_any_combination_of_searches_gets_a_picker_in_that_order()
         local context = self.context
         stub_search(context)
-        context.stub_module("src/data/core", require("tests/support/core_stub")({
-            stat_choices = function()
-                return { { id = 1, label = "Combat XP" } }
-            end,
-            stat_ranking = function()
-                return {}, 0
-            end,
-        }))
+        context.stub_module(
+            "src/data/core",
+            require("tests/support/core_stub")({
+                stat_choices = function()
+                    return { { id = 1, label = "Combat XP" } }
+                end,
+                stat_ranking = function()
+                    return {}, 0
+                end,
+            })
+        )
         local search_view = context.load_module("src/ui/search/view")
         local view = search_view.new(own_page(context), {
             modes = { "stats", "items" },
@@ -605,9 +519,15 @@ return function(root)
             end,
         })
         local search_view = context.load_module("src/ui/search/view")
-        local first = search_view.new(own_page(context), { modes = { "monsters" }, on_select = function() end })
+        local first = search_view.new(
+            own_page(context),
+            { modes = { "monsters" }, on_select = function() end }
+        )
         local first_field = context.text_fields[#context.text_fields]
-        local second = search_view.new(own_page(context), { modes = { "monsters" }, on_select = function() end })
+        local second = search_view.new(
+            own_page(context),
+            { modes = { "monsters" }, on_select = function() end }
+        )
         local second_field = context.text_fields[#context.text_fields]
 
         first.set_active(true)
@@ -633,14 +553,17 @@ return function(root)
     function suite:test_a_later_search_starts_where_an_earlier_one_was()
         local context = self.context
         stub_search(context)
-        context.stub_module("src/data/core", require("tests/support/core_stub")({
-            stat_choices = function()
-                return { { id = 1, label = "Combat XP" }, { id = 2, label = "Slayer XP" } }
-            end,
-            stat_ranking = function()
-                return {}, 0
-            end,
-        }))
+        context.stub_module(
+            "src/data/core",
+            require("tests/support/core_stub")({
+                stat_choices = function()
+                    return { { id = 1, label = "Combat XP" }, { id = 2, label = "Slayer XP" } }
+                end,
+                stat_ranking = function()
+                    return {}, 0
+                end,
+            })
+        )
         local search_view = context.load_module("src/ui/search/view")
         local first = search_view.new(own_page(context), { on_select = function() end })
         context.dropdowns[#context.dropdowns]:pick(2)
@@ -652,7 +575,10 @@ return function(root)
         lu.assertEquals(state.stats.stat, 2)
 
         state.stats.stat = 1
-        local second = search_view.new(own_page(context), { on_select = function() end, state = first.state() })
+        local second = search_view.new(
+            own_page(context),
+            { on_select = function() end, state = first.state() }
+        )
         lu.assertEquals(second.state().mode, "stats")
         lu.assertEquals(second.state().stats.stat, 2)
         second.destroy()

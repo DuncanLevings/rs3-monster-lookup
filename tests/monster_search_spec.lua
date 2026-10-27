@@ -66,7 +66,7 @@ return function(root)
                     return context.summaries and context.summaries[monster.npc_id]
                 end,
             },
-            ["src/utils/cache_clock"] = { TICKS_PER_SECOND = 50 },
+            ["src/utils/clock"] = { TICKS_PER_SECOND = 50 },
         }
         self.subscribers = {}
         local environment = setmetatable({
@@ -118,7 +118,7 @@ return function(root)
         local context = self
         local items = self.factory.new(function(results, message)
             context.item_results, context.item_message = results, message
-        end, false, "items")
+        end, "items")
         items.start()
         return items
     end
@@ -332,90 +332,6 @@ return function(root)
         end
     end
 
-    function suite:test_cached_wiki_pages_keep_saved_ranking_when_already_in_the_name_list()
-        self.names = { "Bloodveld", "Bloodveld (God Wars Dungeon)" }
-        self.cached = { { name = "Bloodveld", wiki_title = "Bloodveld" } }
-        self:load()
-        self.search.set_query("bloodveld")
-        self:tick(8)
-        lu.assertTrue(self.results[1].saved)
-        lu.assertEquals(#self.results, 2)
-    end
-
-    function suite:test_refresh_search_excludes_cached_monsters_now_in_the_bundle()
-        self.saved_only = true
-        self.cached = {
-            { name = "Goblin", summary = { title = "Goblin" } },
-            { name = "New goblin", summary = { title = "New goblin" } },
-        }
-        self.bundled = { Goblin = { kind = "bundled" } }
-        self:load()
-        self.search.set_query("goblin")
-        self:tick(8)
-        lu.assertEquals(#self.results, 1)
-        lu.assertEquals(self.results[1].monster.name, "New goblin")
-    end
-
-    function suite:test_refresh_search_uses_resolved_page_names_and_original_cache_identity()
-        self.saved_only = true
-        self.cached = {
-            {
-                name = "Bloodveld",
-                npc_id = 6215,
-                summary = { title = "Bloodveld (God Wars Dungeon)", level = 52 },
-            },
-        }
-        self:load()
-        self.search.set_query("bloodveld god wars")
-        self:tick(8)
-        lu.assertEquals(#self.results, 1)
-        lu.assertEquals(self.results[1].label, "Bloodveld (God Wars Dungeon)")
-        lu.assertEquals(self.search.choose(self.results[1]), { name = "Bloodveld", npc_id = 6215 })
-        lu.assertNil(self.summary_reads)
-    end
-
-    function suite:test_refresh_search_supports_fuzzy_and_wildcard_queries_but_excludes_unsaved_monsters()
-        self.saved_only = true
-        self.cached = {
-            {
-                name = "Bloodveld",
-                npc_id = 6215,
-                summary = { title = "Bloodveld (God Wars Dungeon)" },
-            },
-        }
-        self:load()
-        self.search.set_query("blodveld god wars")
-        self:tick(8)
-        lu.assertEquals(#self.results, 1)
-        self.search.set_query("blood*god w?rs*")
-        self:tick(8)
-        lu.assertEquals(#self.results, 1)
-        self.search.set_query("abyssal")
-        self:tick(8)
-        lu.assertEquals(#self.results, 0)
-    end
-
-    function suite:test_refresh_search_reads_legacy_summaries_in_bounded_batches()
-        self.saved_only, self.cached, self.summaries = true, {}, {}
-        for index = 1, 8 do
-            self.cached[index] = { name = "Guard", npc_id = index }
-            self.summaries[index] = { title = "Guard (Varrock)", variant = "Version " .. index }
-        end
-        self:load()
-        self.search.set_query("guard")
-        self:tick(8)
-        lu.assertEquals(self.summary_reads, 3)
-        self:tick(1)
-        lu.assertEquals(self.summary_reads, 6)
-        self:tick(1)
-        lu.assertEquals(self.summary_reads, 8)
-        lu.assertEquals(#self.results, 8)
-        self.search.set_query("guard")
-        self:tick(8)
-        lu.assertEquals(self.summary_reads, 8)
-        lu.assertEquals(self.results[1].label, "Guard (Varrock) - Version 1")
-    end
-
     function suite:test_independent_search_models_do_not_unsubscribe_each_other()
         local results
         local second = self.factory.new(function(rows)
@@ -440,24 +356,6 @@ return function(root)
         self:load()
         self.search.set_query("amascut")
         self:tick(8)
-        lu.assertEquals(self.results, {})
-    end
-
-    function suite:test_empty_refresh_query_does_not_scan_and_clearing_invalidates_old_results()
-        self.saved_only = true
-        self.cached = { { name = "Goblin", npc_id = 1, summary = { title = "Goblin" } } }
-        self:load()
-        self:tick(30)
-        lu.assertEquals(self.results, {})
-        lu.assertNil(self.summary_reads)
-        self.search.set_query("gob")
-        self:tick(8)
-        local old = self.results[1]
-        lu.assertNotNil(old)
-        self.search.set_query("  ")
-        lu.assertEquals(self.results, {})
-        lu.assertNil(self.search.choose(old))
-        self:tick(30)
         lu.assertEquals(self.results, {})
     end
 

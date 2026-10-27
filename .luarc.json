@@ -39,9 +39,9 @@
     ".git",
     "dist",
     "work",
-    "src/vendor"
+    "src/data/library/vendor"
   ],
   "workspace.library": [
-    "../monster-data-core/types"
+    "types"
   ]
 }

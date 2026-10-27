@@ -1,6 +1,6 @@
 -- what other plugins get from Monster Lookup: main.lua returns this, the client hands it to
 -- every plugin that lists Monster Lookup as a dependency (as MonsterLookup, or whatever alias
--- they give it). docs/API.md has the full rules and an example
+-- they give it). PLUGIN_API.md has the full rules and an example
 --
 -- the client gives every plugin the same table, nothing is copied (checked in the client),
 -- so this only holds functions and every call hands back new tables. a plugin changing what
@@ -98,14 +98,14 @@ function api.open(monster, options)
 end
 
 ---a lookup handle of your own: fetch(monster, on_complete, force_refresh?) gets bundled,
----saved or Wiki data (Wiki only for monsters newer than the bundle), cancel() and destroy()
----only ever touch this handle. on_complete can run twice, saved data first then a refresh
+---static data from the bundled library; cancel() and destroy()
+---are retained for consumer compatibility. on_complete runs once, synchronously
 function api.lookup()
     return functions_of(lookup_service.new_handle())
 end
 
 ---constructors for the components the standard window is made of. each call makes a new
----one you own and destroy, see docs/API.md for every option
+---one you own and destroy, see PLUGIN_API.md for every option
 function api.components()
     return {
         stats = function(parent, options)

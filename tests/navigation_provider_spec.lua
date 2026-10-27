@@ -12,8 +12,20 @@ return function(root)
         sections = {},
         no_locations = nil,
         locations = {
-            { name = "Falador", levels = "21", requirements = "None", spawns = "6", page = "Falador" },
-            { name = "Varrock", levels = "21", requirements = "None", spawns = "8", page = "Varrock" },
+            {
+                name = "Falador",
+                levels = "21",
+                requirements = "None",
+                spawns = "6",
+                page = "Falador",
+            },
+            {
+                name = "Varrock",
+                levels = "21",
+                requirements = "None",
+                spawns = "8",
+                page = "Varrock",
+            },
         },
     }
 
@@ -21,7 +33,10 @@ return function(root)
         self.context = fixture.new(root)
         self.navigation = self.context.load_module("src/ui/locations/navigation")
         self.locations = self.context.load_module("src/ui/locations/component")
-        local window = self.context.environment.prettyui.Window.new(self.context.parent, { onClose = function() end })
+        local window = self.context.environment.prettyui.Window.new(
+            self.context.parent,
+            { onClose = function() end }
+        )
         self.page = window:AddTabs({ { text = "Locations" } }, {}):GetPage(1)
     end
 
@@ -38,7 +53,11 @@ return function(root)
             stop_label = "Stop route",
             note = "Routes by my plugin.",
             action = function(location)
-                return { label = "Route", active_label = "Routing", tooltip = "Route to " .. location.name }
+                return {
+                    label = "Route",
+                    active_label = "Routing",
+                    tooltip = "Route to " .. location.name,
+                }
             end,
             start = function(location, title)
                 log[#log + 1] = { "start", location.name, title }
@@ -184,7 +203,14 @@ return function(root)
 
         lu.assertNil(navigation.register({ id = "me.plugin.nav", action = print }))
         lu.assertNil(navigation.register({ id = "nodot", action = print, start = print }))
-        lu.assertNil(navigation.register({ id = "me.plugin.nav", action = print, start = print, stop = print }))
+        lu.assertNil(
+            navigation.register({
+                id = "me.plugin.nav",
+                action = print,
+                start = print,
+                stop = print,
+            })
+        )
         lu.assertNil(navigation.register({ id = "me.plugin.nav", action = "Mark", start = print }))
         lu.assertEquals(navigation.current().id, "monster_lookup.marker")
     end

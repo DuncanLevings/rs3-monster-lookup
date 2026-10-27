@@ -1,5 +1,5 @@
 -- plugin entry point. what this file returns is what plugins depending on Monster Lookup
--- get (src/api.lua, docs/API.md)
+-- get (src/api.lua, PLUGIN_API.md)
 
 local app = require("src/app")
 local api = require("src/api")

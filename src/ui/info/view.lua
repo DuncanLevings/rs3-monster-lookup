@@ -169,7 +169,8 @@ build_extension = function(controller, slot)
     end
 
     if problem then
-        section = { title = entry.title, widths = { 1 }, labels = { false }, rows = {}, note = problem }
+        section =
+            { title = entry.title, widths = { 1 }, labels = { false }, rows = {}, note = problem }
     end
 
     if not section then
@@ -273,7 +274,8 @@ local function replace_body(controller, info)
 
     -- anything the summary and the two groups dont cover gets its own table
     for _, section in ipairs(data.sections) do
-        local in_summary = summary and (section.title == "Overview" or section.title == "Immunities")
+        local in_summary = summary
+            and (section.title == "Overview" or section.title == "Immunities")
         local in_group = section.title == "Slayer"
             or section.title == "Player-owned Slayer Dungeon"
             or section.detailed
@@ -311,7 +313,11 @@ local function add_variant_selector(controller, variants)
         entries[#entries + 1] = { text = variant.name, id = index }
     end
 
-    stat_blocks.text(controller.root, "Wiki variant", { x = 8, y = PADDING, width = 140, height = 32 })
+    stat_blocks.text(
+        controller.root,
+        "Wiki variant",
+        { x = 8, y = PADDING, width = 140, height = 32 }
+    )
     controller.selector = widgets.dropdown(controller.root, {
         x = 156,
         y = PADDING,
@@ -353,7 +359,8 @@ function monster_info_view.render(page, result, overlay_parent, selection, optio
         active = false,
         on_variant = options.on_variant,
         -- without a window (tests, other callers) extensions see a context of their own
-        extension_state = options.extension_state or { revision = 0, monster = { title = result.title } },
+        extension_state = options.extension_state
+            or { revision = 0, monster = { title = result.title } },
     }
     controller.context = { page = page, overlay_parent = overlay_parent, tooltips = {} }
     controller.source_title = wiki_text.plain(result.title or "Monster information")

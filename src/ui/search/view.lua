@@ -237,7 +237,7 @@ function search_view.new(page, options)
                 if view.mode == mode and not view.destroyed then
                     show_results(results, message, choose_from(runner))
                 end
-            end, false, mode == "items" and "items" or nil)
+            end, mode == "items" and "items" or nil)
             view.runners[mode] = runner
         end
 

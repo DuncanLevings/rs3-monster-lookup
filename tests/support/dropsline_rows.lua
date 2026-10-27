@@ -1,5 +1,5 @@
 -- dropsline and coordinates bucket records for tests, shaped like what the wiki sends back
-local json = require("src/vendor/json")
+local json = require("src/data/library/vendor/json")
 
 local rows = {}
 

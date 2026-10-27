@@ -72,7 +72,7 @@ function fixture.new(root, paced)
             return request
         end,
     }
-    context.codec = load_module("src/vendor/json")
+    context.codec = load_module("src/data/library/vendor/json")
 
     function context:tick(count)
         for _ = 1, count or 1 do

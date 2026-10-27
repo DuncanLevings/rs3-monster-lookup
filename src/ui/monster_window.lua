@@ -18,8 +18,6 @@ local core = require("src/data/core")
 local theme = require("src/ui/common/theme")
 
 local settings = require("src/settings")
-local clock = require("src/utils/cache_clock")
-local plural = require("src/utils/number_format").plural
 local prices = require("src/data/drops/prices")
 
 local monster_window = {}
@@ -134,31 +132,28 @@ local function add_content_tabs()
         entries[#entries + 1] = { text = entry.title }
     end
 
-    tabs = window:AddTabs(
-        entries,
-        {
-            height = 320,
-            scrollStep = theme.WHEEL_STEP,
-            onChange = function(_, index)
-                if destroying then
-                    return
-                end
-                hide_window_tooltips()
-                set_info_active(index == INFO_TAB)
+    tabs = window:AddTabs(entries, {
+        height = 320,
+        scrollStep = theme.WHEEL_STEP,
+        onChange = function(_, index)
+            if destroying then
+                return
+            end
+            hide_window_tooltips()
+            set_info_active(index == INFO_TAB)
 
-                if extension_host then
-                    extension_host.activate(index > LOCATIONS_TAB and index - LOCATIONS_TAB or nil)
-                end
-            end,
-        }
-    )
+            if extension_host then
+                extension_host.activate(index > LOCATIONS_TAB and index - LOCATIONS_TAB or nil)
+            end
+        end,
+    })
     tabs.root:SetSize(-tabs.root.x * 2, -tabs.root.y - 8, 1, 1)
     drops_page = tabs:GetPage(DROPS_TAB)
     info_page = tabs:GetPage(INFO_TAB)
     locations_page = tabs:GetPage(LOCATIONS_TAB)
 
     loading_label = drops_page:AddText({
-        text = "Loading RuneScape Wiki...",
+        text = "Loading monster data...",
         colour = theme.TEXT_WARNING,
         height = 40,
     })
@@ -244,60 +239,11 @@ local function show_drops_tab()
     drops_page:SetScrollPosition(0)
 end
 
-local function describe_age(age)
-    if not age then
-        return "Saved Wiki data"
-    elseif age < 60 then
-        return "Updated just now"
-    elseif age < 3600 then
-        return "Updated " .. plural(math.floor(age / 60), "minute") .. " ago"
-    elseif age < 86400 then
-        return "Updated " .. plural(math.floor(age / 3600), "hour") .. " ago"
-    end
-
-    return "Updated " .. plural(math.floor(age / 86400), "day") .. " ago"
-end
-
--- anything not from the bundle was looked up on the wiki for a monster thats newer than the
--- bundle, those have less detail (no drop categories or area names) so it says so up front
-local function is_live(metadata)
-    return metadata ~= nil and not metadata.bundled
-end
-
-local LIVE_LABEL = "Live Wiki data"
-
-local function cache_status(metadata, problem)
-    if not metadata then
-        return ""
-    end
-
-    local live = prices.live()
-    local price_note = live and " | Live GE prices" or ""
-
-    -- bundled data has no age to track, it is as new as this plugin version
-    if metadata.bundled then
-        if not metadata.built then
-            return live and "Live GE prices" or ""
-        end
-
-        return live and ("Wiki data from " .. metadata.built .. price_note)
-            or ("Wiki data and GE prices from " .. metadata.built)
-    end
-
-    local now = clock.now()
-    local age = now and metadata.saved_at and math.max(0, now - metadata.saved_at)
-        or metadata.age_seconds
-    local updated = LIVE_LABEL .. " | " .. describe_age(age) .. price_note
-
-    if metadata.refreshing then
-        return updated .. " | Refreshing from Wiki..."
-    elseif problem then
-        return updated .. " | Refresh failed; showing saved data.\n" .. problem
-    elseif metadata.stale then
-        return updated .. " | Refresh due"
-    end
-
-    return updated
+-- static source date, with an optional live price layer supplied by GEPL.
+local function source_status(metadata)
+    local built = metadata and metadata.built
+    local source = built and ("Monster Data Core: " .. built) or "Monster Data Core"
+    return source .. (prices.live() and " | Live GE prices" or " | Bundled GE prices")
 end
 
 -- the players settings and the current status line, read on every redraw
@@ -305,7 +251,7 @@ local function configure_drops()
     drops.configure({
         percentage_rarity = settings.get().percentage_rarity,
         status = function()
-            return cache_status(current_metadata, current_problem)
+            return source_status(current_metadata)
         end,
         problem = current_problem,
     })
@@ -325,26 +271,19 @@ end
 show_monster_info = function(result)
     clear_monster_info()
     info_label.hidden = true
-    info_controller = monster_info_view.render(info_page, result, window.parent, current_selection, {
-        extension_state = extension_state,
-        on_variant = function(variant)
-            move_extensions_on({ variant = variant })
-        end,
-    })
+    info_controller =
+        monster_info_view.render(info_page, result, window.parent, current_selection, {
+            extension_state = extension_state,
+            on_variant = function(variant)
+                move_extensions_on({ variant = variant })
+            end,
+        })
     info_controller.set_active(info_active)
 end
 
--- where the data came from, for extensions
-local function data_source(metadata)
-    if not metadata then
-        return nil
-    end
-
-    if metadata.bundled then
-        return "bundle"
-    end
-
-    return metadata.age_seconds == 0 and not metadata.refreshing and "wiki" or "cache"
+-- the library branch exposes only static monster records.
+local function data_source()
+    return "bundle"
 end
 
 -- the variant the Monster info tab starts on, named only when theres a choice
@@ -474,10 +413,9 @@ function monster_window.show_result(result, problem, metadata)
     current_metadata = metadata
     current_problem = problem
 
-    -- the title bar shows on every tab, so the live label cant be missed there
+    -- the title remains the player's selected monster name
     if current_selection then
-        local suffix = is_live(metadata) and " - " .. LIVE_LABEL or ""
-        window:SetTitle(current_selection.name .. suffix)
+        window:SetTitle(current_selection.name)
     end
 
     lookup_notice.hide(error_notice)
@@ -499,7 +437,7 @@ function monster_window.show_result(result, problem, metadata)
         },
         variant = first_variant(result) or false,
         mode = drops.mode() or false,
-        source = data_source(metadata) or false,
+        source = data_source() or false,
     })
     show_monster_info(result)
     show_locations(result)

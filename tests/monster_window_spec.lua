@@ -314,31 +314,6 @@ return function(root)
         lu.assertNil(self.context.on_settings_ready)
     end
 
-    function suite:test_saved_data_warning_remains_without_a_refresh_button()
-        self.context.subject.open(self.monster)
-        self.context.subject.show_result(
-            self.context.sample,
-            "Wiki unavailable",
-            { saved_at = 1, stale = true }
-        )
-        local found_warning = false
-
-        for _, label in ipairs(self.context.texts) do
-            if
-                type(label.content) == "string"
-                and label.content:find("showing saved data", 1, true)
-            then
-                found_warning = true
-            end
-        end
-
-        lu.assertTrue(found_warning)
-
-        for _, button in ipairs(self.context.simple_buttons) do
-            lu.assertNotEquals(button.content.content, "Refresh")
-        end
-    end
-
     function suite:test_wheel_over_a_category_scrolls_the_page_once()
         self.context.subject.open(self.monster)
         self.context.subject.show_result(self.context.sample)
@@ -371,7 +346,7 @@ return function(root)
         self.context.subject.open({ name = "Cow", combat_level = 4 })
 
         lu.assertTrue(first.root.destroyed)
-        lu.assertEquals(self.context.texts[1].content, "Loading RuneScape Wiki...")
+        lu.assertEquals(self.context.texts[1].content, "Loading monster data...")
         lu.assertFalse(self.context.texts[1].hidden)
     end
 
@@ -770,27 +745,6 @@ return function(root)
         lu.assertEquals(passes, 2)
     end
 
-    function suite:test_settings_refreshes_only_the_selected_cached_npc()
-        local result = { title = "Guard", info = {}, sections = {}, no_drops = "none" }
-        self.context.cache.put({ npc_id = 1, name = "Guard" }, result)
-        self.context.cache.put({ npc_id = 2, name = "Guard" }, result)
-        local selected
-        self.context.settings_panel.start(function() end, function(monster)
-            selected = monster
-        end)
-        self.context.on_settings_ready({ component = self.context.parent })
-        self.context.dropdowns[#self.context.dropdowns]:pick(1)
-        self.context.text_fields[#self.context.text_fields]:SetText("guard", true)
-        self.context:tick(30)
-        lu.assertEquals(#self.context.combos, 0)
-        local refresh_button = self.context.simple_buttons[#self.context.simple_buttons]
-        lu.assertStrContains(refresh_button.text, "Guard")
-        refresh_button.action()
-        refresh_button.action()
-        lu.assertEquals(selected, { npc_id = 2, name = "Guard" })
-        self.context.settings_panel.stop()
-    end
-
     function suite:test_details_group_collapses_and_keeps_the_choice_when_switching_variant()
         local first = { version_anchor = "First", life_points = 900 }
         local second = { version_anchor = "Second", life_points = 1000 }
@@ -933,11 +887,14 @@ return function(root)
                 end
             end,
         }
-        context.stub_module("src/data/core", require("tests/support/core_stub")({
-            npc_ids = function()
-                return { 1, 2 }
-            end,
-        }))
+        context.stub_module(
+            "src/data/core",
+            require("tests/support/core_stub")({
+                npc_ids = function()
+                    return { 1, 2 }
+                end,
+            })
+        )
     end
 
     function suite:test_preview_is_only_owned_by_the_visible_info_tab()

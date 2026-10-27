@@ -156,7 +156,12 @@ local function live_bounds(selection, npc_id)
 
         local box = entity and entity.aabb
 
-        if box and numbers.is_positive(box.width) and numbers.is_positive(box.height) and numbers.is_positive(box.length) then
+        if
+            box
+            and numbers.is_positive(box.width)
+            and numbers.is_positive(box.height)
+            and numbers.is_positive(box.length)
+        then
             return { width = box.width, height = box.height, depth = box.length }
         end
     end)
@@ -250,19 +255,23 @@ function preview.create(parent, title, info, selection, on_zoom, options)
         -- only runs on a scroll, nothing updates per frame. the tile size gives a decent
         -- starting distance and zoom sorts out monsters that are unusually short or tall
         if state.scroll_zoom then
-            component:Subscribe(ui.Hook.ONSCROLLWHEEL, "monster_lookup_preview_zoom", function(_, delta)
-                if on_zoom then
-                    on_zoom()
-                end
+            component:Subscribe(
+                ui.Hook.ONSCROLLWHEEL,
+                "monster_lookup_preview_zoom",
+                function(_, delta)
+                    if on_zoom then
+                        on_zoom()
+                    end
 
-                if type(delta) == "number" and delta ~= 0 then
-                    local factor = delta > 0 and 1.08 or 1 / 1.08
-                    state.zoom = clamp_zoom(state, state.zoom * factor)
-                    component.viewDistance = math.floor(state.distance * state.zoom)
+                    if type(delta) == "number" and delta ~= 0 then
+                        local factor = delta > 0 and 1.08 or 1 / 1.08
+                        state.zoom = clamp_zoom(state, state.zoom * factor)
+                        component.viewDistance = math.floor(state.distance * state.zoom)
+                    end
+                    saved_zoom[chosen] = state.zoom
+                    return false
                 end
-                saved_zoom[chosen] = state.zoom
-                return false
-            end)
+            )
         end
     end)
     if not ok then

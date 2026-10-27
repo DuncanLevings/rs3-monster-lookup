@@ -302,34 +302,8 @@ return function(root)
         )
         -- no GE Price Library in the tests, so the prices are the bundled ones too
         lu.assertTrue(
-            visible_texts(self.context, before)["Wiki data and GE prices from 2026-10-21"]
+            visible_texts(self.context, before)["Monster Data Core: 2026-10-21 | Bundled GE prices"]
         )
-    end
-
-    function suite:test_monsters_from_live_wiki_data_say_so_in_the_title_and_status()
-        local drops = { { name = "Bones", quantity = "1", rate = "Always", price = 1 } }
-        self.context.subject.open(self.monster, function() end)
-        self.context.subject.show_result(single_section(drops), nil, {
-            age_seconds = 0,
-            stale = false,
-        })
-
-        local window = self.context.windows[#self.context.windows]
-        lu.assertEquals(window.title, "Goblin - Live Wiki data")
-        local status
-        for text in pairs(visible_texts(self.context)) do
-            if text:find("^Live Wiki data | ") then
-                status = text
-            end
-        end
-        lu.assertNotNil(status)
-
-        self.context.subject.show_result(single_section(drops), nil, {
-            bundled = true,
-            built = "2026-10-21",
-            stale = false,
-        })
-        lu.assertEquals(window.title, "Goblin")
     end
 
     -- drops with the numbers the build keeps, see src/core/drops/odds.lua
@@ -462,7 +436,7 @@ return function(root)
         local shown = visible_texts(self.context)
         lu.assertTrue(shown["200 gp"]) -- live: 100 each x 2
         lu.assertTrue(shown["50 gp"]) -- no live price for coins, saved one stays
-        lu.assertTrue(shown["Wiki data from 2026-10-21 | Live GE prices"])
+        lu.assertTrue(shown["Monster Data Core: 2026-10-21 | Live GE prices"])
     end
 
     function suite:test_drops_without_an_item_id_get_a_placeholder_icon()

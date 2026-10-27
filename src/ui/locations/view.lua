@@ -11,7 +11,7 @@ local widgets = require("src/ui/common/widgets")
 local theme = require("src/ui/common/theme")
 local navigation = require("src/ui/locations/navigation")
 local internals = require("src/ui/common/prettyui_internals")
-local clock = require("src/utils/cache_clock")
+local clock = require("src/utils/clock")
 
 local locations_view = {}
 local next_feedback_id = 0
@@ -49,12 +49,8 @@ end
 
 -- the providers short confirmation, eg "Marked: ...", for a few seconds after a click
 local function show_feedback(controller, row)
-    local ok, text = navigation.call(
-        controller.provider,
-        "confirmation",
-        row.location,
-        controller.source_title
-    )
+    local ok, text =
+        navigation.call(controller.provider, "confirmation", row.location, controller.source_title)
 
     if not ok or type(text) ~= "string" then
         return
@@ -185,7 +181,7 @@ end
 
 local function empty_message(result)
     if result.locations == nil then
-        return "Locations were not included in this saved lookup. Refresh this monster in plugin settings to load them."
+        return "No locations are included for this monster in Monster Data Core."
     elseif result.no_locations == "unreadable" then
         return "This Wiki page has a location section, but it does not contain a supported location table."
     end
@@ -321,14 +317,19 @@ local function create_toolbar(controller)
     controller.status_label = controller.status_normal
 
     if provider.stop then
-        controller.stop_button = prettyui.SimpleButton.new(controller.toolbar, provider.stop_label, function()
-            if controller.destroyed then
-                return
-            end
+        controller.stop_button = prettyui.SimpleButton.new(
+            controller.toolbar,
+            provider.stop_label,
+            function()
+                if controller.destroyed then
+                    return
+                end
 
-            controller.problem = nil
-            navigation.call(provider, "stop")
-        end, { height = 24 })
+                controller.problem = nil
+                navigation.call(provider, "stop")
+            end,
+            { height = 24 }
+        )
         widgets.forward_wheel(
             controller.stop_button.root,
             "monster_lookup_location_stop_wheel",

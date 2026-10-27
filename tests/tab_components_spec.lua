@@ -30,7 +30,8 @@ return function(root)
     end
 
     local function page(context)
-        local window = context.environment.prettyui.Window.new(context.parent, { onClose = function() end })
+        local window =
+            context.environment.prettyui.Window.new(context.parent, { onClose = function() end })
         return window:AddTabs({ { text = "Drops" } }, {}):GetPage(1)
     end
 

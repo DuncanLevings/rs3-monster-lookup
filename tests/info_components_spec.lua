@@ -164,11 +164,14 @@ return function(root)
                 end
             end,
         }
-        context.stub_module("src/data/core", require("tests/support/core_stub")({
-            npc_ids = function()
-                return { 1 }
-            end,
-        }))
+        context.stub_module(
+            "src/data/core",
+            require("tests/support/core_stub")({
+                npc_ids = function()
+                    return { 1 }
+                end,
+            })
+        )
     end
 
     function suite:test_model_only_draws_while_active()

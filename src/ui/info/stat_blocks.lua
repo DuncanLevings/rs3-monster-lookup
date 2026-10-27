@@ -103,12 +103,8 @@ local function create_row(context, parent, section, values, is_header, index)
             )
                 .. ": "
                 .. value
-            row.icons[column] = create_stat_icon(
-                context,
-                row.root,
-                value == "Yes" and "yes" or "no",
-                description
-            )
+            row.icons[column] =
+                create_stat_icon(context, row.root, value == "Yes" and "yes" or "no", description)
             row.left_icons[column] = section.headers == nil
             row.cells[column].hidden = row.icons[column] ~= nil
         end
