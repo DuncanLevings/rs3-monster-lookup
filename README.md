@@ -45,6 +45,6 @@ see [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt).
 
 ## Development
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) for the runtime flow, source layout, checks and packaging.
+Run the Lua checks with `lua tests/run.lua --shuffle`; build the upload with `tools/package.ps1`.
 The public component/extension API and Wiki/cache implementation are maintained on separate
 feature branches; this main version is a standalone player-facing plugin.

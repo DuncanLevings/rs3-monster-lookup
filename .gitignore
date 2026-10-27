@@ -8,3 +8,7 @@ __pycache__/
 
 # Development notes stay local; README and CHANGELOG are tracked.
 /docs/
+
+# Local contributor/review instructions are not published.
+/AGENTS.md
+/DEVELOPMENT.md

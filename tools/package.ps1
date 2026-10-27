@@ -12,6 +12,7 @@ try {
     $files = @("main.lua", "plugin.json", "README.md", "THIRD_PARTY_NOTICES.txt") |
         ForEach-Object { Get-Item -LiteralPath (Join-Path $pluginRoot $_) }
     $files += Get-ChildItem -LiteralPath (Join-Path $pluginRoot "src") -Recurse -File
+    $files += Get-ChildItem -LiteralPath (Join-Path $pluginRoot "resources") -Recurse -File
     foreach ($file in $files) {
         $relative = $file.FullName.Substring($pluginRoot.Length + 1).Replace("\", "/")
         [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $relative) | Out-Null
