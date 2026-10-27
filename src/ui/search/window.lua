@@ -1,7 +1,4 @@
--- the standard search window from the Plugins ribbon and Plugin Hub: all three searches
--- (see view.lua) in one window, and picking a monster closes it and opens the Monster Lookup
--- window. the searching itself is the same search component other plugins can embed, this
--- only owns the window, where it sits, and the "open the result" part
+-- Owns search-window placement, visibility and opening the selected monster.
 
 local search_view = require("src/ui/search/view")
 local window_state = require("src/ui/common/window_state")

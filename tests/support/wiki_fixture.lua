@@ -72,7 +72,7 @@ function fixture.new(root, paced)
             return request
         end,
     }
-    context.codec = load_module("src/vendor/json")
+    context.codec = load_module("src/data/library/vendor/json")
 
     function context:tick(count)
         for _ = 1, count or 1 do
@@ -111,8 +111,8 @@ function fixture.new(root, paced)
 
     context.lookup = load_module("src/data/wiki/lookup")
     context.http = load_module("src/data/wiki/http")
-    context.text = load_module("src/utils/wiki_text")
-    context.unicode = load_module("src/utils/unicode")
+    context.text = load_module("src/data/library/utils/wiki_text")
+    context.unicode = load_module("src/data/library/utils/unicode")
     context.lookup.start()
     return context
 end

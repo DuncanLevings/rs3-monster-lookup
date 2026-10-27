@@ -11,9 +11,10 @@
 --     fresh name, the client didnt cope with reusing a name straight away
 --   - listeners (the Locations tab) get told whenever status() would say something new
 
-local core = require("src/data/core")
+local core = require("src/data/library/api")
 local route = require("src/game/locations/route")
-local clock = require("src/utils/cache_clock")
+-- Client Logic runs at 50 ticks per second.
+local TICKS_PER_SECOND = 50
 local map_symbol = require("src/game/locations/symbol")
 
 local marker = {}
@@ -21,7 +22,7 @@ local SUBSCRIPTION = "monster_lookup_location_marker"
 -- ticks between removing a hint and adding its replacement
 local REPLACEMENT_GAP = 2
 -- the player position and terrain are only checked this often
-local CHECK_INTERVAL_TICKS = clock.TICKS_PER_SECOND
+local CHECK_INTERVAL_TICKS = TICKS_PER_SECOND
 -- within this many tiles of the last step counts as arrived
 local ARRIVAL_RADIUS = 16
 -- how high above the ground the arrow floats

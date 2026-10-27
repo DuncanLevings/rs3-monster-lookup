@@ -1,6 +1,6 @@
 -- the Drops tab: toolbar, search, then one collapsible table per wiki drop section
 --
--- everything here is positioned by hand instead of using prettyuis flow layout (better performance).
+-- everything here is positioned explicitly to keep search, collapse and resize behavior together.
 -- big boss pages can have hundreds of rows and need to hide rows for search, collapse sections and
 -- reflow notes when the window is resized without rebuilding the lot. so each section is a
 -- CollapseButton header plus a plain layer body, and position_sections() stacks them
@@ -8,18 +8,17 @@
 -- render() returns a small controller, the window throws it away and calls render again
 -- whenever the data or settings change
 
-local price_format = require("src/ui/drops/price_format")
+local formatting = require("src/ui/drops/formatting")
 local text_layout = require("src/ui/common/text_layout")
-local rarity_format = require("src/ui/drops/rarity_format")
 local hover_tooltip = require("src/ui/common/hover_tooltip")
 local theme = require("src/ui/common/theme")
 local widgets = require("src/ui/common/widgets")
 local internals = require("src/ui/common/prettyui_internals")
 
-local core = require("src/data/core")
+local core = require("src/data/library/api")
 local drop_search = require("src/ui/drops/search")
 local drop_notes = require("src/ui/drops/notes")
-local wiki_notes = require("src/utils/wiki_notes")
+local wiki_notes = require("src/data/library/utils/wiki_notes")
 
 local drop_table = {}
 local ROW_HEIGHT = 40
@@ -123,7 +122,7 @@ local function add_rarity_cell(row, drop, controller)
         or ""
     local label = add_text(
         row,
-        rarity_format.format(drop.rate, controller.options.percentage_rarity) .. marker,
+        formatting.rarity(drop.rate, controller.options.percentage_rarity) .. marker,
         RARITY_X,
         RARITY_WIDTH,
         true
@@ -156,7 +155,7 @@ local function add_drop_row(parent, drop, y, index, controller)
     -- live price when the window has one, otherwise the one saved with the drop
     local price_for = controller.options.price_for
     local price = price_for and price_for(drop) or drop.price
-    add_text(row, price_format.format(price), PRICE_X, PRICE_WIDTH, true, theme.TEXT_PRICE)
+    add_text(row, formatting.price(price), PRICE_X, PRICE_WIDTH, true, theme.TEXT_PRICE)
 
     return row
 end
@@ -549,7 +548,7 @@ local function create_kill_value(controller, sections)
         return
     end
 
-    local amount = price_format.format(value.total)
+    local amount = formatting.price(value.total)
     local text = value.estimate and ("Estimated average kill: about " .. amount)
         or ("Average kill: " .. amount)
     add_value_line(controller, text)
@@ -715,10 +714,6 @@ local function create_toolbar(controller)
         create_mode_picker(controller, 132)
     end
 
-    if controller.options.search == false then
-        return
-    end
-
     local query = controller.options.search_query or ""
     controller.search = drop_search.new(controller.page, query, function(new_query)
         if controller.destroyed then
@@ -748,8 +743,6 @@ end
 ---@field mode integer? which mode to show when the page is split into modes, defaults to 1
 ---@field on_mode_change fun(mode: integer)? the caller re-renders with the new mode
 ---@field section_state table? shared category choices for this monster across drop modes
----@field search boolean? false leaves out the search box
----@field kill_value boolean? false leaves out the average kill line
 
 ---@param page table tab page to draw into
 ---@param sections DropSection[]
@@ -791,9 +784,7 @@ function drop_table.render(page, sections, overlay_parent, options)
     if #controller.sections > 0 then
         create_toolbar(controller)
         -- only the mode being shown, so normal and hard mode are never added together
-        if options.kill_value ~= false then
-            create_kill_value(controller, shown)
-        end
+        create_kill_value(controller, shown)
     end
 
     controller.building = false

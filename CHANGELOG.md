@@ -1,6 +1,16 @@
 # Changelog
 
-## 0.0.3 - Unreleased
+## 0.0.4 - 2026-10-26
+
+- Bundle Monster Data Core code and records in one installable plugin; remove the separate data-plugin dependency.
+- Use static monster data exclusively, retaining optional live prices from GE Price Library. Remove Wiki requests, downloaded-data caching and refresh controls.
+- Preserve the public plugin/component API and Wiki/cache features on separate feature branches, each with its own feature guide.
+- Simplify internal UI components, combine related rendering and cleanup, and reuse the bundled library's utilities.
+- Use PrettyUI's public search-field helpers for clipping, wheel input and managed cleanup; retain documented native and nested-tooltip safeguards.
+- Remove unused clock work and redundant lookup/import layers.
+- Add reproducible library imports, updated attribution, a development guide and a runtime-only release packager.
+
+## 0.0.3
 
 - Require Monster Data Core for local monster data, shared with other plugins.
 - Allow other plugins to open Monster Lookup and show its information in their own layouts.

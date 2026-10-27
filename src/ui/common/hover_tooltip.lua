@@ -13,8 +13,9 @@ local function position_tooltip(tooltip, label, page, overlay_parent)
     local popup = tooltip.root
     local x = target.x - origin.x
 
-    -- global layout coordinates don't include the viewport's scroll offset (when the target
-    -- is on a scrolling page at all, embedded components might not be)
+    -- PrettyUI 1.2.0 tooltip contexts position direct children using target.x/y.
+    -- Our targets are nested inside table rows, so use their global coordinates and
+    -- subtract the page scroll offset. Keep this until nested targets are supported.
     local target_y = target.y - origin.y - (page and page.scrollY or 0)
     local y = target_y + label.height + GAP
 

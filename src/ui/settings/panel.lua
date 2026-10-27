@@ -2,8 +2,6 @@
 -- the client clears the layer each time its opened so the view is rebuilt every time
 
 local settings = require("src/settings")
-local cache = require("src/data/lookup/cache")
-local core = require("src/data/core")
 local plugin_pages = require("src/ui/settings/pages")
 
 local settings_panel = {}
@@ -54,48 +52,18 @@ local function add_controls(page, on_change)
     )
 end
 
-local function add_cache_refresh(page, on_refresh)
-    page:AddTitle("Refresh monsters missing from local data")
-    page:AddText(
-        "Update saved Wiki data for monsters missing from the plugin's local data. "
-            .. "Local data updates with the plugin. "
-            .. "One-hour cooldown across matching variants."
-    )
-    local has_downloads = false
-
-    for _, monster in ipairs(cache.list()) do
-        local status = core.coverage(monster).status
-
-        if status == "unknown" or status == "ambiguous" then
-            has_downloads = true
-            break
-        end
-    end
-
-    if not has_downloads then
-        page:AddText("No saved monsters missing from local data.")
-        return
-    end
-
-    return require("src/ui/settings/picker").new(page, on_refresh)
-end
-
----@param on_change fun() redraw display settings in the open lookup
----@param on_refresh fun(monster: MonsterSelection, on_complete: fun(ok: boolean, problem: string?))?
-function settings_panel.populate(page, on_change, on_refresh)
+-- the same display preferences are mounted in the hub and ribbon.
+function settings_panel.populate(page, on_change)
     add_controls(page, on_change)
-    if on_refresh then
-        return add_cache_refresh(page, on_refresh)
-    end
 end
 
-function settings_panel.start(on_change, on_refresh)
+function settings_panel.start(on_change)
     Event.SettingsLayerReady.Subscribe(SUBSCRIPTION, function(event)
         destroy_view()
         view = plugin_pages.new(event.component, function()
             require("src/ui/search/window").open()
         end, function(page)
-            return settings_panel.populate(page, on_change, on_refresh)
+            return settings_panel.populate(page, on_change)
         end)
     end)
 end

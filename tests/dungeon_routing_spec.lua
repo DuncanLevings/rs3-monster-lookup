@@ -137,7 +137,7 @@ return function(root)
 
     function suite:test_native_resource_coordinates_resolve_through_exact_location_aliases()
         local file = assert(io.open(root .. "/tests/support/dungeon_interior_spawns.json", "rb"))
-        local cases = require("src/vendor/json").decode(file:read("*a"))
+        local cases = require("src/data/library/vendor/json").decode(file:read("*a"))
         file:close()
         local count = 0
         for _, case in ipairs(cases) do

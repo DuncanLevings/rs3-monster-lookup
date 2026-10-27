@@ -30,7 +30,8 @@ return function(root)
     end
 
     local function page(context)
-        local window = context.environment.prettyui.Window.new(context.parent, { onClose = function() end })
+        local window =
+            context.environment.prettyui.Window.new(context.parent, { onClose = function() end })
         return window:AddTabs({ { text = "Drops" } }, {}):GetPage(1)
     end
 
@@ -77,21 +78,6 @@ return function(root)
         second.destroy()
     end
 
-    function suite:test_drops_can_leave_out_the_search_box()
-        local context = self.context
-        local from = #context.text_fields + 1
-        local drops = self.drops.new(page(context), { search = false, kill_value = false })
-        drops.set_monster(record("Goblin"))
-
-        lu.assertNil(search_field(context, from))
-
-        for _, text in ipairs(context.texts) do
-            lu.assertNil(tostring(text.content):find("Average kill", 1, true))
-        end
-
-        drops.destroy()
-    end
-
     function suite:test_destroyed_drops_ignore_later_calls()
         local context = self.context
         local from = #context.text_fields + 1
@@ -103,14 +89,13 @@ return function(root)
         local count = #context.text_fields
         drops.set_monster(record("Imp"))
         drops.update(record("Imp"))
-        drops.refresh()
         lu.assertEquals(#context.text_fields, count)
         drops.destroy()
     end
 
     function suite:test_locations_show_and_clear_their_own_rows()
         local context = self.context
-        local locations = context.load_module("src/ui/locations/component")
+        local locations = context.load_module("src/ui/locations/view")
         local with_rows = record("Goblin")
         with_rows.locations = {
             { name = "Lumbridge", levels = "2", requirements = "None", spawns = "4" },

@@ -14,11 +14,11 @@ function content_panel.destroy()
     end
 end
 
-function content_panel.start(open_search, on_change, on_refresh)
+function content_panel.start(open_search, on_change)
     Event.ContentLayerReady.Subscribe(SUBSCRIPTION, function(event)
         content_panel.destroy()
         view = plugin_pages.new(event.component, open_search, function(page)
-            return settings_panel.populate(page, on_change, on_refresh)
+            return settings_panel.populate(page, on_change)
         end)
     end)
 end

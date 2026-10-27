@@ -3,7 +3,6 @@
 
 local theme = require("src/ui/common/theme")
 local widgets = require("src/ui/common/widgets")
-local internals = require("src/ui/common/prettyui_internals")
 
 local drop_search = {}
 local MAX_WIDTH = 240
@@ -12,6 +11,7 @@ local MIN_WIDTH = 80
 ---@param page table tab page the drop tables are on
 ---@param query string text to start with, kept when the tables are rebuilt
 ---@param on_change fun(query: string)
+---@param field_parent table fixed toolbar, outside the scrolling content
 function drop_search.new(page, query, on_change, field_parent)
     local search = { page = page }
 
@@ -25,7 +25,7 @@ function drop_search.new(page, query, on_change, field_parent)
     })
     search.no_matches.hidden = true
 
-    local options = field_parent and {} or internals.text_field_scroll_options(page)
+    local options = {}
     options.text = query
     options.placeholder = "Search drops..."
     options.width = MAX_WIDTH
@@ -36,7 +36,7 @@ function drop_search.new(page, query, on_change, field_parent)
         on_change(content)
     end
 
-    search.field = prettyui.TextField.new(field_parent or page.content, options)
+    search.field = prettyui.TextField.new(field_parent, options)
     widgets.forward_wheel(search.field.root, "monster_lookup_search_wheel", page)
 
     -- left reserves space for the other toolbar controls. return the actual bottom

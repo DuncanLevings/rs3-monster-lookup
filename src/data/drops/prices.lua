@@ -8,7 +8,7 @@
 -- these are traded prices (instant buys and sells), not the Wiki's GE guide price. a drops
 -- price is the unit price times the drop quantity, same as the Wiki's GE price column
 
-local numbers = require("src/utils/numbers")
+local numbers = require("src/data/library/utils/numbers")
 
 local prices = {}
 local SUBSCRIPTION = "monster_lookup_price_wait"

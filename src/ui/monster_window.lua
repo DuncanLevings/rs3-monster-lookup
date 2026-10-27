@@ -1,29 +1,108 @@
--- the one Monster Lookup window, with Drops, Monster info and Locations tabs
--- its created the first time a monster is picked and then reused, closing just hides it.
--- logout and plugin shutdown destroy it properly
---
--- each tab is a component other plugins can use too (drops/component.lua, info/view.lua
--- built from info/components.lua, locations/component.lua). this adds the window, the
--- loading and error states, the cache status line and the players settings. sections and
--- tabs other plugins register (src/ui/extensions/) are added here too
+-- owns the Drops, Monster info and Locations tabs and their selection state.
+-- closing hides the window for reuse; logout and shutdown destroy its native objects.
 
 local window_state = require("src/ui/common/window_state")
 local drops_component = require("src/ui/drops/component")
 local monster_info_view = require("src/ui/info/view")
-local locations_component = require("src/ui/locations/component")
-local lookup_notice = require("src/ui/lookup_notice")
-local extensions = require("src/ui/extensions/registry")
-local extension_tabs = require("src/ui/extensions/tabs")
-local core = require("src/data/core")
+local locations_view = require("src/ui/locations/view")
+local core = require("src/data/library/api")
 local theme = require("src/ui/common/theme")
 
 local settings = require("src/settings")
-local clock = require("src/utils/cache_clock")
-local plural = require("src/utils/number_format").plural
 local prices = require("src/data/drops/prices")
 
+local text_layout = require("src/ui/common/text_layout")
+local widgets = require("src/ui/common/widgets")
+
+local NOTICE_INSET = 14
+local NOTICE_TITLE_HEIGHT = 28
+
+local function create_notice_label(parent, y, colour)
+    local label = widgets.text(parent, {
+        text = "",
+        x = NOTICE_INSET,
+        y = y,
+        width = -NOTICE_INSET * 2,
+        widthAnchor = 1,
+        height = NOTICE_TITLE_HEIGHT,
+        colour = colour,
+    })
+
+    return label
+end
+
+local function resize_notice(notice)
+    -- the resizing below can set off our ONRESIZE hook again (say the page scrollbar appears
+    -- and the width changes), this stops it re-entering halfway through
+    if notice.resizing then
+        return
+    end
+
+    notice.resizing = true
+
+    local height = text_layout.height(notice.message, notice.root.width - NOTICE_INSET * 2)
+    notice.body:SetSize(-NOTICE_INSET * 2, height, 1, 0)
+    notice.root:SetSize(0, height + NOTICE_TITLE_HEIGHT + NOTICE_INSET * 2, 1, 0)
+    notice.page:SetContentHeight(notice.root.height + 24)
+    notice.resizing = false
+end
+
+local function create_notice(page)
+    local root = widgets.layer(page.content, 1)
+    root:SetPos(0, 12)
+    root.hidden = true
+
+    local notice = {
+        root = root,
+        page = page,
+        background = widgets.background(root, theme.ERROR_BACKGROUND),
+        title = create_notice_label(root, NOTICE_INSET, theme.ERROR_TITLE),
+        body = create_notice_label(root, NOTICE_INSET + NOTICE_TITLE_HEIGHT, theme.TEXT),
+        message = "",
+    }
+    local width = root.width
+
+    root:Subscribe(ui.Hook.ONRESIZE, "monster_lookup_error_resize", function()
+        if root.width ~= width then
+            width = root.width
+
+            if not root.hidden then
+                resize_notice(notice)
+            end
+        end
+    end)
+
+    return notice
+end
+
+-- "error" is the red failure box, "info" is a plain brown box for things that arent really
+-- a problem, like a monster that has no drops
+local TONES = {
+    error = { background = theme.ERROR_BACKGROUND, title = theme.ERROR_TITLE },
+    info = { background = theme.HEADER, title = theme.TEXT_WARNING },
+}
+
+---@param message string
+---@param title string? defaults to "Couldn't load drops"
+---@param tone "error"|"info"|nil defaults to "error"
+local function show_notice(notice, message, title, tone)
+    local colours = TONES[tone or "error"]
+    notice.background.rgba = colours.background
+    notice.title.rgba = colours.title
+    notice.message = message
+    notice.title.content = title or "Couldn't load drops"
+    notice.body.content = text_layout.display(message)
+    notice.root.hidden = false
+
+    resize_notice(notice)
+end
+
+local function hide_notice(notice)
+    notice.root.hidden = true
+end
+
 local monster_window = {}
--- tab numbers, in the order add_content_tabs adds them. extension tabs come after these
+-- tab numbers, in the order add_content_tabs adds them
 local DROPS_TAB = 1
 local INFO_TAB = 2
 local LOCATIONS_TAB = 3
@@ -53,36 +132,12 @@ local close_action
 -- false until the first result for the current monster, later ones are refreshes and keep
 -- the drop search, mode and open sections the player picked since
 local drops_selected = false
--- what extensions get as their context (registry.context). one table for the whole session,
--- its revision goes up whenever the monster, variant or drop mode changes so contexts from
--- before can tell theyre stale
-local extension_state = { revision = 0 }
--- the extension tabs in this window, the ones registered when it was made
-local extension_host
-local extension_tab_entries = {}
--- an extension tab came or went since the window was made, its made again on the next open
-local tabs_stale = false
-local unsubscribe_extensions
-
 -- the info tab only animates its preview while its the tab showing
 local function set_info_active(active)
     info_active = active
 
     if info_controller then
         info_controller.set_active(active)
-    end
-end
-
--- the monster, variant or mode moved on: tell the extension tabs
-local function move_extensions_on(changes)
-    for key, value in pairs(changes) do
-        extension_state[key] = value
-    end
-
-    extension_state.revision = extension_state.revision + 1
-
-    if extension_host then
-        extension_host.update()
     end
 end
 
@@ -104,10 +159,6 @@ local function on_window_closed(closed_window)
     hide_window_tooltips()
     set_info_active(false)
 
-    if extension_host then
-        extension_host.activate(nil)
-    end
-
     window_state.save(closed_window)
 
     if close_action then
@@ -128,97 +179,45 @@ end
 
 local function add_content_tabs()
     local entries = { { text = "Drops" }, { text = "Monster info" }, { text = "Locations" } }
-    extension_tab_entries = extensions.list("tab")
-
-    for _, entry in ipairs(extension_tab_entries) do
-        entries[#entries + 1] = { text = entry.title }
-    end
-
-    tabs = window:AddTabs(
-        entries,
-        {
-            height = 320,
-            scrollStep = theme.WHEEL_STEP,
-            onChange = function(_, index)
-                if destroying then
-                    return
-                end
-                hide_window_tooltips()
-                set_info_active(index == INFO_TAB)
-
-                if extension_host then
-                    extension_host.activate(index > LOCATIONS_TAB and index - LOCATIONS_TAB or nil)
-                end
-            end,
-        }
-    )
+    tabs = window:AddTabs(entries, {
+        height = 320,
+        scrollStep = theme.WHEEL_STEP,
+        onChange = function(_, index)
+            if destroying then
+                return
+            end
+            hide_window_tooltips()
+            set_info_active(index == INFO_TAB)
+        end,
+    })
     tabs.root:SetSize(-tabs.root.x * 2, -tabs.root.y - 8, 1, 1)
     drops_page = tabs:GetPage(DROPS_TAB)
     info_page = tabs:GetPage(INFO_TAB)
     locations_page = tabs:GetPage(LOCATIONS_TAB)
 
     loading_label = drops_page:AddText({
-        text = "Loading RuneScape Wiki...",
+        text = "Loading monster data...",
         colour = theme.TEXT_WARNING,
         height = 40,
     })
     drops = drops_component.new(drops_page, {
         overlay_parent = window.parent,
-        on_mode_change = function(mode)
-            move_extensions_on({ mode = mode })
-        end,
     })
     drops.set_monster(nil)
-    error_notice = lookup_notice.new(drops_page)
+    error_notice = create_notice(drops_page)
     info_label = info_page:AddText({ text = "", height = 60 })
     locations_label = locations_page:AddText({ text = "", height = 60 })
-    locations = locations_component.new(locations_page)
-
-    extension_host = extension_tabs.new(extension_tab_entries, extension_state, window.parent)
-
-    for index in ipairs(extension_tab_entries) do
-        extension_host.attach(index, tabs:GetPage(LOCATIONS_TAB + index))
-    end
-end
-
-local show_monster_info
-
--- extensions coming and going while the window is open. sections are redrawn straight away,
--- tabs cant be added to tabs that already exist so the window is made again on the next open
-local function on_extensions_changed(change, entry)
-    if entry.kind == "section" then
-        if current_result and info_page then
-            show_monster_info(current_result)
-        end
-
-        return
-    end
-
-    tabs_stale = true
-
-    if change == "removed" and extension_host then
-        extension_host.remove(entry)
-    end
+    locations = locations_view.new(locations_page)
 end
 
 local function create_window(parent)
     window = prettyui.Window.new(parent, create_window_options(parent))
-    tabs_stale = false
     add_content_tabs()
-    unsubscribe_extensions = extensions.subscribe(on_extensions_changed)
 end
 
--- a tab id (drops, info, locations or an extensions id) as a tab number
+-- search results select one of the three built-in tabs.
 local function tab_number(tab)
-    if BUILT_IN_TABS[tab] then
-        return BUILT_IN_TABS[tab]
-    end
-
-    for index, entry in ipairs(extension_tab_entries) do
-        if entry.id == tab then
-            return LOCATIONS_TAB + index
-        end
-    end
+    return BUILT_IN_TABS[tab]
 end
 
 local function ensure_window_exists()
@@ -244,60 +243,11 @@ local function show_drops_tab()
     drops_page:SetScrollPosition(0)
 end
 
-local function describe_age(age)
-    if not age then
-        return "Saved Wiki data"
-    elseif age < 60 then
-        return "Updated just now"
-    elseif age < 3600 then
-        return "Updated " .. plural(math.floor(age / 60), "minute") .. " ago"
-    elseif age < 86400 then
-        return "Updated " .. plural(math.floor(age / 3600), "hour") .. " ago"
-    end
-
-    return "Updated " .. plural(math.floor(age / 86400), "day") .. " ago"
-end
-
--- anything not from the bundle was looked up on the wiki for a monster thats newer than the
--- bundle, those have less detail (no drop categories or area names) so it says so up front
-local function is_live(metadata)
-    return metadata ~= nil and not metadata.bundled
-end
-
-local LIVE_LABEL = "Live Wiki data"
-
-local function cache_status(metadata, problem)
-    if not metadata then
-        return ""
-    end
-
-    local live = prices.live()
-    local price_note = live and " | Live GE prices" or ""
-
-    -- bundled data has no age to track, it is as new as this plugin version
-    if metadata.bundled then
-        if not metadata.built then
-            return live and "Live GE prices" or ""
-        end
-
-        return live and ("Wiki data from " .. metadata.built .. price_note)
-            or ("Wiki data and GE prices from " .. metadata.built)
-    end
-
-    local now = clock.now()
-    local age = now and metadata.saved_at and math.max(0, now - metadata.saved_at)
-        or metadata.age_seconds
-    local updated = LIVE_LABEL .. " | " .. describe_age(age) .. price_note
-
-    if metadata.refreshing then
-        return updated .. " | Refreshing from Wiki..."
-    elseif problem then
-        return updated .. " | Refresh failed; showing saved data.\n" .. problem
-    elseif metadata.stale then
-        return updated .. " | Refresh due"
-    end
-
-    return updated
+-- static source date, with an optional live price layer supplied by GEPL.
+local function source_status(metadata)
+    local built = metadata and metadata.built
+    local source = built and ("Monster Data Core: " .. built) or "Monster Data Core"
+    return source .. (prices.live() and " | Live GE prices" or " | Bundled GE prices")
 end
 
 -- the players settings and the current status line, read on every redraw
@@ -305,7 +255,7 @@ local function configure_drops()
     drops.configure({
         percentage_rarity = settings.get().percentage_rarity,
         status = function()
-            return cache_status(current_metadata, current_problem)
+            return source_status(current_metadata)
         end,
         problem = current_problem,
     })
@@ -322,35 +272,11 @@ local function clear_monster_info()
     info_page:SetContentHeight(84)
 end
 
-show_monster_info = function(result)
+local function show_monster_info(result)
     clear_monster_info()
     info_label.hidden = true
-    info_controller = monster_info_view.render(info_page, result, window.parent, current_selection, {
-        extension_state = extension_state,
-        on_variant = function(variant)
-            move_extensions_on({ variant = variant })
-        end,
-    })
+    info_controller = monster_info_view.render(info_page, result, window.parent, current_selection)
     info_controller.set_active(info_active)
-end
-
--- where the data came from, for extensions
-local function data_source(metadata)
-    if not metadata then
-        return nil
-    end
-
-    if metadata.bundled then
-        return "bundle"
-    end
-
-    return metadata.age_seconds == 0 and not metadata.refreshing and "wiki" or "cache"
-end
-
--- the variant the Monster info tab starts on, named only when theres a choice
-local function first_variant(result)
-    local variants = core.variants(result)
-    return #variants > 1 and variants[1].name or nil
 end
 
 local function clear_locations(message)
@@ -368,7 +294,7 @@ local function show_locations(result)
 end
 
 local function show_loading()
-    lookup_notice.hide(error_notice)
+    hide_notice(error_notice)
     configure_drops()
     drops.set_monster(nil)
     loading_label.hidden = false
@@ -390,11 +316,6 @@ end
 ---@param focus WindowFocus? where to start, from a drop or top stats search
 ---@return boolean opened false if the game area isnt ready yet
 function monster_window.open(monster, on_close, focus)
-    -- an extension tab came or went, the tabs have to be made again
-    if window and tabs_stale then
-        monster_window.destroy()
-    end
-
     if not ensure_window_exists() then
         return false
     end
@@ -407,13 +328,6 @@ function monster_window.open(monster, on_close, focus)
     pending_focus = focus
     close_action = on_close
     window:SetTitle(monster.name)
-    -- extensions see the new monster straight away, without a title or source until it loads
-    move_extensions_on({
-        monster = { name = monster.name, wiki_title = monster.wiki_title, npc_id = monster.npc_id },
-        variant = false,
-        mode = false,
-        source = false,
-    })
     show_loading()
     window:Show()
 
@@ -446,7 +360,7 @@ local function show_no_drops_notice(result)
     end
 
     local title = result.no_drops == "not_covered" and "Not covered" or "No drops to show"
-    lookup_notice.show(error_notice, message, title, "info")
+    show_notice(error_notice, message, title, "info")
 end
 
 -- the component redraws itself once live GE prices arrive, if this is still the monster
@@ -474,13 +388,12 @@ function monster_window.show_result(result, problem, metadata)
     current_metadata = metadata
     current_problem = problem
 
-    -- the title bar shows on every tab, so the live label cant be missed there
+    -- the title remains the player's selected monster name
     if current_selection then
-        local suffix = is_live(metadata) and " - " .. LIVE_LABEL or ""
-        window:SetTitle(current_selection.name .. suffix)
+        window:SetTitle(current_selection.name)
     end
 
-    lookup_notice.hide(error_notice)
+    hide_notice(error_notice)
     loading_label.hidden = true
 
     -- only the first result for this monster, a refresh arriving later keeps what the player
@@ -489,18 +402,6 @@ function monster_window.show_result(result, problem, metadata)
     pending_focus = nil
 
     show_drops(result, focus)
-    local selection = current_selection or {}
-    move_extensions_on({
-        monster = {
-            title = result.title,
-            name = selection.name,
-            wiki_title = selection.wiki_title,
-            npc_id = selection.npc_id,
-        },
-        variant = first_variant(result) or false,
-        mode = drops.mode() or false,
-        source = data_source(metadata) or false,
-    })
     show_monster_info(result)
     show_locations(result)
 
@@ -531,7 +432,7 @@ function monster_window.show_error(problem)
     info_label.content = "Monster information could not be loaded. See the error in Drops."
     clear_locations("Monster locations could not be loaded. See the error in Drops.")
 
-    lookup_notice.show(error_notice, problem)
+    show_notice(error_notice, problem)
     show_drops_tab()
 end
 
@@ -549,16 +450,6 @@ function monster_window.destroy()
     -- sizes fires layout callbacks, and those would run on a half destroyed window
     if info_controller then
         info_controller.destroy()
-    end
-
-    if extension_host then
-        extension_host.destroy()
-        extension_host = nil
-    end
-
-    if unsubscribe_extensions then
-        unsubscribe_extensions()
-        unsubscribe_extensions = nil
     end
 
     if locations then

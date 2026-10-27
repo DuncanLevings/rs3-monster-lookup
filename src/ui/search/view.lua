@@ -1,29 +1,11 @@
--- the search as a component: any of the three searches, or several with a dropdown to pick
---   monsters  by name or location
---   items     by dropped item, then the monsters that drop it best chance first
---   stats     bundled monsters ranked by a stat, bosses and instanced fights hidden unless
---             asked for, with optional level caps and a name filter
--- every mode answers from data on this device, typing never sends a request
---
--- it draws into a PrettyUI scrolling page the caller owns (a Window, or a tab page) and
--- picking a result only calls on_select, the caller decides what happens then (the standard
--- search window opens the Monster Lookup window). each one has its own query, filters and
--- results, and only searches while active
---
---   local search = search_view.new(window, {
---       modes = { "items" },
---       on_select = function(selection) ... end,
---   })
---   search.set_active(true)
---   ...
---   search.destroy()
+-- Three local searches: monster names/locations, dropped items and stat rankings.
+-- The search window owns this view; searches run only while it is active.
 
 local search = require("src/data/search/monsters")
-local core = require("src/data/core")
+local core = require("src/data/library/api")
 local widgets = require("src/ui/common/widgets")
 local text_layout = require("src/ui/common/text_layout")
 local theme = require("src/ui/common/theme")
-local internals = require("src/ui/common/prettyui_internals")
 
 local search_view = {}
 
@@ -32,7 +14,7 @@ local MODES = {
     items = { name = "Drops", placeholder = "Search dropped items..." },
     stats = { name = "Stats", placeholder = "Filter by name or Slayer category..." },
 }
-search_view.MODES = { "monsters", "items", "stats" }
+local MODE_ORDER = { "monsters", "items", "stats" }
 
 local MODE_WIDTH = 120
 local STAT_WIDTH = 220
@@ -64,12 +46,7 @@ end
 ---@field stats { stat: integer, bosses: integer, query: string, max_combat: integer?, max_slayer: integer? }
 
 ---@class SearchViewOptions
----@field modes string[]? which searches and in what order, from search_view.MODES (default
----all three). with more than one theres a dropdown to switch
 ---@field on_select fun(selection: SearchSelection) a monster was picked
----@field y number? where the view starts in the page, to leave room above it (default 0)
----@field on_height fun(height: number)? the views height changed. without it the view sets the
----pages content height itself
 ---@field state SearchViewState? from an earlier view's state(), to carry on where it was
 
 ---@param page table PrettyUI scrolling page: content, SetContentHeight, SetScrollPosition, ScrollBy
@@ -77,20 +54,11 @@ end
 function search_view.new(page, options)
     next_id = next_id + 1
     local resize_hook = "monster_lookup_search_resize_" .. next_id
-    local modes = {}
-
-    for _, name in ipairs(options.modes or search_view.MODES) do
-        if MODES[name] then
-            modes[#modes + 1] = name
-        end
-    end
-
-    assert(#modes > 0, "search view needs at least one of monsters, items or stats")
+    local modes = MODE_ORDER
 
     local saved = options.state or {}
     local self = {}
     local view = {
-        top = options.y or 0,
         mode = modes[1],
         stats = {
             stat = 1,
@@ -113,7 +81,7 @@ function search_view.new(page, options)
         view.stats[key] = value
     end
 
-    local picker_width = #modes > 1 and MODE_WIDTH + 8 or 0
+    local picker_width = MODE_WIDTH + 8
 
     local function clear_results()
         for _, button in ipairs(view.buttons) do
@@ -126,7 +94,7 @@ function search_view.new(page, options)
     -- bottom of the controls above the status line
     local function controls_bottom(width)
         local controls = view.stat_controls
-        local top = view.top
+        local top = 0
 
         if not controls then
             return top + 38
@@ -157,7 +125,7 @@ function search_view.new(page, options)
 
         local width = page.content.width
         view.measured_width = width
-        view.field.root:SetPos(8 + picker_width, view.top + 8)
+        view.field.root:SetPos(8 + picker_width, 8)
         view.field.root:SetSize(math.max(1, width - picker_width - 16), 30)
         local top = controls_bottom(width) + 8
         local status_height = text_layout.height(
@@ -172,11 +140,7 @@ function search_view.new(page, options)
         view.results:SetHeight(#view.buttons * 36)
         local height = top + 16 + status_height + #view.buttons * 36
 
-        if options.on_height then
-            options.on_height(height - view.top)
-        else
-            page:SetContentHeight(height)
-        end
+        page:SetContentHeight(height)
     end
 
     local function show_results(results, message, choose)
@@ -237,7 +201,7 @@ function search_view.new(page, options)
                 if view.mode == mode and not view.destroyed then
                     show_results(results, message, choose_from(runner))
                 end
-            end, false, mode == "items" and "items" or nil)
+            end, mode == "items" and "items" or nil)
             view.runners[mode] = runner
         end
 
@@ -284,7 +248,7 @@ function search_view.new(page, options)
     end
 
     local function level_field(placeholder, value, on_change)
-        local field_options = internals.text_field_scroll_options(page)
+        local field_options = { absolute = true }
         field_options.width, field_options.widthAnchor, field_options.height = -16, 1, 28
         field_options.text = value and tostring(value) or ""
         field_options.maxLength = 5
@@ -294,9 +258,7 @@ function search_view.new(page, options)
             rank_stats()
         end
 
-        local level = prettyui.TextField.new(page.content, field_options)
-        widgets.forward_wheel(level.root, "monster_lookup_level_field_wheel", page)
-        return level
+        return page:AddTextField(field_options)
     end
 
     local function destroy_stat_controls()
@@ -326,7 +288,7 @@ function search_view.new(page, options)
         view.stat_controls = {
             stat = widgets.dropdown(page.content, {
                 x = 8,
-                y = view.top + 48,
+                y = 48,
                 width = STAT_WIDTH,
                 height = 28,
                 entries = entries,
@@ -338,7 +300,7 @@ function search_view.new(page, options)
             }),
             bosses = widgets.dropdown(page.content, {
                 x = 16 + STAT_WIDTH,
-                y = view.top + 48,
+                y = 48,
                 width = BOSS_WIDTH,
                 height = 28,
                 entries = boss_entries,
@@ -368,8 +330,8 @@ function search_view.new(page, options)
     end
 
     local function create_search_field()
-        local field_options = internals.text_field_scroll_options(page)
-        field_options.x, field_options.y = 8 + picker_width, view.top + 8
+        local field_options = { absolute = true }
+        field_options.x, field_options.y = 8 + picker_width, 8
         field_options.width, field_options.widthAnchor, field_options.height =
             -(16 + picker_width), 1, 30
         field_options.text = current_query()
@@ -383,8 +345,7 @@ function search_view.new(page, options)
                 runner_for(view.mode).set_query(text)
             end
         end
-        view.field = prettyui.TextField.new(page.content, field_options)
-        widgets.forward_wheel(view.field.root, "monster_lookup_name_field_wheel", page)
+        view.field = page:AddTextField(field_options)
     end
 
     -- starts whatever the current mode needs, the field and stat controls are already there
@@ -428,7 +389,7 @@ function search_view.new(page, options)
         layout()
     end
 
-    if #modes > 1 then
+    do
         local entries, selected = {}, 0
 
         for index, name in ipairs(modes) do
@@ -441,7 +402,7 @@ function search_view.new(page, options)
 
         view.picker = widgets.dropdown(page.content, {
             x = 8,
-            y = view.top + 8,
+            y = 8,
             width = MODE_WIDTH,
             height = 30,
             entries = entries,
@@ -460,7 +421,7 @@ function search_view.new(page, options)
 
     view.status = prettyui.Text.new(page.content, {
         x = 8,
-        y = view.top + 48,
+        y = 48,
         width = -16,
         widthAnchor = 1,
         maxLines = 0,

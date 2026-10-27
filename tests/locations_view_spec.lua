@@ -191,7 +191,10 @@ return function(root)
         lu.assertEquals(feedback_subscriptions(self.context), 0)
         local normal = text_in(self.context, root, self.marker.status())
         lu.assertFalse(normal.hidden)
-        lu.assertEquals(normal.options.colour, self.context.load_module("src/ui/common/theme").TEXT_MUTED)
+        lu.assertEquals(
+            normal.options.colour,
+            self.context.load_module("src/ui/common/theme").TEXT_MUTED
+        )
         lu.assertEquals(buttons[1].content.content, "Marked")
     end
 
@@ -278,7 +281,7 @@ return function(root)
         for _, scenario in ipairs({
             { locations = {}, no_locations = "none", message = "does not list" },
             { locations = {}, no_locations = "unreadable", message = "supported location table" },
-            { message = "plugin settings" },
+            { message = "Monster Data Core" },
         }) do
             self.result.locations = scenario.locations
             self.result.no_locations = scenario.no_locations

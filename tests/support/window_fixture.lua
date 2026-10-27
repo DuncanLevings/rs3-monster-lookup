@@ -24,10 +24,13 @@ function fixture.new(root, saved)
     local environment = setmetatable({}, { __index = _G })
     local modules = {}
     local dependency = require("tests/support/core_loader").new()
+    modules["src/data/library/api"] = dependency.export
     environment.MonsterDataCore = dependency.export
 
     local function load_module(path)
-        if path:match("^tools/") then return dependency.load_module(path) end
+        if path:match("^tools/") then
+            return dependency.load_module(path)
+        end
         if modules[path] == nil then
             modules[path] = assert(loadfile(root .. "/" .. path .. ".lua", "t", environment))()
         end
@@ -195,7 +198,9 @@ function fixture.new(root, saved)
         end
 
         function host:AddTextField(options)
-            return environment.prettyui.TextField.new(self.content, options)
+            local field = environment.prettyui.TextField.new(self.content, options)
+            field.managed_by = self
+            return field
         end
 
         function host:AddSimpleButton(text, action, options)
@@ -325,7 +330,6 @@ function fixture.new(root, saved)
         return true
     end
 
-    context.cache = load_module("src/data/lookup/cache")
     environment.config = {
         Font = {
             MUSEO_SANS_15PT_REGULAR = {

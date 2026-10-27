@@ -1,13 +1,5 @@
--- draws stat sections (the tables Monster Data Core stat sections builds) and collapsible groups
--- of them. used by the info components (components.lua), which the Monster info tab and
--- other plugins put together however they like
---
--- tables are laid out by hand so cells can grow to fit wrapped text and icons can stand in
--- for header text. nothing in here knows about the standard window or settings, the group
--- toggles report back through options and whoever owns the block saves what it wants
---
--- a context is shared by the blocks of one view: { page = scrolling page or nil,
--- overlay_parent = where tooltips draw, tooltips = list the view destroys }
+-- Renders the Monster info tab's stat blocks and owns their tooltips and cleanup.
+-- Cells grow to fit wrapped text; collapsible groups report height changes to the view.
 
 local internals = require("src/ui/common/prettyui_internals")
 local text_layout = require("src/ui/common/text_layout")
@@ -15,6 +7,7 @@ local hover_tooltip = require("src/ui/common/hover_tooltip")
 local stat_icons = require("src/ui/info/icons")
 local theme = require("src/ui/common/theme")
 local widgets = require("src/ui/common/widgets")
+local core = require("src/data/library/api")
 
 local stat_blocks = {}
 local PADDING = 6
@@ -103,12 +96,8 @@ local function create_row(context, parent, section, values, is_header, index)
             )
                 .. ": "
                 .. value
-            row.icons[column] = create_stat_icon(
-                context,
-                row.root,
-                value == "Yes" and "yes" or "no",
-                description
-            )
+            row.icons[column] =
+                create_stat_icon(context, row.root, value == "Yes" and "yes" or "no", description)
             row.left_icons[column] = section.headers == nil
             row.cells[column].hidden = row.icons[column] ~= nil
         end
@@ -132,8 +121,7 @@ stat_blocks.SUMMARY_FIELDS = {
 ---Immunities sections. the sections themselves are left alone, detailed stats still shows
 ---them in full. nil when either section is missing (no infobox)
 ---@param sections table[] from Monster Data Core stat sections build()
----@param fields string[]? labels from SUMMARY_FIELDS to keep, all of them when nil
-function stat_blocks.summary(sections, fields)
+function stat_blocks.summary(sections)
     local overview, immunities
 
     for _, section in ipairs(sections) do
@@ -170,31 +158,12 @@ function stat_blocks.summary(sections, fields)
         { [2] = "deflect" },
         { [2] = "drain" },
     }
-    local wanted
-
-    if fields then
-        wanted = {}
-
-        for _, field in ipairs(fields) do
-            wanted[field] = true
-        end
-    end
-
-    local kept_rows, kept_icons = {}, {}
-
-    for index, row in ipairs(all_rows) do
-        if not wanted or wanted[row[1]] then
-            kept_rows[#kept_rows + 1] = row
-            kept_icons[#kept_icons + 1] = all_icons[index]
-        end
-    end
-
     return {
         title = "Overview",
         widths = { 0.40, 0.60 },
         labels = { true, false },
-        rows = kept_rows,
-        value_icons = kept_icons,
+        rows = all_rows,
+        value_icons = all_icons,
     }
 end
 
@@ -395,6 +364,155 @@ function stat_blocks.layout_note(block, width, y)
     block.label:SetPos(8, y)
     block.label:SetSize(width - 16, height)
     return height
+end
+
+-- Each block controller owns the content it creates, until set_info or destroy.
+---@class InfoComponentOptions
+---@field overlay_parent table? where tooltips draw, normally the game area. defaults to parent
+---@field page table? the PrettyUI scrolling page the component sits on, if any. lets tooltip
+---targets and group headers pass the scroll wheel on to it
+---@field expanded boolean? slayer and detailed_stats only: start open (default true)
+---@field on_toggle fun(open: boolean)? slayer and detailed_stats only: after the player opened or
+---closed it. its height changed, so lay out again here
+
+---@class InfoComponent
+---@field set_info fun(info: table, title: string?) show one variant, title is the wiki page
+---@field layout fun(width: number, y: number?): number size and place it, returns its height
+---@field height fun(): number height from the last layout
+---@field empty fun(): boolean nothing to show for this monster
+---@field hide_tooltips fun()
+---@field destroy fun()
+
+-- builds a component around one block. make(context, parent, sections) returns the block or
+-- nil when theres nothing to show
+local function component(parent, options, make)
+    options = options or {}
+    local context = {
+        page = options.page,
+        overlay_parent = options.overlay_parent or parent,
+        tooltips = {},
+    }
+    local state = { height = 0 }
+    local self = {}
+
+    local function clear()
+        widgets.destroy_tooltips(context.tooltips)
+        context.tooltips = {}
+
+        if state.block then
+            if state.block.toggle then
+                state.block.toggle:Destroy()
+            end
+
+            state.block.root:Destroy()
+            state.block = nil
+        end
+
+        state.height = 0
+    end
+
+    function self.set_info(info, title)
+        if state.destroyed then
+            return
+        end
+
+        clear()
+        local data = core.stat_sections(type(info) == "table" and info or {}, title)
+        state.block = make(context, parent, data.sections)
+    end
+
+    function self.layout(width, y)
+        if state.destroyed or not state.block then
+            return 0
+        end
+
+        local height = stat_blocks.layout(state.block, width, y or 0)
+        state.block.root:SetSize(width, height)
+        state.height = height
+        return height
+    end
+
+    function self.height()
+        return state.height
+    end
+
+    function self.empty()
+        return state.block == nil
+    end
+
+    function self.hide_tooltips()
+        widgets.hide_tooltips(context.tooltips)
+    end
+
+    function self.destroy()
+        if state.destroyed then
+            return
+        end
+
+        clear()
+        state.destroyed = true
+    end
+
+    return self
+end
+
+local function sections_titled(sections, titles)
+    local found = {}
+
+    for _, section in ipairs(sections) do
+        if titles[section.title] or (titles.detailed and section.detailed) then
+            found[#found + 1] = section
+        end
+    end
+
+    return found
+end
+
+---the short summary from the Monster info tab: weakness, aggressive, susceptibilities and
+---immunities.
+---@param options InfoComponentOptions?
+---@return InfoComponent
+function stat_blocks.stats(parent, options)
+    return component(parent, options, function(context, into, sections)
+        local summary = stat_blocks.summary(sections)
+        return summary and #summary.rows > 0 and stat_blocks.section(context, into, summary) or nil
+    end)
+end
+
+local function group_component(parent, options, title, titles)
+    options = options or {}
+
+    return component(parent, options, function(context, into, sections)
+        local found = sections_titled(sections, titles)
+
+        if #found == 0 then
+            return nil
+        end
+
+        return stat_blocks.group(context, into, title, found, {
+            expanded = options.expanded,
+            on_toggle = options.on_toggle,
+        })
+    end)
+end
+
+---Slayer level, xp, category and masters, plus the Player-owned Slayer Dungeon entry when
+---there is one, under a collapsible Slayer header
+---@param options InfoComponentOptions?
+---@return InfoComponent
+function stat_blocks.slayer(parent, options)
+    return group_component(parent, options, "Slayer", {
+        Slayer = true,
+        ["Player-owned Slayer Dungeon"] = true,
+    })
+end
+
+---combat info, offensive and defensive stats and hit chances, under a collapsible
+---Detailed stats header
+---@param options InfoComponentOptions?
+---@return InfoComponent
+function stat_blocks.detailed_stats(parent, options)
+    return group_component(parent, options, "Detailed stats", { detailed = true })
 end
 
 return stat_blocks

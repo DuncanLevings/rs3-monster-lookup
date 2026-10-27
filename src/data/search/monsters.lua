@@ -1,22 +1,14 @@
--- runs the name searches for the search window and the saved monster picker. the matching
--- and ranking is the cores (Monster Data Core name scanner), this adds what only Monster Lookup
--- has: a tick to spread the work over, typing delay, saved Wiki lookups (they go first, and
--- the picker only lists those) and the messages under the field
---
--- the "items" kind searches dropped item names instead, and an exact item name lists the
--- monsters that drop it (Monster Data Core drop index)
+-- debounced, bounded name and dropped-item searches over Monster Data Core.
 
-local core = require("src/data/core")
-local cache = require("src/data/lookup/cache")
-local clock = require("src/utils/cache_clock")
-local plural = require("src/utils/number_format").plural
+local core = require("src/data/library/api")
+-- Client Logic runs at 50 ticks per second.
+local TICKS_PER_SECOND = 50
+local plural = require("src/data/library/utils/number_format").plural
 
 local search = {}
 local next_subscription = 0
-local DEBOUNCE_TICKS = math.ceil(0.15 * clock.TICKS_PER_SECOND)
+local DEBOUNCE_TICKS = math.ceil(0.15 * TICKS_PER_SECOND)
 local ROWS_PER_TICK = 250
--- older saved lookups have no label in the index, reading one means decoding its payload
-local LEGACY_READS_PER_TICK = 3
 
 local function normalize(text)
     return tostring(text or ""):sub(1, 80):gsub("[%c]", " "):gsub("%s+", " "):match("^%s*(.-)%s*$")
@@ -82,96 +74,17 @@ local function dropper_results(entry)
     return results, plural(count, "monster") .. verb .. name .. ", best chance first."
 end
 
-local function build_index(saved_only)
-    local entries, seen = {}, {}
-
-    local function add(monster, saved)
-        local key = assert(core.identity_key(monster), "search entry has no monster identity")
-
-        if seen[key] then
-            seen[key].saved = seen[key].saved or saved
-        else
-            local entry = {
-                monster = monster,
-                name = monster.name,
-                label = monster.name,
-                key = key,
-                saved = saved,
-                summary = monster.summary,
-                resolved = monster.summary ~= nil,
-            }
-            seen[key] = entry
-            entries[#entries + 1] = entry
-        end
+local function build_index()
+    local entries = {}
+    for _, title in ipairs(core.titles()) do
+        entries[#entries + 1] = {
+            monster = { name = title, wiki_title = title },
+            name = title,
+            label = title,
+            key = title:lower(),
+        }
     end
-
-    if not saved_only then
-        for _, title in ipairs(core.titles()) do
-            add({ name = title, wiki_title = title }, false)
-        end
-    end
-
-    for _, monster in ipairs(cache.list(saved_only)) do
-        -- an npcs name and level dont say which wiki page its on (eg Bloodveld), so the
-        -- search lists pages. clicked npcs still keep their own saved entry
-        if saved_only then
-            local status = core.coverage(monster).status
-
-            if status == "unknown" or status == "ambiguous" then
-                add(monster, true)
-            end
-        elseif monster.wiki_title and seen[core.identity_key(monster)] then
-            add({ name = monster.wiki_title, wiki_title = monster.wiki_title }, true)
-        end
-    end
-
     return entries
-end
-
--- the picker searches saved lookups by their label (title, variant and level)
-local function prepare_saved_entry(entry)
-    local summary = entry.summary
-
-    if not summary then
-        return false
-    end
-
-    if entry.base_label then
-        entry.label = entry.base_label
-        return entry.prepared
-    end
-
-    entry.label = summary.title
-
-    if summary.variant and summary.variant ~= "" and summary.variant ~= summary.title then
-        entry.label = entry.label .. " - " .. summary.variant
-    end
-
-    entry.base_label = entry.label
-    local searchable = entry.label .. (summary.level and (" Level " .. summary.level) or "")
-    entry.prepared = core.prepare_name(searchable)
-    return entry.prepared
-end
-
-local function distinguish_saved_results(results)
-    local counts = {}
-
-    for _, entry in ipairs(results) do
-        counts[entry.label] = (counts[entry.label] or 0) + 1
-    end
-
-    local variants = {}
-
-    for _, entry in ipairs(results) do
-        local label = entry.label
-
-        if counts[label] > 1 then
-            variants[label] = (variants[label] or 0) + 1
-            entry.label = label
-                .. " - "
-                .. (entry.monster.wiki_title and "All variants" or "Variant " .. variants[label])
-        end
-    end
 end
 
 local function publish(state, results, message)
@@ -179,36 +92,15 @@ local function publish(state, results, message)
     state.on_update(results, message)
 end
 
--- how the core scan reads an entry. the picker reads missing labels a few per tick, nil
--- tells the scan to stop and come back to this entry next tick
-local function entry_preparer(state)
-    return function(entry)
-        if not state.saved_only then
-            entry.prepared = entry.prepared or core.prepare_name(entry.name)
-            return entry.prepared
-        end
-
-        if not entry.resolved then
-            if state.reads >= LEGACY_READS_PER_TICK then
-                return nil
-            end
-
-            entry.summary = cache.describe(entry.monster)
-            entry.resolved = true
-            state.reads = state.reads + 1
-        end
-
-        return prepare_saved_entry(entry)
-    end
+-- names are prepared lazily and reused when the query changes.
+local function prepare_entry(entry)
+    entry.prepared = entry.prepared or core.prepare_name(entry.name)
+    return entry.prepared
 end
 
 local function finish(state)
     local results = state.scan.results()
     state.scan = nil
-
-    if state.saved_only then
-        distinguish_saved_results(results)
-    end
 
     if state.items then
         publish(
@@ -223,19 +115,13 @@ local function finish(state)
     publish(
         state,
         results,
-        #results == 0 and "No monsters match your search."
-            or state.saved_only and "Select a monster to refresh its Wiki data."
-            or "Select a monster."
+        #results == 0 and "No monsters match your search." or "Select a monster."
     )
 end
 
 local function start_scan(state)
     state.scan = core.scan(state.index, state.query, {
-        prepare = entry_preparer(state),
-        -- saved lookups first, then by identity so ties always come out the same way
-        bonus = function(entry)
-            return entry.saved and 0 or 1
-        end,
+        prepare = prepare_entry,
         key = function(entry)
             return entry.key
         end,
@@ -243,17 +129,14 @@ local function start_scan(state)
 end
 
 ---@param on_update fun(results: table[], message: string)
----@param saved_only boolean? only monsters with saved lookups, for refreshing them
 ---@param kind "items"? search dropped items instead of monsters
-function search.new(on_update, saved_only, kind)
+function search.new(on_update, kind)
     next_subscription = next_subscription + 1
     local subscription = "monster_lookup_search_" .. next_subscription
     local state = {
         tick = 0,
-        reads = 0,
         on_update = on_update,
         results = {},
-        saved_only = saved_only == true,
         items = kind == "items",
     }
     local controller = {}
@@ -279,15 +162,14 @@ function search.new(on_update, saved_only, kind)
 
         if exact then
             publish(state, dropper_results(exact))
-        elseif #query >= 3 or (state.saved_only and #query > 0) then
+        elseif #query >= 3 then
             state.due = state.tick + DEBOUNCE_TICKS
             publish(state, {}, state.items and "Searching items..." or "Searching names...")
         else
             publish(
                 state,
                 {},
-                state.saved_only and "Search saved Wiki monsters by name or location."
-                    or state.items and "Type at least 3 characters to search dropped items."
+                state.items and "Type at least 3 characters to search dropped items."
                     or "Type at least 3 characters to search monsters."
             )
         end
@@ -331,7 +213,7 @@ function search.new(on_update, saved_only, kind)
         if state.items then
             state.index, state.exact = build_item_index()
         else
-            state.index = build_index(state.saved_only)
+            state.index = build_index()
         end
 
         state.started = true
@@ -344,8 +226,6 @@ function search.new(on_update, saved_only, kind)
             end
 
             if state.scan then
-                state.reads = 0
-
                 if state.scan.step(ROWS_PER_TICK) then
                     finish(state)
                 end

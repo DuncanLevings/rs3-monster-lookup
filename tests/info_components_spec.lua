@@ -1,7 +1,7 @@
 local lu = require("luaunit")
 local fixture = require("tests/support/window_fixture")
 
--- the info components (src/ui/info/components.lua) and the model viewer (model.lua) used on
+-- the info components (src/ui/info/stat_blocks.lua) and the model viewer (model.lua) used on
 -- their own, outside the standard window, the way another plugin would
 return function(root)
     local suite = {}
@@ -21,7 +21,7 @@ return function(root)
 
     function suite:setUp()
         self.context = fixture.new(root)
-        self.components = self.context.load_module("src/ui/info/components")
+        self.components = self.context.load_module("src/ui/info/stat_blocks")
         self.parent = self.context.environment.ui.Layer.new(self.context.parent)
     end
 
@@ -40,7 +40,7 @@ return function(root)
         return found
     end
 
-    function suite:test_stats_shows_the_summary_or_just_the_fields_asked_for()
+    function suite:test_stats_shows_the_summary()
         local start = #self.context.texts + 1
         local stats = self.components.stats(self.parent)
         stats.set_info(INFO, "Goblin")
@@ -52,28 +52,6 @@ return function(root)
 
         lu.assertTrue(stats.layout(300, 0) > 0)
         lu.assertEquals(stats.height(), stats.layout(300, 0))
-
-        local from = #self.context.texts + 1
-        local picked = self.components.stats(self.parent, { fields = { "Weakness", "Poison" } })
-        picked.set_info(INFO, "Goblin")
-        local some = labels(self.context, from)
-
-        lu.assertNotNil(some.Weakness)
-        lu.assertNotNil(some.Poison)
-        lu.assertNil(some.Aggressive)
-        lu.assertNil(some.Stun)
-    end
-
-    function suite:test_weaknesses_leaves_out_the_other_summary_rows()
-        local from = #self.context.texts + 1
-        local weaknesses = self.components.weaknesses(self.parent)
-        weaknesses.set_info(INFO, "Goblin")
-        local found = labels(self.context, from)
-
-        lu.assertNotNil(found.Weakness)
-        lu.assertNotNil(found["Susceptible to"])
-        lu.assertNotNil(found["Stat drain"])
-        lu.assertNil(found.Aggressive)
     end
 
     function suite:test_components_have_their_own_state()
@@ -164,11 +142,14 @@ return function(root)
                 end
             end,
         }
-        context.stub_module("src/data/core", require("tests/support/core_stub")({
-            npc_ids = function()
-                return { 1 }
-            end,
-        }))
+        context.stub_module(
+            "src/data/library/api",
+            require("tests/support/core_stub")({
+                npc_ids = function()
+                    return { 1 }
+                end,
+            })
+        )
     end
 
     function suite:test_model_only_draws_while_active()

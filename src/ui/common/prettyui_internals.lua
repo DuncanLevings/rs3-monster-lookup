@@ -21,9 +21,4 @@ function internals.set_collapse_alpha(button, bar_alpha, end_alpha)
     button.right.alpha = end_alpha
 end
 
--- TextField text spills outside the scrolling page unless it knows the pages scroll controller.
-function internals.text_field_scroll_options(page)
-    return { _scrollController = page._scroll }
-end
-
 return internals

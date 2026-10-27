@@ -1,2 +1,3 @@
-src/vendor/
+# Reference data and imported source retain their upstream formatting.
 src/data/locations/dungeons/
+src/data/library/

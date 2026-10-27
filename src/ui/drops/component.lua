@@ -1,14 +1,7 @@
--- the drop tables as a component: what the Drops tab shows, for one monster, in a
--- PrettyUI scrolling page the caller owns. each one keeps its own search text, drop mode and
--- which sections are open, and redraws itself when live GE prices turn up
---
---   local drops = drops_component.new(tab_page, { overlay_parent = game_area })
---   drops.set_monster(record)  -- a MonsterResult, eg from MonsterData.monster()
---   ...
---   drops.destroy()
+-- Owns drop-table state and redraws when optional GEPL prices arrive.
 
 local drop_table = require("src/ui/drops/table")
-local core = require("src/data/core")
+local core = require("src/data/library/api")
 local prices = require("src/data/drops/prices")
 
 local drops_component = {}
@@ -17,13 +10,9 @@ local next_id = 0
 ---@class DropsComponentOptions
 ---@field overlay_parent table? where tooltips draw, normally the game area. defaults to the page
 ---@field percentage_rarity boolean? rarities as percentages instead of fractions
----@field live_prices boolean? use GE Price Library prices when its installed (default true)
----@field search boolean? false leaves out the search box
----@field kill_value boolean? false leaves out the average kill line
 ---@field status (string|fun(): string)? a line under the buttons, eg where the data came
 ---from. a function is asked again on every redraw (live prices arriving change it)
----@field problem string? a refresh error, shows the status line as a warning
----@field on_mode_change fun(mode: string?)? the player picked another drop mode
+---@field problem string? warning shown with the source status
 
 ---@class DropsComponentFocus
 ---@field item string? fill the search with this item
@@ -58,15 +47,12 @@ function drops_component.new(page, options)
 
         -- no monster still draws (empty) tables, so the page height and status line reset
         local sections = state.record and state.record.sections or {}
-        local live = options.live_prices ~= false
         state.controller = drop_table.render(page, sections, options.overlay_parent or page.root, {
             percentage_rarity = options.percentage_rarity == true,
-            price_for = live and prices.for_drop or nil,
-            unit_price = live and prices.unit or nil,
+            price_for = prices.for_drop,
+            unit_price = prices.unit,
             status = type(options.status) == "function" and options.status() or options.status,
             problem = options.problem,
-            search = options.search,
-            kill_value = options.kill_value,
             search_query = state.search_query,
             on_search_change = function(query)
                 state.search_query = query
@@ -78,10 +64,6 @@ function drops_component.new(page, options)
                 state.controller.hide_tooltips()
                 render()
                 page:SetScrollPosition(0)
-
-                if options.on_mode_change then
-                    options.on_mode_change(self.mode())
-                end
             end,
         })
     end
@@ -89,11 +71,11 @@ function drops_component.new(page, options)
     render = function()
         draw()
 
-        -- gepl may still be loading prices. draw with the saved ones now and once more when
+        -- GEPL may still be loading prices. Draw with bundled prices now and once more when
         -- the live ones arrive, if this is still the monster showing
         local sections = state.record and state.record.sections or {}
 
-        if #sections > 0 and options.live_prices ~= false then
+        if #sections > 0 then
             local record = state.record
 
             prices.when_live(price_key, function()
@@ -128,8 +110,7 @@ function drops_component.new(page, options)
         render()
     end
 
-    ---a newer copy of the same monster (a refresh came in), keeping the search, mode and open
-    ---sections the player picked
+    ---Redraw the current record while preserving the selected mode, search and sections.
     ---@param record MonsterResult?
     function self.update(record)
         if state.destroyed then
@@ -149,22 +130,6 @@ function drops_component.new(page, options)
                 options[key] = value
             end
         end
-    end
-
-    ---draw again with the same monster, keeping the search, mode and open sections (eg after
-    ---the caller changed an option or prices came and went)
-    function self.refresh()
-        if not state.destroyed then
-            render()
-        end
-    end
-
-    ---the drop mode showing, eg "Hard mode", nil when the page isnt split into modes
-    ---@return string?
-    function self.mode()
-        local groups = state.record and core.drop_modes(state.record.sections or {})
-        local group = groups and groups[math.min(state.mode, #groups)]
-        return group and group.name or nil
     end
 
     function self.hide_tooltips()
