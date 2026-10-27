@@ -5,9 +5,8 @@
 local location_map = {}
 local SURFACE_MAP = 28
 local coordinates = require("src/data/library/locations/coordinates")
-local entrances = require("src/data/library/locations/access").new(
-    require("src/data/library/locations/dungeons/entrances")
-)
+local entrances =
+    require("src/data/library/locations/access").new(require("src/data/library/locations/dungeons/entrances"))
 local shared_maps = require("src/data/library/locations/dungeons/map_regions").strict
 local portals = require("src/data/library/locations/dungeons/portals")
 local map_aliases = require("src/data/library/locations/dungeons/map_aliases")

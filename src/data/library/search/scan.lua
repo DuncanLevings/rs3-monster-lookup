@@ -63,9 +63,7 @@ function scan.new(entries, query, options)
         local at = #top + 1
 
         for index, current in ipairs(top) do
-            if
-                score < current.score or (score == current.score and candidate.key < current.key)
-            then
+            if score < current.score or (score == current.score and candidate.key < current.key) then
                 at = index
                 break
             end

@@ -3,7 +3,7 @@
 -- most lookups never touch the Wiki: the index says which page an NPC ID belongs to, and
 -- only that page's shard is loaded and unpacked. NPC IDs the build knew about but left out
 -- (no drops, or not a monster you can meet repeatedly) are answered from the index too.
--- missing identities stay unavailable; the caller decides how to explain that to the player
+-- anything the index doesnt know is new content, so the caller falls back to a live lookup
 --
 -- if the bundle is missing or from a different format, every find returns nil and the
 -- caller decides how to handle unavailable data
@@ -191,9 +191,7 @@ function bundle.load(page)
         strings = strings or require("src/data/library/bundle/generated/strings")
         shared = shared or require("src/data/library/bundle/generated/shared")
         items = items or load_items()
-        local shard = require(
-            string.format("src/data/library/bundle/generated/shard_%02d", loaded.shards[page])
-        )
+        local shard = require(string.format("src/data/library/bundle/generated/shard_%02d", loaded.shards[page]))
         return shapes.unpack_page(codec.decode(assert(shard[page]), strings, shared), items)
     end)
 
