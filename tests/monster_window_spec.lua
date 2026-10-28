@@ -63,19 +63,8 @@ return function(root)
         lu.assertAlmostEquals(self.context.saved.x_ratio, 100 / (1280 - 840), 0.0001)
     end
 
-    function suite:test_closing_the_window_runs_the_close_action()
-        local closed = 0
-        self.context.subject.open({ name = "Goblin" }, function()
-            closed = closed + 1
-        end)
-
-        self.context.windows[1]:Close()
-
-        lu.assertEquals(closed, 1)
-    end
-
     function suite:test_monster_without_drops_shows_a_note_and_still_fills_monster_info()
-        self.context.subject.open({ name = "Duckling" }, function() end)
+        self.context.subject.open({ name = "Duckling" })
         self.context.subject.show_result({
             title = "Duckling",
             info = { life_points = 50 },
@@ -269,7 +258,7 @@ return function(root)
         lu.assertEquals(self.context.tabs.entries[3].text, "Locations")
         lu.assertNil(self.context.tabs:GetPage(4))
         lu.assertEquals(#self.context.radio_controls, 0)
-        self.context.settings_panel.start(self.context.subject.refresh_settings)
+        self.context.settings_panel.start(function() end, self.context.subject.refresh_settings)
         self.context.on_settings_ready({ component = self.context.parent })
         self.context.dropdowns[#self.context.dropdowns]:pick(1)
         lu.assertEquals(#self.context.radio_controls, 1)
@@ -291,7 +280,7 @@ return function(root)
     end
 
     function suite:test_hub_settings_can_open_without_a_monster_and_clean_up_on_remount_and_stop()
-        self.context.settings_panel.start(self.context.subject.refresh_settings)
+        self.context.settings_panel.start(function() end, self.context.subject.refresh_settings)
         self.context.on_settings_ready({ component = self.context.parent })
         self.context.dropdowns[#self.context.dropdowns]:pick(1)
         local first = self.context.settings_views[#self.context.settings_views]

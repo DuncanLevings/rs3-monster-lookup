@@ -12,7 +12,6 @@ local next_id = 0
 ---@field percentage_rarity boolean? rarities as percentages instead of fractions
 ---@field status (string|fun(): string)? a line under the buttons, eg where the data came
 ---from. a function is asked again on every redraw (live prices arriving change it)
----@field problem string? warning shown with the source status
 
 ---@class DropsComponentFocus
 ---@field item string? fill the search with this item
@@ -52,7 +51,6 @@ function drops_component.new(page, options)
             price_for = prices.for_drop,
             unit_price = prices.unit,
             status = type(options.status) == "function" and options.status() or options.status,
-            problem = options.problem,
             search_query = state.search_query,
             on_search_change = function(query)
                 state.search_query = query

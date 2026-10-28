@@ -1,8 +1,8 @@
 local lu = require("luaunit")
 local fixture = require("tests/support/window_fixture")
 
--- the info components (src/ui/info/stat_blocks.lua) and the model viewer (model.lua) used on
--- their own, outside the standard window, the way another plugin would
+-- the info components (src/ui/info/stat_blocks.lua) and the model viewer (model.lua) tested
+-- on their own, outside the monster window
 return function(root)
     local suite = {}
 
@@ -46,12 +46,21 @@ return function(root)
         stats.set_info(INFO, "Goblin")
         local all = labels(self.context, start)
 
-        for _, field in ipairs(self.components.SUMMARY_FIELDS) do
-            lu.assertNotNil(all[field], field)
+        local summary_labels = {
+            "Weakness",
+            "Aggressive",
+            "Susceptible to",
+            "Poison",
+            "Stun",
+            "Deflect",
+            "Stat drain",
+        }
+
+        for _, label in ipairs(summary_labels) do
+            lu.assertNotNil(all[label], label)
         end
 
         lu.assertTrue(stats.layout(300, 0) > 0)
-        lu.assertEquals(stats.height(), stats.layout(300, 0))
     end
 
     function suite:test_components_have_their_own_state()
@@ -155,7 +164,8 @@ return function(root)
     function suite:test_model_only_draws_while_active()
         enable_models(self.context)
         local model = self.context.load_module("src/ui/info/model")
-        local viewer = model.new(self.parent, { width = 240, height = 180, x = 10, y = 20 })
+        local viewer = model.new(self.parent, { width = 240, height = 180 })
+        viewer.set_position(10, 20)
         viewer.set_monster({ title = "Goblin", info = INFO })
 
         lu.assertEquals(#self.context.models, 0)
@@ -187,21 +197,15 @@ return function(root)
         lu.assertEquals(#self.context.models, 2)
     end
 
-    function suite:test_model_zoom_limits_and_scroll_zoom_option()
+    function suite:test_model_zoom_stops_at_twice_the_starting_distance()
         enable_models(self.context)
         local model = self.context.load_module("src/ui/info/model")
         local hook = self.context.environment.ui.Hook.ONSCROLLWHEEL
 
-        local still = model.new(self.parent, { width = 240, height = 180, scroll_zoom = false })
-        still.set_monster({ title = "Goblin", info = INFO })
-        still.set_active(true)
-        lu.assertNil(self.context.models[1].listeners[hook])
-        still.destroy()
-
-        local viewer = model.new(self.parent, { width = 240, height = 180, zoom_max = 1.1 })
+        local viewer = model.new(self.parent, { width = 240, height = 180 })
         viewer.set_monster({ title = "Goblin", info = INFO })
         viewer.set_active(true)
-        local drawn = self.context.models[2]
+        local drawn = self.context.models[1]
         local start = drawn.viewDistance
         local scroll = drawn.listeners[hook].handlers.monster_lookup_preview_zoom
 
@@ -210,7 +214,7 @@ return function(root)
         end
 
         lu.assertTrue(drawn.viewDistance > start)
-        lu.assertTrue(drawn.viewDistance <= math.floor(start * 1.1) + 1)
+        lu.assertTrue(drawn.viewDistance <= math.floor(start * 2) + 1)
         viewer.destroy()
     end
 
@@ -221,13 +225,11 @@ return function(root)
         viewer.set_monster({ title = "Goblin", info = { combat_level = 99 } })
         viewer.set_active(true)
 
-        lu.assertTrue(viewer.failed())
         lu.assertFalse(viewer.showing())
         viewer.set_active(true)
         lu.assertEquals(#self.context.models, 0)
 
         viewer.set_monster({ title = "Goblin", info = INFO })
-        lu.assertFalse(viewer.failed())
         lu.assertTrue(viewer.showing())
         viewer.destroy()
     end

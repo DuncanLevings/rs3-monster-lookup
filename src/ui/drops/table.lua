@@ -502,15 +502,15 @@ local function create_status(controller)
     end
 
     controller.status_label = widgets.text(controller.page.content, {
-        text = text_layout.display(options.status or ""),
+        text = text_layout.display(options.status),
         x = 8,
         y = CONTENT_TOP_PADDING + 30,
         width = -16,
         widthAnchor = 1,
-        height = options.problem and 40 or 18,
+        height = 18,
         maxLines = 2,
         font = id.Font.MUSEO_SANS_11PT_REGULAR,
-        colour = options.problem and theme.TEXT_WARNING or theme.TEXT_MUTED,
+        colour = theme.TEXT_MUTED,
         shadowed = false,
     })
 end
@@ -736,8 +736,7 @@ end
 ---@field percentage_rarity boolean?
 ---@field price_for (fun(drop: Drop): any)? live price for a row, nil keeps drop.price
 ---@field unit_price (fun(item_id: integer, reference: number?): number?)? live price for one item, for the kill value
----@field status string? cache status line under the buttons
----@field problem string? refresh error, makes the status line a warning
+---@field status string? data source line under the buttons
 ---@field search_query string? search text to carry over from the last render
 ---@field on_search_change fun(query: string)?
 ---@field mode integer? which mode to show when the page is split into modes, defaults to 1

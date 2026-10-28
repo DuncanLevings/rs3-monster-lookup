@@ -170,23 +170,19 @@ local function live_bounds(selection, npc_id)
 end
 
 -- zoom is a multiplier on the framed distance: 1 is the starting framing, 2 is twice as
--- far away. callers can narrow or widen that, see ModelOptions in model.lua
-local DEFAULT_ZOOM_MIN, DEFAULT_ZOOM_MAX = 1, 2
+-- far away
+local ZOOM_MIN, ZOOM_MAX = 1, 2
 
-local function zoom_limits(state, options)
-    state.zoom_min = options.zoom_min or DEFAULT_ZOOM_MIN
-    state.zoom_max = math.max(state.zoom_min, options.zoom_max or DEFAULT_ZOOM_MAX)
-    state.scroll_zoom = options.scroll_zoom ~= false
+local function clamp_zoom(value)
+    return math.max(ZOOM_MIN, math.min(ZOOM_MAX, value))
 end
 
-local function clamp_zoom(state, value)
-    return math.max(state.zoom_min, math.min(state.zoom_max, value))
-end
+-- the orbit scene, defined further down with its camera helpers
+local create_scene
 
----@param options table? zoom_min, zoom_max, scroll_zoom, turn (see ModelOptions in model.lua)
-function preview.create(parent, title, info, selection, on_zoom, options)
-    options = options or {}
-
+---the model for a page's npc, nil when theres no matching npc or the client cant draw it
+---@param on_zoom fun()? called when the player scrolls or drags the model
+function preview.create(parent, title, info, selection, on_zoom)
     if not ui.Model or not ui.ModelType or not config.NPC then
         report_once("model_api", "preview unavailable; this client has no NPC model API.")
         return nil
@@ -224,8 +220,7 @@ function preview.create(parent, title, info, selection, on_zoom, options)
     end
 
     measured[chosen] = live_bounds(selection, chosen) or measured[chosen]
-    local scene = options.turn ~= false
-        and preview.create_scene(parent, title, chosen, chosen_npc, size, on_zoom, options)
+    local scene = create_scene(parent, title, chosen, chosen_npc, size, on_zoom)
 
     if scene then
         return scene
@@ -241,8 +236,7 @@ function preview.create(parent, title, info, selection, on_zoom, options)
         component:SetModel(ui.ModelType.NPC_MODEL, chosen)
         local state = framing(chosen_npc, size)
         state.npc_id, state.size = chosen, size
-        zoom_limits(state, options)
-        state.zoom = clamp_zoom(state, saved_zoom[chosen] or 1)
+        state.zoom = clamp_zoom(saved_zoom[chosen] or 1)
         states[component] = state
         fit(component, 300, 210)
         -- the docs say Vector3 but this client gives whole number vectors here, so its
@@ -254,25 +248,19 @@ function preview.create(parent, title, info, selection, on_zoom, options)
         component.worldOffset = offset
         -- only runs on a scroll, nothing updates per frame. the tile size gives a decent
         -- starting distance and zoom sorts out monsters that are unusually short or tall
-        if state.scroll_zoom then
-            component:Subscribe(
-                ui.Hook.ONSCROLLWHEEL,
-                "monster_lookup_preview_zoom",
-                function(_, delta)
-                    if on_zoom then
-                        on_zoom()
-                    end
+        component:Subscribe(ui.Hook.ONSCROLLWHEEL, "monster_lookup_preview_zoom", function(_, delta)
+            if on_zoom then
+                on_zoom()
+            end
 
-                    if type(delta) == "number" and delta ~= 0 then
-                        local factor = delta > 0 and 1.08 or 1 / 1.08
-                        state.zoom = clamp_zoom(state, state.zoom * factor)
-                        component.viewDistance = math.floor(state.distance * state.zoom)
-                    end
-                    saved_zoom[chosen] = state.zoom
-                    return false
-                end
-            )
-        end
+            if type(delta) == "number" and delta ~= 0 then
+                local factor = delta > 0 and 1.08 or 1 / 1.08
+                state.zoom = clamp_zoom(state.zoom * factor)
+                component.viewDistance = math.floor(state.distance * state.zoom)
+            end
+            saved_zoom[chosen] = state.zoom
+            return false
+        end)
     end)
     if not ok then
         report_once("model:" .. chosen, "preview failed for " .. title .. ": " .. tostring(problem))
@@ -445,21 +433,19 @@ end
 local function subscribe_controls(state, on_interact)
     local group = state.group
 
-    if state.scroll_zoom then
-        group:Subscribe(ui.Hook.ONSCROLLWHEEL, "monster_lookup_preview_zoom", function(_, delta)
-            if on_interact then
-                on_interact()
-            end
+    group:Subscribe(ui.Hook.ONSCROLLWHEEL, "monster_lookup_preview_zoom", function(_, delta)
+        if on_interact then
+            on_interact()
+        end
 
-            if type(delta) == "number" and delta ~= 0 then
-                local factor = delta > 0 and 1.08 or 1 / 1.08
-                state.zoom = clamp_zoom(state, state.zoom * factor)
-                update_camera(state)
-            end
-            saved_zoom[state.npc_id] = state.zoom
-            return false
-        end)
-    end
+        if type(delta) == "number" and delta ~= 0 then
+            local factor = delta > 0 and 1.08 or 1 / 1.08
+            state.zoom = clamp_zoom(state.zoom * factor)
+            update_camera(state)
+        end
+        saved_zoom[state.npc_id] = state.zoom
+        return false
+    end)
 
     -- older clients without these hooks still get zoom
     if not ui.Hook.ONHOLD or not ui.Hook.ONRELEASE then
@@ -515,10 +501,8 @@ local function model_scale(state)
     return state.measured and 1 or SCENE_SCALE
 end
 
----the orbiting preview, nil when the client has no model groups or the scene cant be made
-function preview.create_scene(parent, title, npc_id, npc, size, on_interact, options)
-    options = options or {}
-
+-- the orbiting preview, nil when the client has no model groups or the scene cant be made
+create_scene = function(parent, title, npc_id, npc, size, on_interact)
     if not ui.ModelGroup or not camera_type() then
         -- a standalone model is the supported fallback on older clients.
         return nil
@@ -536,8 +520,7 @@ function preview.create_scene(parent, title, npc_id, npc, size, on_interact, opt
         end
 
         state.npc_id, state.size = npc_id, size
-        zoom_limits(state, options)
-        state.zoom = clamp_zoom(state, saved_zoom[npc_id] or 1)
+        state.zoom = clamp_zoom(saved_zoom[npc_id] or 1)
         state.yaw, state.pitch = 0, 0
         state.radius = math.sqrt(state.width ^ 2 + state.height ^ 2 + state.depth ^ 2) / 2
         state.box_width, state.box_height = 300, 210

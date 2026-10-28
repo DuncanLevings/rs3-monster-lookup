@@ -9,7 +9,7 @@ return function(root)
     end
 
     function suite:test_ribbon_defaults_to_search_and_customize_reuses_the_settings_controls()
-        local panel = self.context.load_module("src/ui/settings/content")
+        local panel = self.context.settings_panel
         local opened = 0
         panel.start(function()
             opened = opened + 1
@@ -33,15 +33,12 @@ return function(root)
         lu.assertNil(self.context.on_content_ready)
     end
 
-    function suite:test_hub_defaults_to_search_and_opens_the_same_monster_search_window()
+    function suite:test_hub_defaults_to_search_and_opens_the_monster_search_window()
         local context = self.context
         local opened = 0
-        context.stub_module("src/ui/search/window", {
-            open = function()
-                opened = opened + 1
-            end,
-        })
-        context.settings_panel.start(function() end)
+        context.settings_panel.start(function()
+            opened = opened + 1
+        end, function() end)
         context.on_settings_ready({ component = context.parent })
         local selector = context.dropdowns[1]
         lu.assertEquals(selector.selected, 0)
@@ -61,27 +58,27 @@ return function(root)
 
     function suite:test_hub_and_ribbon_keep_independent_page_state_and_cleanup()
         local context = self.context
-        local ribbon = context.load_module("src/ui/settings/content")
-        context.settings_panel.start(function() end)
-        ribbon.start(function() end, function() end)
+        context.settings_panel.start(function() end, function() end)
         context.on_content_ready({ component = context.parent })
         local ribbon_selector = context.dropdowns[1]
         context.on_settings_ready({ component = context.parent })
         local hub_selector = context.dropdowns[2]
         hub_selector:pick(1)
         lu.assertEquals(ribbon_selector.selected, 0)
-        lu.assertNotEquals(ribbon_selector.destroyed, true)
-        context.settings_panel.stop()
-        lu.assertTrue(hub_selector.destroyed)
-        lu.assertNotEquals(ribbon_selector.destroyed, true)
+
+        -- logout drops only the ribbon, the hub page stays usable
+        context.settings_panel.destroy_ribbon()
+        lu.assertTrue(ribbon_selector.destroyed)
+        lu.assertNotEquals(hub_selector.destroyed, true)
         local count = #context.radio_controls
         hub_selector:pick(0)
         hub_selector:pick(1)
-        lu.assertEquals(#context.radio_controls, count)
-        ribbon_selector:pick(1)
         lu.assertEquals(#context.radio_controls, count + 1)
-        ribbon.stop()
-        lu.assertTrue(ribbon_selector.destroyed)
+
+        context.settings_panel.stop()
+        lu.assertTrue(hub_selector.destroyed)
+        lu.assertNil(context.on_settings_ready)
+        lu.assertNil(context.on_content_ready)
     end
 
     -- a stand in for src/data/search/monsters that keeps every model it makes, by kind

@@ -5,7 +5,6 @@ local window_state = require("src/ui/common/window_state")
 local drops_component = require("src/ui/drops/component")
 local monster_info_view = require("src/ui/info/view")
 local locations_view = require("src/ui/locations/view")
-local core = require("src/data/library/api")
 local theme = require("src/ui/common/theme")
 
 local settings = require("src/settings")
@@ -18,7 +17,7 @@ local NOTICE_INSET = 14
 local NOTICE_TITLE_HEIGHT = 28
 
 local function create_notice_label(parent, y, colour)
-    local label = widgets.text(parent, {
+    return widgets.text(parent, {
         text = "",
         x = NOTICE_INSET,
         y = y,
@@ -27,8 +26,6 @@ local function create_notice_label(parent, y, colour)
         height = NOTICE_TITLE_HEIGHT,
         colour = colour,
     })
-
-    return label
 end
 
 local function resize_notice(notice)
@@ -106,7 +103,8 @@ local monster_window = {}
 local DROPS_TAB = 1
 local INFO_TAB = 2
 local LOCATIONS_TAB = 3
-local BUILT_IN_TABS = { drops = DROPS_TAB, info = INFO_TAB, locations = LOCATIONS_TAB }
+-- search results can ask to start on one of these
+local TABS_BY_NAME = { drops = DROPS_TAB, info = INFO_TAB, locations = LOCATIONS_TAB }
 
 local window
 local destroying = false
@@ -122,13 +120,12 @@ local loading_label
 local drops
 local error_notice
 local current_result
-local current_metadata
-local current_problem
+-- date the bundled data was built, for the status line under the drop buttons
+local current_built
 local current_selection
 -- set by the search window: an item to filter drops on, its mode, or a tab to start on
 local pending_focus
 local info_active = false
-local close_action
 -- false until the first result for the current monster, later ones are refreshes and keep
 -- the drop search, mode and open sections the player picked since
 local drops_selected = false
@@ -156,14 +153,10 @@ local function on_window_closed(closed_window)
     if destroying then
         return
     end
+
     hide_window_tooltips()
     set_info_active(false)
-
     window_state.save(closed_window)
-
-    if close_action then
-        close_action()
-    end
 end
 
 local function create_window_options(parent)
@@ -215,11 +208,6 @@ local function create_window(parent)
     add_content_tabs()
 end
 
--- search results select one of the three built-in tabs.
-local function tab_number(tab)
-    return BUILT_IN_TABS[tab]
-end
-
 local function ensure_window_exists()
     if window then
         return true
@@ -244,9 +232,9 @@ local function show_drops_tab()
 end
 
 -- static source date, with an optional live price layer supplied by GEPL.
-local function source_status(metadata)
-    local built = metadata and metadata.built
-    local source = built and ("Monster Data Core: " .. built) or "Monster Data Core"
+local function source_status()
+    local source = current_built and ("Monster Data Core: " .. current_built)
+        or "Monster Data Core"
     return source .. (prices.live() and " | Live GE prices" or " | Bundled GE prices")
 end
 
@@ -254,10 +242,7 @@ end
 local function configure_drops()
     drops.configure({
         percentage_rarity = settings.get().percentage_rarity,
-        status = function()
-            return source_status(current_metadata)
-        end,
-        problem = current_problem,
+        status = source_status,
     })
 end
 
@@ -312,21 +297,18 @@ end
 
 ---opens (or reuses) the window for a monster and shows the loading state
 ---@param monster MonsterSelection
----@param on_close fun()? called when the player closes the window, eg to stop the lookup
 ---@param focus WindowFocus? where to start, from a drop or top stats search
 ---@return boolean opened false if the game area isnt ready yet
-function monster_window.open(monster, on_close, focus)
+function monster_window.open(monster, focus)
     if not ensure_window_exists() then
         return false
     end
 
     current_result = nil
     current_selection = monster
-    current_metadata = nil
-    current_problem = nil
+    current_built = nil
     drops_selected = false
     pending_focus = focus
-    close_action = on_close
     window:SetTitle(monster.name)
     show_loading()
     window:Show()
@@ -379,14 +361,15 @@ local function show_drops(result, focus)
     end
 end
 
-function monster_window.show_result(result, problem, metadata)
+---@param result MonsterResult
+---@param built string? date the bundled data was built
+function monster_window.show_result(result, built)
     if not window then
         return
     end
 
     current_result = result
-    current_metadata = metadata
-    current_problem = problem
+    current_built = built
 
     -- the title remains the player's selected monster name
     if current_selection then
@@ -405,7 +388,7 @@ function monster_window.show_result(result, problem, metadata)
     show_monster_info(result)
     show_locations(result)
 
-    local tab = focus and focus.tab and tab_number(focus.tab)
+    local tab = focus and focus.tab and TABS_BY_NAME[focus.tab]
 
     if tab and tab ~= DROPS_TAB then
         tabs:SetActive(tab)
@@ -475,9 +458,8 @@ function monster_window.destroy()
     drops = nil
     error_notice = nil
     current_result = nil
-    current_metadata = nil
-    current_problem = nil
-    close_action = nil
+    current_built = nil
+    pending_focus = nil
     old_window:Destroy()
     destroying = false
 end

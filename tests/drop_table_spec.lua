@@ -60,7 +60,7 @@ return function(root)
     end
 
     function suite:test_modes_get_a_picker_and_short_category_titles()
-        self.context.subject.open(self.monster, function() end)
+        self.context.subject.open(self.monster)
         self.context.subject.show_result(grouped_result())
 
         local picker = self.context.dropdowns[#self.context.dropdowns]
@@ -120,11 +120,7 @@ return function(root)
     end
 
     function suite:test_a_drop_search_pick_opens_on_its_mode_with_the_item_filled_in()
-        self.context.subject.open(
-            self.monster,
-            function() end,
-            { item = "Dragon", mode = "Hard mode" }
-        )
+        self.context.subject.open(self.monster, { item = "Dragon", mode = "Hard mode" })
         self.context.subject.show_result(grouped_result())
 
         local picker = self.context.dropdowns[#self.context.dropdowns]
@@ -139,18 +135,18 @@ return function(root)
     end
 
     function suite:test_a_top_stats_pick_opens_on_the_monster_info_tab()
-        self.context.subject.open(self.monster, function() end, { tab = "info" })
+        self.context.subject.open(self.monster, { tab = "info" })
         self.context.subject.show_result(single_section({}))
 
         lu.assertEquals(self.context.tabs.active, 2)
     end
 
     function suite:test_opening_another_monster_goes_back_to_the_first_mode()
-        self.context.subject.open(self.monster, function() end)
+        self.context.subject.open(self.monster)
         self.context.subject.show_result(grouped_result())
         self.context.dropdowns[#self.context.dropdowns]:pick(1)
 
-        self.context.subject.open({ name = "Kree'arra" }, function() end)
+        self.context.subject.open({ name = "Kree'arra" })
         self.context.subject.show_result(grouped_result())
 
         lu.assertEquals(self.context.dropdowns[#self.context.dropdowns].selected, 0)
@@ -224,7 +220,7 @@ return function(root)
     end
 
     function suite:test_dropdown_ignores_deselection_events()
-        self.context.subject.open(self.monster, function() end)
+        self.context.subject.open(self.monster)
         self.context.subject.show_result(grouped_result())
         local picker = self.context.dropdowns[1]
         local before = #self.context.dropdowns
@@ -235,7 +231,7 @@ return function(root)
     end
 
     function suite:test_narrow_mode_toolbar_moves_search_below_the_picker()
-        self.context.subject.open(self.monster, function() end)
+        self.context.subject.open(self.monster)
         self.context.subject.show_result(grouped_result())
         local page = self.context.tabs.pages[1]
         local field = self.context.text_fields[1].root
@@ -258,7 +254,7 @@ return function(root)
     end
 
     function suite:test_very_narrow_toolbar_wraps_the_mode_picker_too()
-        self.context.subject.open(self.monster, function() end)
+        self.context.subject.open(self.monster)
         self.context.tabs.pages[1].content.width = 260
         self.context.subject.show_result(grouped_result())
         local field = self.context.text_fields[1].root
@@ -272,7 +268,7 @@ return function(root)
     end
 
     function suite:test_left_out_monsters_explain_why_and_bundled_ones_show_the_bundle_date()
-        self.context.subject.open({ name = "Bandit" }, function() end)
+        self.context.subject.open({ name = "Bandit" })
         self.context.subject.show_result({
             title = "Bandit",
             info = {},
@@ -297,8 +293,7 @@ return function(root)
             single_section({
                 { name = "Bones", quantity = "1", rate = "Always", price = 1, item_id = 526 },
             }),
-            nil,
-            { bundled = true, built = "2026-10-21", stale = false }
+            "2026-10-21"
         )
         -- no GE Price Library in the tests, so the prices are the bundled ones too
         lu.assertTrue(
@@ -328,7 +323,7 @@ return function(root)
     function suite:test_the_average_kill_follows_the_mode_being_shown()
         local normal = odds({ name = "Bones", quantity = "1", rate = "Always", price = 250 })
         local hard = odds({ name = "Dragon bones", quantity = "2", rate = "1/2", price = 4000 })
-        self.context.subject.open(self.monster, function() end)
+        self.context.subject.open(self.monster)
         self.context.subject.show_result({
             title = "General Graardor",
             info = {},
@@ -361,7 +356,7 @@ return function(root)
                 return assert(({ [526] = { high = 120, low = 80 } })[id], "Price not found")
             end,
         }
-        self.context.subject.open(self.monster, function() end)
+        self.context.subject.open(self.monster)
         self.context.subject.show_result({
             title = "Goblin",
             info = {},
@@ -386,7 +381,7 @@ return function(root)
                     },
                 },
             },
-        }, nil, { bundled = true, built = "2026-10-21", stale = false })
+        }, "2026-10-21")
 
         -- bones live at 100 each x 2, coins 10 x 1/2
         lu.assertEquals(shown_starting(self.context, "Average kill"), "Average kill: 205 gp")
@@ -398,7 +393,7 @@ return function(root)
     end
 
     function suite:test_an_incomplete_average_is_labelled_an_estimate()
-        self.context.subject.open(self.monster, function() end)
+        self.context.subject.open(self.monster)
         self.context.subject.show_result(single_section({
             odds({ name = "Bones", quantity = "1", rate = "Always", price = 100 }),
             odds({ name = "Shiny", quantity = "1", rate = "Rare", price = 5000000 }),
@@ -423,14 +418,13 @@ return function(root)
                 return assert(({ [526] = { high = 120, low = 80 } })[id], "Price not found")
             end,
         }
-        self.context.subject.open(self.monster, function() end)
+        self.context.subject.open(self.monster)
         self.context.subject.show_result(
             single_section({
                 { name = "Bones", quantity = "2", rate = "Always", price = 180, item_id = 526 },
                 { name = "Coins", quantity = "50", rate = "1/2", price = 50, item_id = 995 },
             }),
-            nil,
-            { bundled = true, built = "2026-10-21", stale = false }
+            "2026-10-21"
         )
 
         local shown = visible_texts(self.context)
@@ -440,7 +434,7 @@ return function(root)
     end
 
     function suite:test_drops_without_an_item_id_get_a_placeholder_icon()
-        self.context.subject.open(self.monster, function() end)
+        self.context.subject.open(self.monster)
         self.context.subject.show_result(single_section({
             { name = "Cremation", quantity = "1", rate = "1/1,000", price = "Not sold" },
             { name = "Bones", quantity = "1", rate = "Always", price = 1, item_id = 526 },
@@ -460,7 +454,7 @@ return function(root)
     end
 
     function suite:test_only_quantities_that_get_cut_off_have_a_tooltip()
-        self.context.subject.open(self.monster, function() end)
+        self.context.subject.open(self.monster)
         self.context.subject.show_result(single_section({
             { name = "Magic logs", quantity = "30-40 (noted)", rate = "8/128", price = 1 },
             { name = "Bones", quantity = "1", rate = "Always", price = 1 },

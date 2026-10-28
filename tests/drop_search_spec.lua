@@ -6,7 +6,7 @@ return function(root)
 
     function suite:setUp()
         self.context = fixture.new(root)
-        self.context.subject.open({ name = "Goblin" }, function() end)
+        self.context.subject.open({ name = "Goblin" })
         self.context.subject.show_result(self.context.sample)
         self.field = self.context.text_fields[1]
         self.page = self.context.tabs.pages[1]

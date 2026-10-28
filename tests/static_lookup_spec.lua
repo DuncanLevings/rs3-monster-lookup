@@ -5,7 +5,7 @@ return function(root)
     local function lookup(status, record, can_open)
         local reads = 0
         local selected
-        local shown, problem, metadata
+        local shown, problem, built
         local function noop() end
         local library = {
             monster = function()
@@ -20,8 +20,8 @@ return function(root)
             open = function()
                 return can_open ~= false
             end,
-            show_result = function(result, _, source)
-                shown, metadata = result, source
+            show_result = function(result, built_date)
+                shown, built = result, built_date
             end,
             show_error = function(message)
                 problem = message
@@ -39,7 +39,6 @@ return function(root)
             },
             ["src/ui/settings/panel"] = passive,
             ["src/ui/search/window"] = passive,
-            ["src/ui/settings/content"] = passive,
             ["src/settings"] = {},
             ["src/game/locations/marker"] = passive,
             ["src/data/drops/prices"] = {},
@@ -58,7 +57,7 @@ return function(root)
         return {
             get = function(monster)
                 selected(monster)
-                return shown, problem, metadata
+                return shown, problem, built
             end,
         }, function()
             return reads
@@ -68,10 +67,10 @@ return function(root)
     function suite:test_covered_monster_comes_from_the_embedded_library()
         local record = { title = "Goblin", sections = {} }
         local service, reads = lookup("covered", record)
-        local result, problem, metadata = service.get({ name = "Goblin" })
+        local result, problem, built = service.get({ name = "Goblin" })
         lu.assertIs(result, record)
         lu.assertNil(problem)
-        lu.assertEquals(metadata.built, "2026-10-21")
+        lu.assertEquals(built, "2026-10-21")
         lu.assertEquals(reads(), 1)
     end
 

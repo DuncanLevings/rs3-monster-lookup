@@ -25,7 +25,7 @@ local COLUMNS = {
 local ACTION_COLUMN = #COLUMNS
 
 local function create_text(parent, value, small, notice)
-    local label = widgets.text(parent, {
+    return widgets.text(parent, {
         text = text_layout.display(value),
         height = 24,
         maxLines = 0,
@@ -33,7 +33,6 @@ local function create_text(parent, value, small, notice)
         colour = notice and theme.TEXT_WARNING or small and theme.TEXT_MUTED or theme.TEXT,
         shadowed = not small,
     })
-    return label
 end
 
 local function stop_feedback(controller)
@@ -215,9 +214,7 @@ local function layout(controller)
 
         -- every row gets the same button width, so a long label still fits on small screens
         -- and the columns stay lined up
-        local action_width = 0
-
-        action_width = math.max(96, math.floor(width * COLUMNS[ACTION_COLUMN].width))
+        local action_width = math.max(96, math.floor(width * COLUMNS[ACTION_COLUMN].width))
 
         for _, row in ipairs(controller.rows) do
             if row.button then
@@ -356,12 +353,10 @@ function locations_view.render(page, result)
             controller.rows[#controller.rows + 1] = create_row(controller, location, index)
         end
 
-        local note =
-            "Dungeon markers continue in mapped areas; unsupported routes pause with instructions."
         controller.note = "Source: RuneScape Wiki - "
-            .. wiki_text.plain(result.title)
-            .. ". Check levels and access requirements."
-            .. (note and (" " .. note) or "")
+            .. controller.source_title
+            .. ". Check levels and access requirements. Dungeon markers continue in mapped "
+            .. "areas; unsupported routes pause with instructions."
     else
         controller.note = empty_message(result)
     end
@@ -384,7 +379,7 @@ function locations_view.render(page, result)
             stop_feedback(controller)
 
             if controller.unsubscribe then
-                pcall(controller.unsubscribe)
+                controller.unsubscribe()
             end
 
             if controller.stop_button then

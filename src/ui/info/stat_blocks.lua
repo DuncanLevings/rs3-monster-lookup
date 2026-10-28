@@ -106,22 +106,12 @@ local function create_row(context, parent, section, values, is_header, index)
     return row
 end
 
--- the labels the summary has, in order. pass some of them as fields to show only those
-stat_blocks.SUMMARY_FIELDS = {
-    "Weakness",
-    "Aggressive",
-    "Susceptible to",
-    "Poison",
-    "Stun",
-    "Deflect",
-    "Stat drain",
-}
-
----the short summary that sits in one column beside the model, made from the Overview and
----Immunities sections. the sections themselves are left alone, detailed stats still shows
----them in full. nil when either section is missing (no infobox)
+---the short summary that sits in one column beside the model (weakness, aggressive,
+---susceptible to, poison, stun, deflect, stat drain), made from the Overview and Immunities
+---sections. the sections themselves are left alone, detailed stats still shows them in full.
+---nil when either section is missing (no infobox)
 ---@param sections table[] from Monster Data Core stat sections build()
-function stat_blocks.summary(sections)
+local function summary_section(sections)
     local overview, immunities
 
     for _, section in ipairs(sections) do
@@ -228,9 +218,8 @@ end
 ---its view out again here (and saves the choice if it wants to)
 
 ---a collapsible group of sections under one title, eg Slayer or Detailed stats
----@param options StatGroupOptions?
-function stat_blocks.group(context, parent, title, sections, options)
-    options = options or {}
+---@param options StatGroupOptions
+local function create_group(context, parent, title, sections, options)
     local expanded = options.expanded ~= false
     local block = {
         root = create_layer(parent, 1),
@@ -378,7 +367,6 @@ end
 ---@class InfoComponent
 ---@field set_info fun(info: table, title: string?) show one variant, title is the wiki page
 ---@field layout fun(width: number, y: number?): number size and place it, returns its height
----@field height fun(): number height from the last layout
 ---@field empty fun(): boolean nothing to show for this monster
 ---@field hide_tooltips fun()
 ---@field destroy fun()
@@ -392,7 +380,7 @@ local function component(parent, options, make)
         overlay_parent = options.overlay_parent or parent,
         tooltips = {},
     }
-    local state = { height = 0 }
+    local state = {}
     local self = {}
 
     local function clear()
@@ -407,8 +395,6 @@ local function component(parent, options, make)
             state.block.root:Destroy()
             state.block = nil
         end
-
-        state.height = 0
     end
 
     function self.set_info(info, title)
@@ -428,12 +414,7 @@ local function component(parent, options, make)
 
         local height = stat_blocks.layout(state.block, width, y or 0)
         state.block.root:SetSize(width, height)
-        state.height = height
         return height
-    end
-
-    function self.height()
-        return state.height
     end
 
     function self.empty()
@@ -474,8 +455,8 @@ end
 ---@return InfoComponent
 function stat_blocks.stats(parent, options)
     return component(parent, options, function(context, into, sections)
-        local summary = stat_blocks.summary(sections)
-        return summary and #summary.rows > 0 and stat_blocks.section(context, into, summary) or nil
+        local summary = summary_section(sections)
+        return summary and stat_blocks.section(context, into, summary) or nil
     end)
 end
 
@@ -489,7 +470,7 @@ local function group_component(parent, options, title, titles)
             return nil
         end
 
-        return stat_blocks.group(context, into, title, found, {
+        return create_group(context, into, title, found, {
             expanded = options.expanded,
             on_toggle = options.on_toggle,
         })

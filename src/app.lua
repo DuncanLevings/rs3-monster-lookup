@@ -5,7 +5,6 @@ local monster_window = require("src/ui/monster_window")
 local core = require("src/data/library/api")
 local settings_panel = require("src/ui/settings/panel")
 local search_window = require("src/ui/search/window")
-local content_panel = require("src/ui/settings/content")
 local settings = require("src/settings")
 local location_marker = require("src/game/locations/marker")
 local prices = require("src/data/drops/prices")
@@ -20,7 +19,7 @@ local function on_game_state_changed(event)
         location_marker.clear()
         monster_window.destroy()
         search_window.destroy()
-        content_panel.destroy()
+        settings_panel.destroy_ribbon()
     end
 end
 
@@ -50,15 +49,12 @@ local function show_monster(monster)
         return
     end
 
-    result.source = "bundle"
-    monster_window.show_result(result, nil, { bundled = true, built = core.info().built })
+    monster_window.show_result(result, core.info().built)
 end
 
 local function on_monster_selected(monster)
-    -- where to open the window (an item to filter on, a tab) isnt part of which monster it is,
-    -- so it stays separate from the data-library selection
-    local focus = monster.focus
-    local opened = monster_window.open(monster, nil, focus)
+    -- search results carry a focus (an item to filter on, a tab) for where the window starts
+    local opened = monster_window.open(monster, monster.focus)
 
     if opened then
         show_monster(monster)
@@ -78,8 +74,7 @@ function app.start()
     )
     location_marker.start()
     search_window.start(on_monster_selected)
-    settings_panel.start(monster_window.refresh_settings)
-    content_panel.start(search_window.open, monster_window.refresh_settings)
+    settings_panel.start(search_window.open, monster_window.refresh_settings)
     npc_menu.start(on_monster_selected, settings.menu_colour_hex)
     Event.GameStateChanged.Subscribe(GAME_STATE_SUBSCRIPTION, on_game_state_changed)
 
@@ -97,7 +92,6 @@ function app.stop()
     npc_menu.stop()
     location_marker.stop()
     settings_panel.stop()
-    content_panel.stop()
     search_window.destroy()
     Event.GameStateChanged.Unsubscribe(GAME_STATE_SUBSCRIPTION)
     prices.stop()

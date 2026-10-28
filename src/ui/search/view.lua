@@ -54,12 +54,10 @@ end
 function search_view.new(page, options)
     next_id = next_id + 1
     local resize_hook = "monster_lookup_search_resize_" .. next_id
-    local modes = MODE_ORDER
-
     local saved = options.state or {}
     local self = {}
     local view = {
-        mode = modes[1],
+        mode = MODE_ORDER[1],
         stats = {
             stat = 1,
             bosses = 1,
@@ -71,7 +69,7 @@ function search_view.new(page, options)
         active = false,
     }
 
-    for _, name in ipairs(modes) do
+    for _, name in ipairs(MODE_ORDER) do
         if name == saved.mode then
             view.mode = name
         end
@@ -94,10 +92,9 @@ function search_view.new(page, options)
     -- bottom of the controls above the status line
     local function controls_bottom(width)
         local controls = view.stat_controls
-        local top = 0
 
         if not controls then
-            return top + 38
+            return 38
         end
 
         -- the controls share the full width instead of sitting at a fixed width on the left,
@@ -106,11 +103,11 @@ function search_view.new(page, options)
         local first_width = math.floor((available - 8) / 2)
         local second_width = available - first_width - 8
         local wide = width >= 420
-        controls.stat:SetPos(8, top + 44)
+        controls.stat:SetPos(8, 44)
         controls.stat:SetSize(wide and first_width or available, 28)
-        controls.bosses:SetPos(wide and (16 + first_width) or 8, top + (wide and 44 or 78))
+        controls.bosses:SetPos(wide and (16 + first_width) or 8, wide and 44 or 78)
         controls.bosses:SetSize(wide and second_width or available, 28)
-        local level_y = top + (wide and 78 or 112)
+        local level_y = wide and 78 or 112
         controls.combat.root:SetPos(8, level_y)
         controls.combat.root:SetSize(first_width, 28)
         controls.slayer.root:SetPos(16 + first_width, level_y)
@@ -392,7 +389,7 @@ function search_view.new(page, options)
     do
         local entries, selected = {}, 0
 
-        for index, name in ipairs(modes) do
+        for index, name in ipairs(MODE_ORDER) do
             entries[index] = { text = MODES[name].name, id = index - 1 }
 
             if name == view.mode then
@@ -408,7 +405,7 @@ function search_view.new(page, options)
             entries = entries,
             selected = selected,
             on_change = function(entry_id)
-                switch_mode(modes[entry_id + 1])
+                switch_mode(MODE_ORDER[entry_id + 1])
             end,
         })
     end
@@ -455,11 +452,6 @@ function search_view.new(page, options)
         end
     end
 
-    ---lay out again, eg after the caller moved or resized the page
-    function self.resize()
-        layout()
-    end
-
     ---the mode and stat filters, to start a later view where this one was
     ---@return SearchViewState
     function self.state()
@@ -482,11 +474,7 @@ function search_view.new(page, options)
         view.destroyed = true
         view.field:Destroy()
         destroy_stat_controls()
-
-        if view.picker then
-            view.picker:Destroy()
-        end
-
+        view.picker:Destroy()
         view.status:Destroy()
         view.results:Destroy()
         view.runners = {}

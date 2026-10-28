@@ -1,17 +1,19 @@
--- settings page shown from the cog in Plugin Hub > Manage
--- the client clears the layer each time its opened so the view is rebuilt every time
+-- the Search/Customize pages, mounted in two places that can be open at once: the cog in
+-- Plugin Hub > Manage and the ribbon content panel. the client clears each layer when its
+-- opened, so each mount rebuilds its own view every time
 
 local settings = require("src/settings")
 local plugin_pages = require("src/ui/settings/pages")
 
 local settings_panel = {}
-local SUBSCRIPTION = "monster_lookup_hub_settings"
-local view
+local HUB_SUBSCRIPTION = "monster_lookup_hub_settings"
+local RIBBON_SUBSCRIPTION = "monster_lookup_content"
+local views = {}
 
-local function destroy_view()
-    if view then
-        view:Destroy()
-        view = nil
+local function destroy_view(name)
+    if views[name] then
+        views[name]:Destroy()
+        views[name] = nil
     end
 end
 
@@ -52,25 +54,32 @@ local function add_controls(page, on_change)
     )
 end
 
--- the same display preferences are mounted in the hub and ribbon.
-function settings_panel.populate(page, on_change)
-    add_controls(page, on_change)
+---@param open_search fun() opens the monster search window
+---@param on_change fun() redraws the open lookup after a display setting changed
+function settings_panel.start(open_search, on_change)
+    local function mount(name)
+        return function(event)
+            destroy_view(name)
+            views[name] = plugin_pages.new(event.component, open_search, function(page)
+                add_controls(page, on_change)
+            end)
+        end
+    end
+
+    Event.SettingsLayerReady.Subscribe(HUB_SUBSCRIPTION, mount("hub"))
+    Event.ContentLayerReady.Subscribe(RIBBON_SUBSCRIPTION, mount("ribbon"))
 end
 
-function settings_panel.start(on_change)
-    Event.SettingsLayerReady.Subscribe(SUBSCRIPTION, function(event)
-        destroy_view()
-        view = plugin_pages.new(event.component, function()
-            require("src/ui/search/window").open()
-        end, function(page)
-            return settings_panel.populate(page, on_change)
-        end)
-    end)
+-- the ribbon panel belongs to the game session, so logout drops it
+function settings_panel.destroy_ribbon()
+    destroy_view("ribbon")
 end
 
 function settings_panel.stop()
-    Event.SettingsLayerReady.Unsubscribe(SUBSCRIPTION)
-    destroy_view()
+    Event.SettingsLayerReady.Unsubscribe(HUB_SUBSCRIPTION)
+    Event.ContentLayerReady.Unsubscribe(RIBBON_SUBSCRIPTION)
+    destroy_view("hub")
+    destroy_view("ribbon")
 end
 
 return settings_panel

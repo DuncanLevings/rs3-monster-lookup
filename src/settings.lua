@@ -12,14 +12,16 @@ settings.MENU_COLOURS = {
     { id = "orange", name = "Orange", hex = "e6a96b" },
 }
 
-local function is_menu_colour(value)
+local function find_menu_colour(id)
     for _, colour in ipairs(settings.MENU_COLOURS) do
-        if colour.id == value then
-            return true
+        if colour.id == id then
+            return colour
         end
     end
+end
 
-    return false
+local function is_menu_colour(value)
+    return find_menu_colour(value) ~= nil
 end
 
 local function is_boolean(value)
@@ -67,25 +69,21 @@ local function load()
     return values
 end
 
+-- a copy, so callers cant change the saved values without going through settings.set
 function settings.get()
     local current = load()
-    return {
-        percentage_rarity = current.percentage_rarity,
-        menu_colour = current.menu_colour,
-        slayer_expanded = current.slayer_expanded,
-        detailed_stats_expanded = current.detailed_stats_expanded,
-    }
+    local copy = {}
+
+    for key in pairs(DEFAULTS) do
+        copy[key] = current[key]
+    end
+
+    return copy
 end
 
 -- hex for the current View drops colour, nil for the default
 function settings.menu_colour_hex()
-    local selected = load().menu_colour
-
-    for _, colour in ipairs(settings.MENU_COLOURS) do
-        if colour.id == selected then
-            return colour.hex
-        end
-    end
+    return find_menu_colour(load().menu_colour).hex
 end
 
 function settings.set(key, value)

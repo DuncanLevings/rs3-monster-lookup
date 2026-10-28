@@ -12,14 +12,9 @@ function plugin_pages.new(parent, open_search, populate_customize)
     local body = widgets.layer(root, 1)
     body:SetSize(0, -52, 1, 1)
     body:SetPos(0, 52)
-    local view, custom_controls
+    local view
 
     local function destroy_view()
-        if custom_controls then
-            custom_controls.destroy()
-            custom_controls = nil
-        end
-
         if view then
             view:Destroy()
             view = nil
@@ -43,7 +38,7 @@ function plugin_pages.new(parent, open_search, populate_customize)
             view:AddText("Find a monster by name.")
             view:AddSimpleButton("Search monsters", open_search)
         else
-            custom_controls = populate_customize(view)
+            populate_customize(view)
         end
     end
 
