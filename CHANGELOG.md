@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.5 - 2026-10-28
+
+- Remove options and parameters left over from the old public API (window close callback, refresh warnings, model viewer zoom/turn/position options).
+- Mount the Plugin Hub and ribbon settings pages from one module.
+- Remove small pieces of dead code in the stats, locations, search and settings code. No player-facing behavior changes.
+
 ## 0.0.4 - 2026-10-26
 
 - Bundle Monster Data Core code and records in one installable plugin; remove the separate data-plugin dependency.
